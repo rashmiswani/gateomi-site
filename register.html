@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register User | Gateomi</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+    body {
+      background: #f8f9fa;
+      color: #333;
+    }
+    header {
+      background: white;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 24px;
+      font-weight: 600;
+      color: #2a9df4;
+    }
+    .logo img {
+      width: 40px;
+      height: 40px;
+    }
+    nav a {
+      margin-left: 20px;
+      text-decoration: none;
+      color: #555;
+      font-weight: 500;
+    }
+    .container {
+      max-width: 60%;
+      margin: 60px auto;
+      background: white;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 20px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    button {
+      margin-top: 30px;
+      background: #2a9df4;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      width: 100%;
+    }
+    footer {
+      padding: 40px;
+      background: #f1f1f1;
+      text-align: center;
+      font-size: 14px;
+      color: #777;
+      margin-top: 60px;
+    }
+    input, select, textarea {
+        font-size: 14px;
+        padding: 8px;
+        margin-top: 6px;
+        margin-bottom: 12px;
+        width: 100%;
+        max-width: 100%;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        background-color: white;
+        box-sizing: border-box;
+    }
+
+    video, img {
+      width: 180px;
+      height: 135px;
+      margin: 10px 5px;
+      border: 2px solid #444;
+    }
+    #image-preview {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    #capture-button {
+      width: auto;
+      padding: 8px 20px;
+      background-color: #2a9df4;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #capture-button:disabled {
+      background: #aaa;
+    }
+    #submit {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 10px;
+        width: 100%;
+        border-radius: 6px;
+        margin-top: 20px;
+        transition: background-color 0.3s ease;
+    }
+    #submit:hover {
+        background-color: #218838;
+    }
+    select {
+        width: 100%;
+        padding: 8px;
+        margin-top: 6px;
+        margin-bottom: 12px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 14px;
+        background-color: white;
+        appearance: none;             /* removes default OS arrow */
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2212%22%20height%3D%228%22%20viewBox%3D%220%200%2012%208%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M6%208L0%200h12L6%208z%22%20fill%3D%22%23444%22/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        background-size: 12px 8px;
+        padding-right: 30px; /* space for arrow */
+    }
+    select:focus {
+        border-color: blue;
+        outline: none;
+    }
+
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <img src="https://storage.googleapis.com/gateomi-static-content/logo.png" alt="Gateomi Logo">
+      GATEOMI
+    </div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="register.html">Register</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <h2>Register New User</h2>
+    <form id="reg-form">
+        <label for="state_name">State</label>
+        <select name="state_name" id="state_name" required>
+          <option value="">Loading...</option>
+        </select>
+        
+        <label for="city_name">City</label>
+        <select name="city_name" id="city_name" required disabled>
+          <option value="">Select state first</option>
+        </select>
+
+      <label for="society">Society</label>
+      <select name="society_name" id="society" required>
+        <option value="">Loading...</option>
+      </select>
+
+      <label for="tower">Tower Name (optional)</label>
+      <input name="tower_name" id="tower">
+
+      <label for="flat">Flat Number</label>
+      <input name="flat_number" id="flat" required>
+
+      <label for="username">User Name</label>
+      <input name="user_name" id="username" required>
+
+      <label for="phone">Mobile Number</label>
+      <input name="mobile_number" id="phone" required>
+
+      <label>Webcam</label>
+      <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+        <video id="video" autoplay></video>
+        <button type="button" id="capture-button">Capture Image</button>
+      </div>
+      <!--
+      <video id="video" autoplay></video>
+      <button type="button" id="capture-button">Capture Image</button> -->
+
+      <div id="image-preview"></div>
+
+      <button type="submit" id="submit">Submit</button>
+    </form>
+  </div>
+
+  <script>
+    // const backend_url = "http://localhost:8000"
+    const backend_url = "https://gatesha-app.onrender.com"
+
+    const video = document.getElementById("video");
+    const preview = document.getElementById("image-preview");
+    const maxImages = 6;
+    let capturedImages = [];
+
+    async function startCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+    }
+
+    async function captureImage() {
+      if (capturedImages.length >= maxImages) return alert("Max 6 images allowed");
+
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataURL = canvas.toDataURL("image/jpeg");
+      capturedImages.push(dataURL);
+
+      const img = document.createElement("img");
+      img.src = dataURL;
+      preview.appendChild(img);
+
+      if (capturedImages.length === maxImages) {
+        document.getElementById("capture-button").disabled = true;
+      }
+    }
+
+    async function loadStatesAndCities() {
+        const stateSelect = document.getElementById("state_name");
+        const citySelect = document.getElementById("city_name");
+
+        const stateRes = await fetch(backend_url+"/list-states");
+        const states = await stateRes.json();
+
+        stateSelect.innerHTML = "<option value=''>Select State</option>";
+        states.forEach(state => {
+            const opt = document.createElement("option");
+            opt.value = state;
+            opt.textContent = state;
+            stateSelect.appendChild(opt);
+        });
+
+        stateSelect.addEventListener("change", async () => {
+            const selectedState = stateSelect.value;
+            if (!selectedState) {
+            citySelect.innerHTML = "<option value=''>Select state first</option>";
+            citySelect.disabled = true;
+            return;
+            }
+
+            const cityRes = await fetch(`${backend_url}/list-cities?state=${encodeURIComponent(selectedState)}`);
+            const cities = await cityRes.json();
+
+            citySelect.disabled = false;
+            citySelect.innerHTML = "<option value=''>Select City</option>";
+            cities.forEach(city => {
+            const opt = document.createElement("option");
+            opt.value = city;
+            opt.textContent = city;
+            citySelect.appendChild(opt);
+            });
+        });
+    }
+
+    async function loadSocieties() {
+      const res = await fetch(backend_url+"/list-societies");
+      const data = await res.json();
+      const select = document.getElementById("society");
+      select.innerHTML = "<option value=''>Select Society</option>";
+      data.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s;
+        opt.textContent = s;
+        select.appendChild(opt);
+      });
+    }
+
+    async function submitForm(e) {
+        e.preventDefault();
+        if (capturedImages.length === 0) return alert("Please capture at least 1 image.");
+
+        const form = document.getElementById("reg-form");
+        const submitBtn = document.getElementById("submit");
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submitting...";
+
+        const formData = new FormData(form);
+
+        capturedImages.forEach((base64, idx) => {
+            const byteString = atob(base64.split(',')[1]);
+            const mimeString = base64.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([ab], { type: mimeString });
+            formData.append("images", blob, `image${idx + 1}.jpg`);
+        });
+
+        try {
+            const res = await fetch(backend_url + "/register-user", {
+            method: "POST",
+            body: formData,
+            });
+
+            const result = await res.json();
+            alert(result.status === "success" ? "User registered!" : "Error: " + result.message);
+        } catch (err) {
+            alert("Error submitting form: " + err.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Submit";
+        }
+    }
+
+
+    document.getElementById("capture-button").addEventListener("click", captureImage);
+    document.getElementById("reg-form").addEventListener("submit", submitForm);
+
+    startCamera();
+    loadSocieties();
+    loadStatesAndCities();
+  </script>
+<footer>
+  &copy; 2025 GATEOMI. All rights reserved. | <a href="index.html">Back to Home</a>
+</footer>
+
+</body>
+</html>
