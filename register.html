@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Register your face and details for secure access with Gateomi's AI-powered system.">
+<meta name="keywords" content="Gateomi, AI Security, Face Recognition, User Registration, Smart Access">
+<meta name="author" content="Gateomi Team">
   <title>Register User | Gateomi</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
@@ -160,21 +163,60 @@
         outline: none;
     }
 
+    .toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #28a745;
+  color: white;
+  padding: 16px 24px;
+  border-radius: 8px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  z-index: 9999;
+  min-width: 300px;
+}
+
+.toast.toast-error {
+  background: #dc3545;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-close {
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: normal;
+}
   </style>
 </head>
 <body>
+  
 
   <header>
     <div class="logo">
-      <img src="https://storage.googleapis.com/gateomi-static-content/logo.png" alt="Gateomi Logo">
-      GATEOMI
+      <img src="https://storage.googleapis.com/gateomi-static-content/logo.png" alt="Gateomi Logo" style="height: 40px; vertical-align: middle;">
     </div>
     <nav>
       <a href="index.html">Home</a>
       <a href="register.html">Register</a>
-      <a href="#contact">Contact</a>
     </nav>
+   
   </header>
+  <div id="toast" class="toast hidden">
+    <span id="toast-message">This is a toast</span>
+    <span id="toast-close" class="toast-close">&times;</span>
+  </div>
 
   <div class="container">
     <h2>Register New User</h2>
@@ -231,12 +273,19 @@
     let capturedImages = [];
 
     async function startCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      video.srcObject = stream;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch (err) {
+        alert("Unable to access camera. Please allow camera permissions.");
+      }
     }
 
     async function captureImage() {
-      if (capturedImages.length >= maxImages) return alert("Max 6 images allowed");
+      if (capturedImages.length >= maxImages) {
+        showToast("Max 6 images allowed", true);
+        return;
+      }
 
       const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
@@ -244,16 +293,59 @@
       const ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataURL = canvas.toDataURL("image/jpeg");
+
+      // Add to memory
       capturedImages.push(dataURL);
 
+      // Create wrapper div
+      const imgWrapper = document.createElement("div");
+      imgWrapper.style.position = "relative";
+      imgWrapper.style.display = "inline-block";
+
+      // Create image
       const img = document.createElement("img");
       img.src = dataURL;
-      preview.appendChild(img);
+      img.alt = "Captured image";
 
+      // Create remove button
+      const removeBtn = document.createElement("span");
+      removeBtn.innerHTML = "&times;";
+      removeBtn.style.position = "absolute";
+      removeBtn.style.top = "-8px";
+      removeBtn.style.right = "-8px";
+      removeBtn.style.background = "#dc3545";
+      removeBtn.style.color = "white";
+      removeBtn.style.width = "20px";
+      removeBtn.style.height = "20px";
+      removeBtn.style.borderRadius = "50%";
+      removeBtn.style.display = "flex";
+      removeBtn.style.alignItems = "center";
+      removeBtn.style.justifyContent = "center";
+      removeBtn.style.fontSize = "14px";
+      removeBtn.style.cursor = "pointer";
+      removeBtn.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+      removeBtn.title = "Remove this image";
+
+      // Remove logic
+      removeBtn.onclick = () => {
+        const index = capturedImages.indexOf(dataURL);
+        if (index !== -1) {
+          capturedImages.splice(index, 1);
+        }
+        preview.removeChild(imgWrapper);
+        document.getElementById("capture-button").disabled = capturedImages.length >= maxImages;
+      };
+
+      imgWrapper.appendChild(img);
+      imgWrapper.appendChild(removeBtn);
+      preview.appendChild(imgWrapper);
+
+      // Disable button if max reached
       if (capturedImages.length === maxImages) {
         document.getElementById("capture-button").disabled = true;
       }
     }
+
 
     async function loadStatesAndCities() {
         const stateSelect = document.getElementById("state_name");
@@ -336,7 +428,17 @@
             });
 
             const result = await res.json();
-            alert(result.status === "success" ? "User registered!" : "Error: " + result.message);
+            if (result.status === "success") {
+              showToast("User registered!");
+              form.reset();
+              capturedImages = [];
+              preview.innerHTML = "";
+             
+            } else {
+              showToast("Error: " + result.message, true);
+            }
+            document.getElementById("capture-button").disabled = false;
+            
         } catch (err) {
             alert("Error submitting form: " + err.message);
         } finally {
@@ -345,6 +447,27 @@
         }
     }
 
+
+    function showToast(message, isError = false) {
+      const toast = document.getElementById("toast");
+      const toastMsg = document.getElementById("toast-message");
+
+      toast.classList.remove("toast-error", "visible");
+      toastMsg.textContent = message;
+
+      if (isError) toast.classList.add("toast-error");
+
+      toast.classList.add("visible");
+
+      const autoHide = setTimeout(() => {
+        toast.classList.remove("visible");
+      }, 10000);
+
+      document.getElementById("toast-close").onclick = () => {
+        toast.classList.remove("visible");
+        clearTimeout(autoHide);
+      };
+    }
 
     document.getElementById("capture-button").addEventListener("click", captureImage);
     document.getElementById("reg-form").addEventListener("submit", submitForm);
