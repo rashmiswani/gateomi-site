@@ -95,8 +95,15 @@
         box-sizing: border-box;
     }
 
-    video, img {
+    video {
 /*       width: 180px; */
+      height: 135px;
+      margin: 10px 5px;
+      border: 2px solid #444;
+      transform: scaleX(-1); /* Mirror video preview like selfie camera */
+    }
+    
+    img {
       height: 135px;
       margin: 10px 5px;
       border: 2px solid #444;
@@ -284,7 +291,12 @@
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Flip the captured image horizontally to get correct orientation
+      // (since video is mirrored, we need to flip the capture)
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+      
       const dataURL = canvas.toDataURL("image/jpeg");
 
       // Add to memory
@@ -343,6 +355,7 @@
     async function loadStatesAndCities() {
         const stateSelect = document.getElementById("state_name");
         const citySelect = document.getElementById("city_name");
+        const societySelect = document.getElementById("society");
 
         const stateRes = await fetch(backend_url+"/list-states");
         const states = await stateRes.json();
@@ -358,9 +371,11 @@
         stateSelect.addEventListener("change", async () => {
             const selectedState = stateSelect.value;
             if (!selectedState) {
-            citySelect.innerHTML = "<option value=''>Select state first</option>";
-            citySelect.disabled = true;
-            return;
+                citySelect.innerHTML = "<option value=''>Select state first</option>";
+                citySelect.disabled = true;
+                societySelect.innerHTML = "<option value=''>Select state and city first</option>";
+                societySelect.disabled = true;
+                return;
             }
 
             const cityRes = await fetch(`${backend_url}/list-cities?state=${encodeURIComponent(selectedState)}`);
@@ -369,26 +384,48 @@
             citySelect.disabled = false;
             citySelect.innerHTML = "<option value=''>Select City</option>";
             cities.forEach(city => {
-            const opt = document.createElement("option");
-            opt.value = city;
-            opt.textContent = city;
-            citySelect.appendChild(opt);
+                const opt = document.createElement("option");
+                opt.value = city;
+                opt.textContent = city;
+                citySelect.appendChild(opt);
             });
+
+            // Reset society dropdown when state changes
+            societySelect.innerHTML = "<option value=''>Select state and city first</option>";
+            societySelect.disabled = true;
+        });
+
+        citySelect.addEventListener("change", async () => {
+            const selectedState = stateSelect.value;
+            const selectedCity = citySelect.value;
+            
+            if (!selectedState || !selectedCity) {
+                societySelect.innerHTML = "<option value=''>Select state and city first</option>";
+                societySelect.disabled = true;
+                return;
+            }
+
+            try {
+                const societyRes = await fetch(`${backend_url}/list-societies?state=${encodeURIComponent(selectedState)}&city=${encodeURIComponent(selectedCity)}`);
+                const societies = await societyRes.json();
+
+                societySelect.disabled = false;
+                societySelect.innerHTML = "<option value=''>Select Society</option>";
+                societies.forEach(society => {
+                    const opt = document.createElement("option");
+                    opt.value = society;
+                    opt.textContent = society;
+                    societySelect.appendChild(opt);
+                });
+            } catch (error) {
+                console.error("Error loading societies:", error);
+                societySelect.innerHTML = "<option value=''>Error loading societies</option>";
+                societySelect.disabled = true;
+            }
         });
     }
 
-    async function loadSocieties() {
-      const res = await fetch(backend_url+"/list-societies");
-      const data = await res.json();
-      const select = document.getElementById("society");
-      select.innerHTML = "<option value=''>Select Society</option>";
-      data.forEach(s => {
-        const opt = document.createElement("option");
-        opt.value = s;
-        opt.textContent = s;
-        select.appendChild(opt);
-      });
-    }
+
 
     async function submitForm(e) {
         e.preventDefault();
@@ -466,7 +503,6 @@
     document.getElementById("reg-form").addEventListener("submit", submitForm);
 
     startCamera();
-    loadSocieties();
     loadStatesAndCities();
   </script>
 <footer>
