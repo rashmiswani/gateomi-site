@@ -202,6 +202,24 @@
 .hidden { display: none; }
 .toast.visible { display: flex; opacity: 1; transform: translateY(0); }
     
+#expire_section {
+    display: block;
+    transition: all 0.3s ease;
+}
+
+#expire_section.hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+#expire_at {
+    display: block !important;
+}
   </style>
 </head>
 <body>
@@ -242,17 +260,39 @@
         <option value="">Loading...</option>
       </select>
 
-      <label for="tower">Tower Name (optional)</label>
-      <input name="tower_name" id="tower">
+      <label for="user_type">User Type</label>
+      <select name="user_type" id="user_type" required>
+        <option value="">Select User Type</option>
+        <option value="resident">Resident</option>
+        <option value="maid">Maid</option>
+        <option value="labor">Labor</option>
+        <option value="maintenance staff">Maintenance Staff</option>
+        <option value="security">Security</option>
+      </select>
+
+      <label for="tower">Tower Name</label>
+      <input name="tower_name" id="tower" placeholder="Required for residents only">
 
       <label for="flat">Flat Number</label>
-      <input name="flat_number" id="flat" required>
+      <input name="flat_number" id="flat" placeholder="Required for residents only">
 
       <label for="username">User Name</label>
       <input name="user_name" id="username" required>
 
       <label for="phone">Mobile Number</label>
       <input name="mobile_number" id="phone" required>
+
+      <label for="forever_access" style="display: flex; align-items: center; gap: 10px; margin-top: 20px;">
+        <input type="checkbox" name="forever_access" id="forever_access" value="true" 
+               style="width: auto; margin: 0;" 
+               onchange="toggleExpireSection()">
+        <span>Forever Access (no expiration)</span>
+      </label>
+
+      <div id="expire_section">
+        <label for="expire_at">Expiration Date *</label>
+        <input type="date" name="expire_at" id="expire_at" min="" required>
+      </div>
 
       <label>Webcam</label>
       <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
@@ -272,7 +312,8 @@
   <script>
     // const backend_url = "http://localhost:8000"
     // const backend_url = "https://gateomi-backend.onrender.com"
-    const backend_url="https://gateomi-backend-1056170451599.asia-south1.run.app"
+    // const backend_url="https://gateomi-backend-1056170451599.asia-south1.run.app"
+    const backend_url="https://gateomi-backend-647776055629.asia-south1.run.app"
 
     const video = document.getElementById("video");
     const preview = document.getElementById("image-preview");
@@ -440,11 +481,27 @@
 
         const form = document.getElementById("reg-form");
         const submitBtn = document.getElementById("submit");
+        const foreverCheckbox = document.getElementById("forever_access");
 
         submitBtn.disabled = true;
         submitBtn.textContent = "Submitting...";
 
         const formData = new FormData(form);
+
+        // Handle expire_at based on forever_access checkbox
+        if (foreverCheckbox.checked) {
+            // If forever access is checked, don't send expire_at (will be null on backend)
+            formData.delete("expire_at");
+        } else {
+            // If forever access is not checked, ensure expire_at is provided
+            const expireAt = formData.get("expire_at");
+            if (!expireAt) {
+                alert("Please provide an expiration date or check 'Forever Access'");
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Submit";
+                return;
+            }
+        }
 
         capturedImages.forEach((base64, idx) => {
             const byteString = atob(base64.split(',')[1]);
@@ -470,7 +527,10 @@
               form.reset();
               capturedImages = [];
               preview.innerHTML = "";
-             
+              // Reset form state
+              document.getElementById("forever_access").checked = false;
+              document.getElementById("expire_section").classList.remove("hidden");
+              document.getElementById("expire_at").required = true;
             } else {
               showToast("Error: " + result.message, true);
             }
@@ -511,6 +571,62 @@
 
     startCamera();
     loadStatesAndCities();
+
+    // Handle user type changes
+    document.getElementById("user_type").addEventListener("change", function() {
+        const userType = this.value;
+        const towerField = document.getElementById("tower");
+        const flatField = document.getElementById("flat");
+        
+        if (userType === "resident") {
+            towerField.required = true;
+            flatField.required = true;
+            towerField.placeholder = "Required for residents";
+            flatField.placeholder = "Required for residents";
+        } else {
+            towerField.required = false;
+            flatField.required = false;
+            towerField.placeholder = "Optional for non-residents";
+            flatField.placeholder = "Optional for non-residents";
+        }
+    });
+
+    // Simple function to toggle expiration section
+    function toggleExpireSection() {
+        const foreverCheckbox = document.getElementById("forever_access");
+        const expireSection = document.getElementById("expire_section");
+        const expireField = document.getElementById("expire_at");
+        
+        console.log("Checkbox checked:", foreverCheckbox.checked);
+        
+        if (foreverCheckbox.checked) {
+            // Hide expiration section
+            expireSection.classList.add("hidden");
+            expireField.required = false;
+            expireField.value = "";
+            console.log("Hiding expiration section");
+        } else {
+            // Show expiration section
+            expireSection.classList.remove("hidden");
+            expireField.required = true;
+            const today = new Date().toISOString().split('T')[0];
+            expireField.min = today;
+            console.log("Showing expiration section");
+        }
+    }
+
+    // Initialize on page load
+    document.addEventListener("DOMContentLoaded", function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById("expire_at").min = today;
+        
+        // Set initial state
+        document.getElementById("forever_access").checked = false;
+        document.getElementById("expire_section").classList.remove("hidden");
+        document.getElementById("expire_at").required = true;
+        
+        console.log("Page loaded - initial state set");
+    });
   </script>
 <footer>
   &copy; 2025 GATEOMI. All rights reserved. | <a href="index.html">Back to Home</a>
