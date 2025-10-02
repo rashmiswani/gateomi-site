@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Register your face and details for secure access with Gateomi's AI-powered system.">
-<meta name="keywords" content="Gateomi, AI Security, Face Recognition, User Registration, Smart Access">
-<meta name="author" content="Gateomi Team">
+  <meta name="keywords" content="Gateomi, AI Security, Face Recognition, User Registration, Smart Access">
+  <meta name="author" content="Gateomi Team">
   <title>Register User | Gateomi</title>
+  <link rel="icon" type="image/x-icon" href="https://storage.googleapis.com/gateomi-static-data/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
     * {
@@ -27,16 +28,55 @@
       justify-content: space-between;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     }
-    .logo {
-      font-size: 24px;
-      font-weight: 600;
-      color: #2a9df4;
+    .logo img {
+      height: 70px;
+    }
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 20px;
     }
     nav a {
       margin-left: 20px;
       text-decoration: none;
       color: #555;
       font-weight: 500;
+    }
+    .admin-profile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .admin-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      font-size: 14px;
+    }
+    .admin-info #admin-name {
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .admin-info #admin-society {
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .logout-btn {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .logout-btn:hover {
+      background: #dc2626;
+    }
+    .hidden {
+      display: none !important;
     }
     .container {
       max-width: 60%;
@@ -49,19 +89,28 @@
     h2 {
       text-align: center;
       margin-bottom: 30px;
+      color: #1f2937;
     }
     label {
-      font-weight: bold;
+      font-weight: 600;
       display: block;
       margin-top: 20px;
+      color: #374151;
     }
     input, select, textarea {
       width: 100%;
       padding: 10px;
       margin-top: 8px;
-      border: 1px solid #ccc;
+      border: 1px solid #d1d5db;
       border-radius: 6px;
       font-size: 14px;
+      background-color: white;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #2a9df4;
+      box-shadow: 0 0 0 3px rgba(42, 157, 244, 0.1);
     }
     button {
       margin-top: 30px;
@@ -73,6 +122,14 @@
       cursor: pointer;
       font-weight: 600;
       width: 100%;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background: #1e7bb8;
+    }
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
     }
     footer {
       padding: 40px;
@@ -82,40 +139,37 @@
       color: #777;
       margin-top: 60px;
     }
-    input, select, textarea {
-        font-size: 14px;
-        padding: 8px;
-        margin-top: 6px;
-        margin-bottom: 12px;
-        width: 100%;
-        max-width: 100%;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        background-color: white;
-        box-sizing: border-box;
+    footer a {
+      color: #2a9df4;
+      text-decoration: none;
+    }
+    footer a:hover {
+      text-decoration: underline;
     }
 
     video {
-/*       width: 180px; */
       height: 135px;
       margin: 10px 5px;
-      border: 2px solid #444;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
     }
 
     video.mirror {
-      transform: scaleX(-1); /* Mirror preview when using the front camera */
+      transform: scaleX(-1);
     }
     
     img {
       height: 135px;
       margin: 10px 5px;
-      border: 2px solid #444;
+      border: 2px solid #d1d5db;
+      border-radius: 8px;
     }
     #image-preview {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
+      margin-top: 20px;
     }
     #capture-button {
       width: auto;
@@ -124,9 +178,12 @@
       color: white;
       border: none;
       cursor: pointer;
+      border-radius: 6px;
+      font-weight: 500;
     }
     #capture-button:disabled {
-      background: #aaa;
+      background: #9ca3af;
+      cursor: not-allowed;
     }
     #flip-camera-button {
       width: auto;
@@ -135,9 +192,11 @@
       color: white;
       border: none;
       cursor: pointer;
+      border-radius: 6px;
+      font-weight: 500;
     }
     #flip-camera-button:disabled {
-      background: #aaa;
+      background: #9ca3af;
       cursor: not-allowed;
     }
     #submit {
@@ -146,113 +205,178 @@
         border: none;
         cursor: pointer;
         font-size: 16px;
-        padding: 10px;
+        padding: 12px;
         width: 100%;
         border-radius: 6px;
         margin-top: 20px;
         transition: background-color 0.3s ease;
+        font-weight: 600;
     }
     #submit:hover {
         background-color: #218838;
     }
     select {
         width: 100%;
-        padding: 8px;
-        margin-top: 6px;
-        margin-bottom: 12px;
-        border: 1px solid #ccc;
+        padding: 10px;
+        margin-top: 8px;
+        border: 1px solid #d1d5db;
         border-radius: 6px;
         font-size: 14px;
         background-color: white;
-        appearance: none;             /* removes default OS arrow */
+        appearance: none;
         -webkit-appearance: none;
         -moz-appearance: none;
         background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2212%22%20height%3D%228%22%20viewBox%3D%220%200%2012%208%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M6%208L0%200h12L6%208z%22%20fill%3D%22%23444%22/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 10px center;
         background-size: 12px 8px;
-        padding-right: 30px; /* space for arrow */
+        padding-right: 30px;
     }
     select:focus {
-        border-color: blue;
+        border-color: #2a9df4;
         outline: none;
+        box-shadow: 0 0 0 3px rgba(42, 157, 244, 0.1);
+    }
+    select:disabled {
+        background-color: #f9fafb;
+        color: #9ca3af;
+        cursor: not-allowed;
     }
 
     .toast {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: #28a745;
-  color: white;
-  padding: 16px 24px;
-  border-radius: 8px;
-  font-weight: bold;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  opacity: 0;
-  transform: translateY(-20px);
-  transition: opacity 0.4s ease, transform 0.4s ease;
-  z-index: 9999;
-  min-width: 300px;
-}
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #28a745;
+      color: white;
+      padding: 16px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      opacity: 0;
+      transform: translateY(-20px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      z-index: 9999;
+      min-width: 300px;
+    }
 
-.toast.toast-error {
-  background: #dc3545;
-}
+    .toast.toast-error {
+      background: #dc3545;
+    }
 
-.toast.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
 
-.toast-close {
-  cursor: pointer;
-  font-size: 18px;
-  font-weight: normal;
-}
+    .toast-close {
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: normal;
+    }
 
-.hidden { display: none; }
-.toast.visible { display: flex; opacity: 1; transform: translateY(0); }
+    .hidden { 
+      display: none; 
+    }
     
-#expire_section {
-    display: block;
-    transition: all 0.3s ease;
-}
+    #expire_section {
+        display: block;
+        transition: all 0.3s ease;
+    }
 
-#expire_section.hidden {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    height: 0 !important;
-    overflow: hidden !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
+    #expire_section.hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
 
-#expire_at {
-    display: block !important;
-}
+    #expire_at {
+        display: block !important;
+    }
+
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .checkbox-container input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+
+    .webcam-section {
+      margin-top: 20px;
+    }
+
+    .webcam-controls {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .webcam-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        max-width: 95%;
+        margin: 30px auto;
+        padding: 20px;
+      }
+      
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      
+      .webcam-controls {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
   </style>
 </head>
 <body>
-  
-
   <header>
     <div class="logo">
       <a href="index.html">
-      <img src="https://storage.googleapis.com/gateomi-static-data/logo.png" alt="Gateomi Logo" style="height: 70px; vertical-align: middle;border:0">
+        <img src="https://storage.googleapis.com/gateomi-static-data/logo.png" alt="Gateomi Logo">
       </a>
     </div>
     <nav>
       <a href="index.html">Home</a>
       <a href="register.html">Register</a>
-      <a href="admin.html">Login</a>
+      <a href="login.html" id="admin-login-link">Login</a>
+      <div id="admin-profile" class="admin-profile hidden">
+        <span class="admin-info">
+          <span id="admin-name">Admin</span>
+          <span id="admin-society">Society</span>
+        </span>
+        <button id="header-logout" class="logout-btn">Logout</button>
+      </div>
     </nav>
-   
   </header>
+
   <div id="toast" class="toast hidden">
     <span id="toast-message">This is a toast</span>
     <span id="toast-close" class="toast-close">&times;</span>
@@ -261,15 +385,21 @@
   <div class="container">
     <h2>Register New User</h2>
     <form id="reg-form">
-        <label for="state_name">State</label>
-        <select name="state_name" id="state_name" required>
-          <option value="">Loading...</option>
-        </select>
+      <div class="form-row">
+        <div>
+          <label for="state_name">State</label>
+          <select name="state_name" id="state_name" required>
+            <option value="">Loading...</option>
+          </select>
+        </div>
         
-        <label for="city_name">City</label>
-        <select name="city_name" id="city_name" required disabled>
-          <option value="">Select state first</option>
-        </select>
+        <div>
+          <label for="city_name">City</label>
+          <select name="city_name" id="city_name" required disabled>
+            <option value="">Select state first</option>
+          </select>
+        </div>
+      </div>
 
       <label for="society">Society</label>
       <select name="society_name" id="society" required>
@@ -288,53 +418,63 @@
         <option value="mali">Mali</option>
       </select>
 
-      <label for="tower">Tower Name</label>
-      <input name="tower_name" id="tower" placeholder="Required for residents only">
+      <div class="form-row">
+        <div>
+          <label for="tower">Tower Name</label>
+          <input name="tower_name" id="tower" placeholder="Required for residents only">
+        </div>
+        
+        <div>
+          <label for="flat">Flat Number</label>
+          <input name="flat_number" id="flat" placeholder="Required for residents only">
+        </div>
+      </div>
 
-      <label for="flat">Flat Number</label>
-      <input name="flat_number" id="flat" placeholder="Required for residents only">
+      <div class="form-row">
+        <div>
+          <label for="username">User Name</label>
+          <input name="user_name" id="username" required>
+        </div>
+        
+        <div>
+          <label for="phone">Mobile Number</label>
+          <input name="mobile_number" id="phone" required>
+        </div>
+      </div>
 
-      <label for="username">User Name</label>
-      <input name="user_name" id="username" required>
-
-      <label for="phone">Mobile Number</label>
-      <input name="mobile_number" id="phone" required>
-
-      <label for="forever_access" style="display: flex; align-items: center; gap: 10px; margin-top: 20px;">
+      <div class="checkbox-container">
         <input type="checkbox" name="forever_access" id="forever_access" value="true" 
-               style="width: auto; margin: 0;" 
                onchange="toggleExpireSection()">
-        <span>Forever Access (no expiration)</span>
-      </label>
+        <label for="forever_access" style="margin: 0;">Forever Access (no expiration)</label>
+      </div>
 
       <div id="expire_section">
         <label for="expire_at">Expiration Date *</label>
         <input type="date" name="expire_at" id="expire_at" min="" required>
       </div>
 
-      <label>Webcam</label>
-      <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-        <video id="video" autoplay></video>
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-          <button type="button" id="capture-button">Capture Image</button>
-          <button type="button" id="flip-camera-button">Flip Camera</button>
+      <div class="webcam-section">
+        <label>Webcam</label>
+        <div class="webcam-controls">
+          <video id="video" autoplay></video>
+          <div class="webcam-buttons">
+            <button type="button" id="capture-button">Capture Image</button>
+            <button type="button" id="flip-camera-button">Flip Camera</button>
+          </div>
         </div>
+        <div id="image-preview"></div>
       </div>
-      <!--
-      <video id="video" autoplay></video>
-      <button type="button" id="capture-button">Capture Image</button> -->
-
-      <div id="image-preview"></div>
 
       <button type="submit" id="submit">Submit</button>
     </form>
   </div>
 
+  <footer>
+    &copy; 2025 GATEOMI. All rights reserved. | <a href="index.html">Back to Home</a>
+  </footer>
+
   <script>
-    // const backend_url = "http://localhost:8000"
-    // const backend_url = "https://gateomi-backend.onrender.com"
-    // const backend_url="https://gateomi-backend-1056170451599.asia-south1.run.app"
-    const backend_url="https://gateomi-backend-647776055629.asia-south1.run.app"
+    const backend_url = "https://gateomi-backend-647776055629.asia-south1.run.app"
 
     const video = document.getElementById("video");
     const preview = document.getElementById("image-preview");
@@ -395,7 +535,6 @@
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext("2d");
 
-      // Flip the captured image horizontally when using the front camera
       if (currentFacingMode === "user") {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
@@ -403,21 +542,16 @@
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       const dataURL = canvas.toDataURL("image/jpeg");
-
-      // Add to memory
       capturedImages.push(dataURL);
 
-      // Create wrapper div
       const imgWrapper = document.createElement("div");
       imgWrapper.style.position = "relative";
       imgWrapper.style.display = "inline-block";
 
-      // Create image
       const img = document.createElement("img");
       img.src = dataURL;
       img.alt = "Captured image";
 
-      // Create remove button
       const removeBtn = document.createElement("span");
       removeBtn.innerHTML = "&times;";
       removeBtn.style.position = "absolute";
@@ -436,7 +570,6 @@
       removeBtn.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
       removeBtn.title = "Remove this image";
 
-      // Remove logic
       removeBtn.onclick = () => {
         const index = capturedImages.indexOf(dataURL);
         if (index !== -1) {
@@ -450,12 +583,10 @@
       imgWrapper.appendChild(removeBtn);
       preview.appendChild(imgWrapper);
 
-      // Disable button if max reached
       if (capturedImages.length === maxImages) {
         document.getElementById("capture-button").disabled = true;
       }
     }
-
 
     async function loadStatesAndCities() {
         const stateSelect = document.getElementById("state_name");
@@ -495,7 +626,6 @@
                 citySelect.appendChild(opt);
             });
 
-            // Reset society dropdown when state changes
             societySelect.innerHTML = "<option value=''>Select state and city first</option>";
             societySelect.disabled = true;
         });
@@ -530,8 +660,6 @@
         });
     }
 
-
-
     async function submitForm(e) {
         e.preventDefault();
         if (capturedImages.length === 0) return alert("Please capture at least 1 image.");
@@ -545,12 +673,9 @@
 
         const formData = new FormData(form);
 
-        // Handle expire_at based on forever_access checkbox
         if (foreverCheckbox.checked) {
-            // If forever access is checked, don't send expire_at (will be null on backend)
             formData.delete("expire_at");
         } else {
-            // If forever access is not checked, ensure expire_at is provided
             const expireAt = formData.get("expire_at");
             if (!expireAt) {
                 alert("Please provide an expiration date or check 'Forever Access'");
@@ -580,11 +705,10 @@
 
             const result = await res.json();
             if (result.status === "success") {
-              showToast("User registered!");
+              showToast("User registered successfully!");
               form.reset();
               capturedImages = [];
               preview.innerHTML = "";
-              // Reset form state
               document.getElementById("forever_access").checked = false;
               document.getElementById("expire_section").classList.remove("hidden");
               document.getElementById("expire_at").required = true;
@@ -600,7 +724,6 @@
             submitBtn.textContent = "Submit";
         }
     }
-
 
     function showToast(message, isError = false) {
       const toast = document.getElementById("toast");
@@ -623,6 +746,23 @@
       };
     }
 
+    function toggleExpireSection() {
+        const foreverCheckbox = document.getElementById("forever_access");
+        const expireSection = document.getElementById("expire_section");
+        const expireField = document.getElementById("expire_at");
+        
+        if (foreverCheckbox.checked) {
+            expireSection.classList.add("hidden");
+            expireField.required = false;
+            expireField.value = "";
+        } else {
+            expireSection.classList.remove("hidden");
+            expireField.required = true;
+            const today = new Date().toISOString().split('T')[0];
+            expireField.min = today;
+        }
+    }
+
     document.getElementById("capture-button").addEventListener("click", captureImage);
     document.getElementById("reg-form").addEventListener("submit", submitForm);
     if (flipButton) {
@@ -632,7 +772,6 @@
     startCamera();
     loadStatesAndCities();
 
-    // Handle user type changes
     document.getElementById("user_type").addEventListener("change", function() {
         const userType = this.value;
         const towerField = document.getElementById("tower");
@@ -651,46 +790,80 @@
         }
     });
 
-    // Simple function to toggle expiration section
-    function toggleExpireSection() {
-        const foreverCheckbox = document.getElementById("forever_access");
-        const expireSection = document.getElementById("expire_section");
-        const expireField = document.getElementById("expire_at");
-        
-        console.log("Checkbox checked:", foreverCheckbox.checked);
-        
-        if (foreverCheckbox.checked) {
-            // Hide expiration section
-            expireSection.classList.add("hidden");
-            expireField.required = false;
-            expireField.value = "";
-            console.log("Hiding expiration section");
-        } else {
-            // Show expiration section
-            expireSection.classList.remove("hidden");
-            expireField.required = true;
-            const today = new Date().toISOString().split('T')[0];
-            expireField.min = today;
-            console.log("Showing expiration section");
-        }
-    }
-
-    // Initialize on page load
     document.addEventListener("DOMContentLoaded", function() {
         const today = new Date().toISOString().split('T')[0];
         document.getElementById("expire_at").min = today;
         
-        // Set initial state
         document.getElementById("forever_access").checked = false;
         document.getElementById("expire_section").classList.remove("hidden");
         document.getElementById("expire_at").required = true;
-        
-        console.log("Page loaded - initial state set");
     });
-  </script>
-<footer>
-  &copy; 2025 GATEOMI. All rights reserved. | <a href="index.html">Back to Home</a>
-</footer>
 
+    // Login state management
+    const tokenStorageKey = 'gateomiAdminToken';
+    const profileStorageKey = 'gateomiAdminProfile';
+    
+    function updateHeaderForLoggedInUser() {
+      const adminLoginLink = document.getElementById('admin-login-link');
+      const adminProfile = document.getElementById('admin-profile');
+      const adminName = document.getElementById('admin-name');
+      const adminSociety = document.getElementById('admin-society');
+      const headerLogout = document.getElementById('header-logout');
+      
+      if (adminLoginLink && adminProfile) {
+        adminLoginLink.style.display = 'none';
+        adminProfile.classList.remove('hidden');
+        
+        if (adminName) adminName.textContent = 'Admin';
+        if (adminSociety) adminSociety.textContent = 'Society';
+        
+        if (headerLogout) {
+          headerLogout.onclick = () => {
+            localStorage.removeItem(tokenStorageKey);
+            localStorage.removeItem(profileStorageKey);
+            window.location.reload();
+          };
+        }
+      }
+    }
+    
+    function updateHeaderForLoggedOutUser() {
+      const adminLoginLink = document.getElementById('admin-login-link');
+      const adminProfile = document.getElementById('admin-profile');
+      
+      if (adminLoginLink && adminProfile) {
+        adminLoginLink.style.display = 'inline';
+        adminProfile.classList.add('hidden');
+      }
+    }
+    
+    function checkLoginState() {
+      const storedToken = localStorage.getItem(tokenStorageKey);
+      const storedProfile = localStorage.getItem(profileStorageKey);
+      
+      if (storedToken && storedProfile) {
+        try {
+          const profile = JSON.parse(storedProfile);
+          updateHeaderForLoggedInUser();
+          if (profile.name) {
+            const adminName = document.getElementById('admin-name');
+            if (adminName) adminName.textContent = profile.name;
+          }
+          if (profile.society && profile.city) {
+            const adminSociety = document.getElementById('admin-society');
+            if (adminSociety) adminSociety.textContent = `${profile.society}, ${profile.city}`;
+          }
+        } catch (error) {
+          localStorage.removeItem(tokenStorageKey);
+          localStorage.removeItem(profileStorageKey);
+          updateHeaderForLoggedOutUser();
+        }
+      } else {
+        updateHeaderForLoggedOutUser();
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', checkLoginState);
+  </script>
 </body>
 </html>

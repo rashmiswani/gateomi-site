@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login | Gateomi</title>
+  <link rel="icon" type="image/x-icon" href="https://storage.googleapis.com/gateomi-static-data/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .login-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      padding: 48px;
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .login-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #2a9df4, #7f5af0);
+    }
+    
+    .logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    
+    .logo img {
+      height: 60px;
+      margin-bottom: 16px;
+    }
+    
+    .login-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    
+    .login-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 8px;
+    }
+    
+    .login-header p {
+      color: #6b7280;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    
+    .form-group {
+      margin-bottom: 24px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 14px;
+    }
+    
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      font-size: 16px;
+      transition: all 0.2s ease;
+      background: #f9fafb;
+    }
+    
+    input:focus {
+      outline: none;
+      border-color: #2a9df4;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(42, 157, 244, 0.1);
+    }
+    
+    .login-button {
+      width: 100%;
+      background: linear-gradient(135deg, #2a9df4, #7f5af0);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 16px;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 8px;
+    }
+    
+    .login-button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(42, 157, 244, 0.3);
+    }
+    
+    .login-button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .feedback {
+      margin-bottom: 20px;
+      padding: 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .feedback.error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+    
+    .feedback.success {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    .back-link {
+      text-align: center;
+      margin-top: 24px;
+    }
+    
+    .back-link a {
+      color: #6b7280;
+      text-decoration: none;
+      font-size: 14px;
+      transition: color 0.2s ease;
+    }
+    
+    .back-link a:hover {
+      color: #2a9df4;
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 8px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 480px) {
+      .login-container {
+        padding: 32px 24px;
+        margin: 10px;
+      }
+      
+      .login-header h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="logo">
+      <img src="https://storage.googleapis.com/gateomi-static-data/logo.png" alt="Gateomi Logo">
+    </div>
+    
+    <div class="login-header">
+      <h1>Welcome Back</h1>
+      <p>Sign in to access your society's admin dashboard</p>
+    </div>
+    
+    <div id="login-feedback" class="feedback hidden"></div>
+    
+    <form id="admin-login-form">
+      <div class="form-group">
+        <label for="admin-email">Email Address</label>
+        <input 
+          type="email" 
+          id="admin-email" 
+          name="email" 
+          autocomplete="email" 
+          required 
+          placeholder="Enter your email"
+        />
+      </div>
+      
+      <div class="form-group">
+        <label for="admin-password">Password</label>
+        <input 
+          type="password" 
+          id="admin-password" 
+          name="password" 
+          autocomplete="current-password" 
+          required 
+          placeholder="Enter your password"
+        />
+      </div>
+      
+      <button type="submit" id="login-button" class="login-button">
+        <span id="login-text">Sign In</span>
+        <span id="login-loading" class="hidden">
+          <span class="loading-spinner"></span>Signing in...
+        </span>
+      </button>
+    </form>
+    
+    <div class="back-link">
+      <a href="index.html">← Back to Home</a>
+    </div>
+  </div>
+
+  <script>
+    const backend_url = "http://localhost:8000";
+    const tokenStorageKey = 'gateomiAdminToken';
+    const profileStorageKey = 'gateomiAdminProfile';
+
+    const loginForm = document.getElementById('admin-login-form');
+    const loginButton = document.getElementById('login-button');
+    const loginText = document.getElementById('login-text');
+    const loginLoading = document.getElementById('login-loading');
+    const loginFeedback = document.getElementById('login-feedback');
+
+    function showElement(el) {
+      el.classList.remove('hidden');
+    }
+
+    function hideElement(el) {
+      el.classList.add('hidden');
+    }
+
+    function showFeedback(message, type = 'error') {
+      loginFeedback.textContent = message;
+      loginFeedback.classList.remove('hidden', 'error', 'success');
+      loginFeedback.classList.add('feedback', type);
+    }
+
+    function clearFeedback() {
+      loginFeedback.classList.add('hidden');
+      loginFeedback.textContent = '';
+    }
+
+    function setLoadingState(isLoading) {
+      if (isLoading) {
+        loginButton.disabled = true;
+        hideElement(loginText);
+        showElement(loginLoading);
+      } else {
+        loginButton.disabled = false;
+        showElement(loginText);
+        hideElement(loginLoading);
+      }
+    }
+
+    function handleLoginSuccess(token, profile) {
+      // Store authentication data
+      localStorage.setItem(tokenStorageKey, token);
+      localStorage.setItem(profileStorageKey, JSON.stringify(profile));
+      
+      // Show success message
+      showFeedback('Login successful! Redirecting to dashboard...', 'success');
+      
+      // Redirect to dashboard after a short delay
+      setTimeout(() => {
+        window.location.href = 'dashboard.html';
+      }, 1500);
+    }
+
+    function tryRestoreSession() {
+      const storedToken = localStorage.getItem(tokenStorageKey);
+      const storedProfile = localStorage.getItem(profileStorageKey);
+      
+      if (storedToken && storedProfile) {
+        try {
+          // If user is already logged in, redirect to dashboard
+          window.location.href = 'dashboard.html';
+        } catch (error) {
+          // Clear invalid session data
+          localStorage.removeItem(tokenStorageKey);
+          localStorage.removeItem(profileStorageKey);
+        }
+      }
+    }
+
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearFeedback();
+      setLoadingState(true);
+      
+      const formData = new FormData(loginForm);
+      const payload = {
+        email: formData.get('email'),
+        password: formData.get('password'),
+      };
+
+      try {
+        const response = await fetch(`${backend_url}/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.detail || 'Invalid email or password');
+        }
+
+        const data = await response.json();
+        handleLoginSuccess(data.access_token, data.admin);
+      } catch (error) {
+        showFeedback(error.message || 'Login failed. Please try again.', 'error');
+      } finally {
+        setLoadingState(false);
+      }
+    });
+
+    // Check if user is already logged in on page load
+    tryRestoreSession();
+  </script>
+</body>
+</html>
