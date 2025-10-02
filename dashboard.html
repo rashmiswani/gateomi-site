@@ -73,7 +73,7 @@
       display: none !important;
     }
     .page-shell {
-      max-width: 1200px;
+      /* max-width: 1200px; */
       margin: 40px auto;
       padding: 0 20px 60px;
     }
@@ -946,6 +946,8 @@
       border-radius: 12px;
       padding: 24px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      display: flex;
+      flex-wrap: wrap;
     }
     
     .attendance-summary h4 {
@@ -1581,7 +1583,83 @@
                 <!-- <p class="small-label">Total Active: <span id="today-total-active">0</span></p> -->
               </div>
             </div>
-          </section>
+
+            <!-- Working Days Section -->
+            <div class="section-heading" style="margin-top: 40px;">
+              <h3>User Working Days Summary</h3>
+              <p class="small-label">View total working days for each user over different time periods.</p>
+            </div>
+            
+            <!-- Filters Bar -->
+            <div class="filters-bar">
+              <div class="filters-group">
+                <label for="working-days-period">Time Period:</label>
+                <select id="working-days-period">
+                  <option value="1">Last 1 Day</option>
+                  <option value="7">Last 7 Days</option>
+                  <option value="15">Last 15 Days</option>
+                  <option value="30" selected>Last 30 Days</option>
+                  <option value="90">Last 3 Months</option>
+                  <option value="180">Last 6 Months</option>
+                  <option value="custom">Custom Range</option>
+                </select>
+                <div id="working-days-custom-date" class="custom-date-inputs hidden">
+                  <input type="date" id="working-days-date-from" />
+                  <input type="date" id="working-days-date-to" />
+                </div>
+              </div>
+              <div class="filters-group">
+                <input type="search" id="working-days-search" placeholder="Search by name, flat, mobile..." />
+                <select id="working-days-status-filter">
+                  <option value="">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="pending">Pending</option>
+                </select>
+                <select id="working-days-page-size">
+                  <option value="10" selected>10 / page</option>
+                  <option value="25">25 / page</option>
+                  <option value="50">50 / page</option>
+                  <option value="100">100 / page</option>
+                </select>
+                <button id="working-days-load-btn" type="button">Load Data</button>
+                <button id="working-days-refresh-btn" class="refresh-btn" type="button">Refresh</button>
+              </div>
+            </div>
+
+            <!-- Working Days Table -->
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Contact</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Working Days</th>
+                    <th>Total Entries</th>
+                    <th>First Access</th>
+                    <th>Last Access</th>
+                  </tr>
+                </thead>
+                <tbody id="working-days-table-body">
+                  <tr>
+                    <td colspan="8" style="text-align: center; padding: 40px; color: #6b7280;">
+                      Select a time period and click "Load Data" to view working days summary
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="pagination-bar">
+              <span id="working-days-pagination-info">No users to display.</span>
+              <div class="pagination-controls">
+                <button id="working-days-prev" type="button">Prev</button>
+                <button id="working-days-next" type="button">Next</button>
+              </div>
+            </div>          </section>
           <section id="access-logs-section" class="portal-section">
             <div class="section-heading">
               <h3>Access Logs</h3>
@@ -3075,8 +3153,9 @@
 
     // Load section-specific data
     function loadSectionData(sectionId) {
-      switch(sectionId) {
+      console.log("🔍 loadSectionData called with:", sectionId);      console.log("🔍 loadSectionData called with:", sectionId);      switch(sectionId) {
         case 'overview-section':
+          initializeWorkingDaysSection();
           loadUserStatistics();
           break;
         case 'users-section':
@@ -3093,7 +3172,372 @@
       }
     }
 
-        // Initialize the dashboard
+
+    // ===== WORKING DAYS SECTION =====
+    
+    // Global variables for working days
+    let workingDaysData = null;
+    let workingDaysPage = 1;
+    let workingDaysPageSize = 10;
+    let workingDaysTotalCount = 0;
+    let workingDaysTotalPages = 0;
+    
+    // DOM elements for working days
+    let workingDaysPeriod, workingDaysCustomDate, workingDaysDateFrom, workingDaysDateTo;
+    let workingDaysSearch, workingDaysStatusFilter, workingDaysPageSizeSelect;
+    let workingDaysLoadBtn, workingDaysRefreshBtn, workingDaysTableBody;
+    let workingDaysPaginationInfo, workingDaysPrevBtn, workingDaysNextBtn;
+
+    // Initialize working days section
+    function initializeWorkingDaysSection() {
+      if (false) { // Temporarily disable guard for debugging
+        console.log("🔍 Working Days section already initialized, skipping...");
+        return;
+      }
+      workingDaysInitialized = true;
+      console.log("🚀 Initializing Working Days Section...");
+      // Initialize DOM elements
+      initializeWorkingDaysDOM();
+      
+      // Add event listeners
+      setupWorkingDaysEventListeners();
+    }
+    // Initialize DOM elements
+    function initializeWorkingDaysDOM() {
+      workingDaysPeriod = document.getElementById("working-days-period");
+      workingDaysCustomDate = document.getElementById("working-days-custom-date");
+      workingDaysDateFrom = document.getElementById("working-days-date-from");
+      workingDaysDateTo = document.getElementById("working-days-date-to");
+      workingDaysSearch = document.getElementById("working-days-search");
+      workingDaysStatusFilter = document.getElementById("working-days-status-filter");
+      workingDaysPageSizeSelect = document.getElementById("working-days-page-size");
+      workingDaysLoadBtn = document.getElementById("working-days-load-btn");
+      workingDaysRefreshBtn = document.getElementById("working-days-refresh-btn");
+      workingDaysTableBody = document.getElementById("working-days-table-body");
+      workingDaysPaginationInfo = document.getElementById("working-days-pagination-info");
+      workingDaysPrevBtn = document.getElementById("working-days-prev");
+      workingDaysNextBtn = document.getElementById("working-days-next");
+      
+      console.log("✅ Working Days DOM elements initialized");
+      console.log("🔍 Load Button found:", !!workingDaysLoadBtn);
+      console.log("🔍 Load Button element:", workingDaysLoadBtn);
+      console.log("🔍 DOM Elements found:", {
+        workingDaysPeriod: !!workingDaysPeriod,
+        workingDaysLoadBtn: !!workingDaysLoadBtn,
+        workingDaysRefreshBtn: !!workingDaysRefreshBtn,
+        workingDaysTableBody: !!workingDaysTableBody
+      });
+      
+      console.log("✅ Working Days DOM elements initialized");
+      console.log("🔍 Load Button found:", !!workingDaysLoadBtn);
+      console.log("🔍 Load Button element:", workingDaysLoadBtn);
+    }
+    // Setup event listeners
+    function setupWorkingDaysEventListeners() {
+      if (false) { // Temporarily disable guard for debugging
+        console.log("🔍 Working Days event listeners already setup, skipping...");
+        return;
+      }
+      workingDaysEventListenersSetup = true;
+      console.log("🔍 Setting up Working Days event listeners...");
+      
+      if (workingDaysLoadBtn) {
+        console.log("🔍 Setting up Load Data button listener for:", workingDaysLoadBtn);
+        workingDaysLoadBtn.addEventListener("click", () => {
+          console.log("🔍 Load Data button clicked!");
+          loadWorkingDays();
+        });        
+        workingDaysRefreshBtn.addEventListener("click", loadWorkingDays);
+      }
+      
+      if (workingDaysPeriod) {
+        workingDaysPeriod.addEventListener("change", () => {
+          if (workingDaysPeriod.value === "custom") {
+            workingDaysCustomDate.classList.remove("hidden");
+          } else {
+            workingDaysCustomDate.classList.add("hidden");
+          }
+        });
+      }
+      
+      if (workingDaysSearch) {
+        workingDaysSearch.addEventListener("input", debounce(applyWorkingDaysFilters, 300));
+      }
+      
+      if (workingDaysStatusFilter) {
+        workingDaysStatusFilter.addEventListener("change", applyWorkingDaysFilters);
+      }
+      
+      if (workingDaysPageSizeSelect) {
+        workingDaysPageSizeSelect.addEventListener("change", (e) => {
+          workingDaysPageSize = parseInt(e.target.value);
+          workingDaysPage = 1;
+          loadWorkingDays();
+        });
+      }
+      
+      if (workingDaysPrevBtn) {
+        workingDaysPrevBtn.addEventListener("click", () => {
+          if (workingDaysPage > 1) {
+            workingDaysPage--;
+            loadWorkingDays();
+          }
+        });
+      }
+      
+      console.log("🔍 loadWorkingDays function called!");      
+      if (workingDaysNextBtn) {
+        workingDaysNextBtn.addEventListener("click", () => {
+          if (workingDaysPage < workingDaysTotalPages) {
+            workingDaysPage++;
+            loadWorkingDays();
+          }
+        });
+      }
+      
+      console.log("✅ Working Days event listeners added");
+      // loadWorkingDays();
+      
+    // }            loadWorkingDays();
+        //   }
+        // });
+      // }
+      
+      console.log("✅ Working Days event listeners added");
+      console.log("🔍 loadWorkingDays called with:", {
+        currentToken: !!currentToken,
+        workingDaysPage: workingDaysPage,
+        workingDaysPageSize: workingDaysPageSize
+      });
+    }
+
+    // Load working days data using the new API
+    async function loadWorkingDays() {
+      console.log("📊 Loading working days data...");
+      
+      if (!currentToken) {
+        showFeedback(dashboardFeedback, "Please log in to view working days data", "error");
+        return;
+      }
+
+      // Show loading state
+      showWorkingDaysLoading();
+
+      try {
+        // Calculate date range
+        const dateRange = getWorkingDaysDateRange();
+        if (!dateRange.from || !dateRange.to) {
+          showFeedback(dashboardFeedback, "Please select a valid date range", "error");
+          return;
+        }
+
+        // Build query parameters
+        const params = new URLSearchParams({
+          date_from: dateRange.from,
+          date_to: dateRange.to,
+          page: workingDaysPage.toString(),
+          page_size: workingDaysPageSize.toString()
+        });
+
+        // Add filters
+        const searchTerm = workingDaysSearch ? workingDaysSearch.value.trim() : "";
+        if (searchTerm) {
+          params.append("search", searchTerm);
+        }
+
+        const statusFilter = workingDaysStatusFilter ? workingDaysStatusFilter.value : "";
+        if (statusFilter) {
+          params.append("status_filter", statusFilter);
+        }
+
+        const url = `${backend_url}/admin/users/working-days?${params}`;
+        console.log("🌐 Making request to:", url);
+        
+        const response = await fetch(url, {
+          headers: {
+            "Authorization": `Bearer ${currentToken}`,
+            "Content-Type": "application/json"
+          }
+        });
+
+        console.log("📡 Response status:", response.status);
+
+        if (response.status === 401) {
+          console.log("🔒 Unauthorized, logging out");
+          handleLogout(true);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("📦 Received data:", data);
+        
+        workingDaysData = data;
+        workingDaysTotalCount = data.pagination.total_count;
+        workingDaysTotalPages = data.pagination.total_pages;
+        
+        renderWorkingDaysTable();
+        updateWorkingDaysPagination();
+
+      } catch (error) {
+        console.error("❌ Error loading working days:", error);
+        showWorkingDaysError(error.message || "Failed to load working days data");
+        showFeedback(dashboardFeedback, error.message || "Failed to load working days data", "error");
+      }
+    }
+
+    // Get date range from selection
+    function getWorkingDaysDateRange() {
+      const period = workingDaysPeriod.value;
+      const today = new Date();
+      
+      if (period === "custom") {
+        return {
+          from: workingDaysDateFrom.value,
+          to: workingDaysDateTo.value
+        };
+      }
+      
+      const days = parseInt(period);
+      if (isNaN(days)) return { from: "", to: "" };
+      
+      const fromDate = new Date(today);
+      fromDate.setDate(today.getDate() - days + 1);
+      
+      return {
+        from: fromDate.toISOString().split("T")[0],
+        to: today.toISOString().split("T")[0]
+      };
+    }
+
+    // Show loading state
+    function showWorkingDaysLoading() {
+      if (workingDaysTableBody) {
+        workingDaysTableBody.innerHTML = `
+          <tr>
+            <td colspan="8" class="loading-logs">
+              <span class="spinner"></span>Loading working days data...
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    // Show error state
+    function showWorkingDaysError(message) {
+      if (workingDaysTableBody) {
+        workingDaysTableBody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 40px; color: #dc2626;">
+              ❌ ${message}
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    // Apply filters
+    function applyWorkingDaysFilters() {
+      console.log("🔍 Applying filters...");
+      workingDaysPage = 1;
+      loadWorkingDays();
+    }
+
+    // Render working days table
+    function renderWorkingDaysTable() {
+      console.log("🎨 Rendering working days table...");
+      
+      if (!workingDaysData || !workingDaysData.users || workingDaysData.users.length === 0) {
+        if (workingDaysTableBody) {
+          workingDaysTableBody.innerHTML = `
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 40px; color: #6b7280;">
+                No users found matching the current filters.
+              </td>
+            </tr>
+          `;
+        }
+        return;
+      }
+
+      console.log(`📄 Rendering page ${workingDaysPage}: ${workingDaysData.users.length} users`);
+
+      const rows = workingDaysData.users.map(user => {
+        const statusClass = user.status === "active" ? "status-active" : 
+                           user.status === "inactive" ? "status-inactive" : 
+                           "pending";
+        
+        const thumbnail = user.thumbnail_url ? 
+          `<img src="${user.thumbnail_url}" alt="${user.name}" class="user-photo" />` : 
+          `<div class="no-photo">👤</div>`;
+
+        return `
+          <tr>
+            <td>
+              <div class="person-cell">
+                ${thumbnail}
+                <div>
+                  <div class="person-name">${user.name || "Unknown"}</div>
+                  <div class="person-meta">${user.flat_number || "N/A"}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div>${user.mobile_number || "N/A"}</div>
+              ${user.email ? `<div class="person-meta">${user.email}</div>` : ""}
+            </td>
+            <td>
+              <span class="user-type-badge">${user.user_type || "N/A"}</span>
+            </td>
+            <td>
+              <span class="status-chip ${statusClass}">${user.status || "unknown"}</span>
+            </td>
+            <td>
+              <strong style="font-size: 18px; color: #2a9df4;">${user.working_days || 0}</strong>
+            </td>
+            <td>${user.total_entries || 0}</td>
+            <td>${user.first_access ? new Date(user.first_access).toLocaleDateString() : "-"}</td>
+            <td>${user.last_access ? new Date(user.last_access).toLocaleDateString() : "-"}</td>
+          </tr>
+        `;
+      }).join("");
+      if (workingDaysTableBody) {
+        workingDaysTableBody.innerHTML = rows;
+        console.log("✅ Table rendered successfully");
+      }
+    }
+
+    // Update pagination
+    function updateWorkingDaysPagination() {
+      if (!workingDaysData) return;
+
+      const totalItems = workingDaysTotalCount;
+      const totalPages = workingDaysTotalPages;
+      const startItem = (workingDaysPage - 1) * workingDaysPageSize + 1;
+      const endItem = Math.min(workingDaysPage * workingDaysPageSize, totalItems);
+
+      if (workingDaysPaginationInfo) {
+        if (totalItems === 0) {
+          workingDaysPaginationInfo.textContent = "No users to display.";
+        } else {
+          workingDaysPaginationInfo.textContent = `Showing ${startItem}-${endItem} of ${totalItems} users`;
+        }
+      }
+
+      if (workingDaysPrevBtn) {
+        workingDaysPrevBtn.disabled = workingDaysPage <= 1;
+      }
+      if (workingDaysNextBtn) {
+        workingDaysNextBtn.disabled = workingDaysPage >= totalPages;
+      }
+
+      console.log(`📄 Pagination: Page ${workingDaysPage}/${totalPages}, Items ${startItem}-${endItem}/${totalItems}`);
+    }
+
+    // Initialize the dashboard
     checkAuthentication();
     setupUserManagementEventListeners();
     loadUserStatistics(); // Load user stats on page load since overview is active by default
