@@ -1911,7 +1911,10 @@
 </html>
 
 <script>
-    const backend_url = "http://localhost:8000";
+    // const backend_url = "http://localhost:8000";
+    const backend_url =  "https://gateomi-backend-647776055629.asia-south2.run.app";
+    // const backend_url = "https://gateomi-backend-647776055629.asia-south1.run.app"
+
     const tokenStorageKey = 'gateomiAdminToken';
     const profileStorageKey = 'gateomiAdminProfile';
     const gcsBucketName = 'gateomi-data';
@@ -2141,7 +2144,7 @@
         const row = document.createElement("tr");
         row.className = "access-log-row";
         
-        const recognitionScoreClass = getRecognitionScoreClass(log.recognition_score);
+        const recognitionScoreClass = getRecognitionScoreClass(log.confidence);
         const actionBadgeClass = getActionBadgeClass(log.action);
         const locationHtml = formatLocation(log);
         
@@ -2171,7 +2174,7 @@
           </td>
           <td>
             <div class="recognition-score ${recognitionScoreClass}">
-              ${log.recognition_score ? (log.recognition_score * 100).toFixed(1) + "%" : "—"}
+              ${log.recognition_score ? (log.confidence * 100).toFixed(1) + "%" : "—"}
             </div>
           </td>
           <td>${locationHtml}</td>
@@ -3187,10 +3190,12 @@
     let workingDaysSearch, workingDaysStatusFilter, workingDaysPageSizeSelect;
     let workingDaysLoadBtn, workingDaysRefreshBtn, workingDaysTableBody;
     let workingDaysPaginationInfo, workingDaysPrevBtn, workingDaysNextBtn;
+    let workingDaysInitialized = false;
+    let workingDaysEventListenersSetup = false;
 
     // Initialize working days section
     function initializeWorkingDaysSection() {
-      if (false) { // Temporarily disable guard for debugging
+      if (workingDaysInitialized) {
         console.log("🔍 Working Days section already initialized, skipping...");
         return;
       }
@@ -3201,6 +3206,9 @@
       
       // Add event listeners
       setupWorkingDaysEventListeners();
+      
+      // Load data automatically
+      loadWorkingDays();
     }
     // Initialize DOM elements
     function initializeWorkingDaysDOM() {
@@ -3219,22 +3227,16 @@
       workingDaysNextBtn = document.getElementById("working-days-next");
       
       console.log("✅ Working Days DOM elements initialized");
-      console.log("🔍 Load Button found:", !!workingDaysLoadBtn);
-      console.log("🔍 Load Button element:", workingDaysLoadBtn);
       console.log("🔍 DOM Elements found:", {
         workingDaysPeriod: !!workingDaysPeriod,
         workingDaysLoadBtn: !!workingDaysLoadBtn,
         workingDaysRefreshBtn: !!workingDaysRefreshBtn,
         workingDaysTableBody: !!workingDaysTableBody
       });
-      
-      console.log("✅ Working Days DOM elements initialized");
-      console.log("🔍 Load Button found:", !!workingDaysLoadBtn);
-      console.log("🔍 Load Button element:", workingDaysLoadBtn);
     }
     // Setup event listeners
     function setupWorkingDaysEventListeners() {
-      if (false) { // Temporarily disable guard for debugging
+      if (workingDaysEventListenersSetup) {
         console.log("🔍 Working Days event listeners already setup, skipping...");
         return;
       }
@@ -3285,7 +3287,6 @@
         });
       }
       
-      console.log("🔍 loadWorkingDays function called!");      
       if (workingDaysNextBtn) {
         workingDaysNextBtn.addEventListener("click", () => {
           if (workingDaysPage < workingDaysTotalPages) {
@@ -3296,19 +3297,6 @@
       }
       
       console.log("✅ Working Days event listeners added");
-      // loadWorkingDays();
-      
-    // }            loadWorkingDays();
-        //   }
-        // });
-      // }
-      
-      console.log("✅ Working Days event listeners added");
-      console.log("🔍 loadWorkingDays called with:", {
-        currentToken: !!currentToken,
-        workingDaysPage: workingDaysPage,
-        workingDaysPageSize: workingDaysPageSize
-      });
     }
 
     // Load working days data using the new API
@@ -3350,7 +3338,7 @@
           params.append("status_filter", statusFilter);
         }
 
-        const url = `${backend_url}/admin/users/working-days?${params}`;
+        const url = `${backend_url}/admin/society-users-with-logs?${params}`;
         console.log("🌐 Making request to:", url);
         
         const response = await fetch(url, {
