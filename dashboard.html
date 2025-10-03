@@ -1713,7 +1713,6 @@
                     <th>Camera</th>
                     <th>Action</th>
                     <th>Recognition Score</th>
-                    <th>Location</th>
                   </tr>
                 </thead>
                 <tbody id="access-logs-table-body"></tbody>
@@ -2146,15 +2145,14 @@
         
         const recognitionScoreClass = getRecognitionScoreClass(log.confidence);
         const actionBadgeClass = getActionBadgeClass(log.action);
-        const locationHtml = formatLocation(log);
+        const nameInitial = ((log.person_name || "").trim().charAt(0) || "?").toUpperCase();
         
         row.innerHTML = `
           <td>
             <div class="face-thumbnail">
-              ${log.face_image_b64 ? `<img src="data:image/jpeg;base64,${log.face_image_b64}" alt="Face" class="thumbnail-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` : ""}
-              <div class="no-thumbnail" style="display: ${log.face_image_b64 ? "none" : "block"};">
-                <div class="no-thumbnail-icon">👤</div>
-                <div class="no-thumbnail-text">No Image</div>
+             
+              <div class="no-thumbnail" style="display: "flex"};">
+                <div class="no-thumbnail-icon">${nameInitial}</div>
               </div>
             </div>
           </td>
@@ -2174,10 +2172,9 @@
           </td>
           <td>
             <div class="recognition-score ${recognitionScoreClass}">
-              ${log.recognition_score ? (log.confidence * 100).toFixed(1) + "%" : "—"}
+              ${log.confidence ? (log.confidence * 100).toFixed(1) + "%" : "—"}
             </div>
           </td>
-          <td>${locationHtml}</td>
         `;
         accessLogsTableBody.appendChild(row);
       });
@@ -3338,7 +3335,7 @@
           params.append("status_filter", statusFilter);
         }
 
-        const url = `${backend_url}/admin/society-users-with-logs?${params}`;
+        const url = `${backend_url}/admin/users/working-days?${params}`;
         console.log("🌐 Making request to:", url);
         
         const response = await fetch(url, {
@@ -3528,6 +3525,7 @@
     // Initialize the dashboard
     checkAuthentication();
     setupUserManagementEventListeners();
+    initializeWorkingDaysSection();
     loadUserStatistics(); // Load user stats on page load since overview is active by default
   </script>
 </body>
