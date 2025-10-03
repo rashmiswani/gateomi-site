@@ -231,6 +231,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 18px;
+      margin: 26px 0 10px;
     }
     .chart-card {
       background: #ffffff;
@@ -1584,6 +1585,17 @@
               </div>
             </div>
 
+            <div class="charts-grid" id="overview-charts">
+              <div class="chart-card">
+                <div class="chart-card__title">Users by Status</div>
+                <canvas id="users-status-chart" aria-label="Users by status chart" role="img"></canvas>
+              </div>
+              <div class="chart-card">
+                <div class="chart-card__title">Today's Attendance</div>
+                <canvas id="attendance-chart" aria-label="Today's attendance chart" role="img"></canvas>
+              </div>
+            </div>
+
             <!-- Working Days Section -->
             <div class="section-heading" style="margin-top: 40px;">
               <h3>User Working Days Summary</h3>
@@ -1624,6 +1636,7 @@
                 </select>
                 <button id="working-days-load-btn" type="button">Load Data</button>
                 <button id="working-days-refresh-btn" class="refresh-btn" type="button">Refresh</button>
+                <button id="working-days-download-btn" class="secondary" type="button">Download Excel</button>
               </div>
             </div>
 
@@ -1956,6 +1969,8 @@
     const pendingUsersCount = document.getElementById('pending-users-count');
     const todayPresentCount = document.getElementById('today-present-count');
     const todayAbsentCount = document.getElementById('today-absent-count');
+    const usersStatusChartCanvas = document.getElementById('users-status-chart');
+    const attendanceChartCanvas = document.getElementById('attendance-chart');
     // const todayTotalActive = document.getElementById('today-total-active');
 
 
@@ -1965,6 +1980,16 @@
     let currentLogsPage = 1;
     let currentLogsPageSize = 50;
     let currentLogsData = null;
+    let usersStatusChartInstance = null;
+    let attendanceBarChartInstance = null;
+    const chartPalette = {
+      active: '#34d399',
+      inactive: '#94a3b8',
+      pending: '#fbbf24',
+      present: '#22c55e',
+      absent: '#ef4444',
+      fallback: '#d1d5db'
+    };
 
     const yearElement = document.getElementById('year');
     if (yearElement) {
@@ -2387,19 +2412,180 @@
         const data = await response.json();
         
         // Update statistics cards
-        totalUsersCount.textContent = data.total_users || 0;
-        activeUsersCount.textContent = data.active_users || 0;
-        inactiveUsersCount.textContent = data.inactive_users || 0;
-        pendingUsersCount.textContent = data.pending_users || 0;
+        const totalUsers = data.total_users || 0;
+        const activeUsers = data.active_users || 0;
+        const inactiveUsers = data.inactive_users || 0;
+        const pendingUsers = data.pending_users || 0;
+
+        totalUsersCount.textContent = totalUsers;
+        activeUsersCount.textContent = activeUsers;
+        inactiveUsersCount.textContent = inactiveUsers;
+        pendingUsersCount.textContent = pendingUsers;
         
         // Update attendance summary
-        todayPresentCount.textContent = data.today_attendance.present || 0;
-        todayAbsentCount.textContent = data.today_attendance.absent || 0;
+        const todayAttendance = data.today_attendance || {};
+        const presentCount = todayAttendance.present || 0;
+        const absentCount = todayAttendance.absent || 0;
+        todayPresentCount.textContent = presentCount;
+        todayAbsentCount.textContent = absentCount;
         // todayTotalActive.textContent = data.today_attendance.total_active || 0;
+
+        const totalAttendanceToday = presentCount + absentCount;
+        if (attendancePercentage) {
+          const percentage = totalAttendanceToday ? Math.round((presentCount / totalAttendanceToday) * 100) : 0;
+          attendancePercentage.textContent = `${percentage}%`;
+        }
+
+        updateUsersStatusChart({ active: activeUsers, inactive: inactiveUsers, pending: pendingUsers });
+        updateAttendanceChart({ present: presentCount, absent: absentCount });
         
       } catch (error) {
         console.error('Error loading user statistics:', error);
         showFeedback(dashboardFeedback, 'Failed to load user statistics', 'error');
+      }
+    }
+
+    function updateUsersStatusChart({ active = 0, inactive = 0, pending = 0 }) {
+      if (!usersStatusChartCanvas || typeof Chart === 'undefined') {
+        return;
+      }
+
+      const totals = [active, inactive, pending];
+      const totalSum = totals.reduce((sum, value) => sum + value, 0);
+      const noData = totalSum === 0;
+
+      const labels = noData ? ['No data'] : ['Active', 'Inactive', 'Pending'];
+      const values = noData ? [1] : totals;
+      const colors = noData
+        ? [chartPalette.fallback]
+        : [chartPalette.active, chartPalette.inactive, chartPalette.pending];
+
+      const chartData = {
+        labels,
+        datasets: [
+          {
+            data: values,
+            backgroundColor: colors,
+            borderWidth: 0,
+            hoverOffset: 8,
+          },
+        ],
+      };
+
+      const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              padding: 16,
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                if (noData) {
+                  return 'No data';
+                }
+                const label = context.label || '';
+                const value = context.parsed || 0;
+                const percentage = totalSum ? ((value / totalSum) * 100).toFixed(1) : 0;
+                return `${label}: ${value} (${percentage}%)`;
+              },
+            },
+          },
+        },
+      };
+
+      if (!usersStatusChartInstance) {
+        usersStatusChartInstance = new Chart(usersStatusChartCanvas, {
+          type: 'doughnut',
+          data: chartData,
+          options: chartOptions,
+        });
+      } else {
+        usersStatusChartInstance.data = chartData;
+        usersStatusChartInstance.options = chartOptions;
+        usersStatusChartInstance.update();
+      }
+    }
+
+    function updateAttendanceChart({ present = 0, absent = 0 }) {
+      if (!attendanceChartCanvas || typeof Chart === 'undefined') {
+        return;
+      }
+
+      const labels = ['Present', 'Absent'];
+      const values = [present, absent];
+      const maxValue = Math.max(...values, 1);
+
+      const chartData = {
+        labels,
+        datasets: [
+          {
+            label: 'Count',
+            data: values,
+            backgroundColor: [chartPalette.present, chartPalette.absent],
+            borderRadius: 12,
+            borderSkipped: false,
+            maxBarThickness: 56,
+          },
+        ],
+      };
+
+      const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            grid: {
+              display: false,
+            },
+            ticks: {
+              font: {
+                weight: 600,
+              },
+            },
+          },
+          y: {
+            beginAtZero: true,
+            suggestedMax: Math.max(maxValue, 4),
+            grid: {
+              color: '#e2e8f0',
+            },
+            ticks: {
+              precision: 0,
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = typeof context.parsed?.y === 'number' ? context.parsed.y : context.parsed;
+                return `${context.label}: ${value}`;
+              },
+            },
+          },
+        },
+      };
+
+      if (!attendanceBarChartInstance) {
+        attendanceBarChartInstance = new Chart(attendanceChartCanvas, {
+          type: 'bar',
+          data: chartData,
+          options: chartOptions,
+        });
+      } else {
+        attendanceBarChartInstance.data = chartData;
+        attendanceBarChartInstance.options = chartOptions;
+        attendanceBarChartInstance.update();
       }
     }
 
@@ -3185,7 +3371,7 @@
     // DOM elements for working days
     let workingDaysPeriod, workingDaysCustomDate, workingDaysDateFrom, workingDaysDateTo;
     let workingDaysSearch, workingDaysStatusFilter, workingDaysPageSizeSelect;
-    let workingDaysLoadBtn, workingDaysRefreshBtn, workingDaysTableBody;
+    let workingDaysLoadBtn, workingDaysRefreshBtn, workingDaysDownloadBtn, workingDaysTableBody;
     let workingDaysPaginationInfo, workingDaysPrevBtn, workingDaysNextBtn;
     let workingDaysInitialized = false;
     let workingDaysEventListenersSetup = false;
@@ -3218,6 +3404,7 @@
       workingDaysPageSizeSelect = document.getElementById("working-days-page-size");
       workingDaysLoadBtn = document.getElementById("working-days-load-btn");
       workingDaysRefreshBtn = document.getElementById("working-days-refresh-btn");
+      workingDaysDownloadBtn = document.getElementById("working-days-download-btn");
       workingDaysTableBody = document.getElementById("working-days-table-body");
       workingDaysPaginationInfo = document.getElementById("working-days-pagination-info");
       workingDaysPrevBtn = document.getElementById("working-days-prev");
@@ -3247,6 +3434,9 @@
           loadWorkingDays();
         });        
         workingDaysRefreshBtn.addEventListener("click", loadWorkingDays);
+        if (workingDaysDownloadBtn) {
+          workingDaysDownloadBtn.addEventListener("click", downloadWorkingDaysExcel);
+        }
       }
       
       if (workingDaysPeriod) {
@@ -3372,6 +3562,175 @@
         showWorkingDaysError(error.message || "Failed to load working days data");
         showFeedback(dashboardFeedback, error.message || "Failed to load working days data", "error");
       }
+    }
+
+    async function downloadWorkingDaysExcel() {
+      console.log("⬇️ Downloading working days data...");
+
+      if (!currentToken) {
+        showFeedback(dashboardFeedback, "Please log in to download working days data", "error");
+        return;
+      }
+
+      const dateRange = getWorkingDaysDateRange();
+      if (!dateRange.from || !dateRange.to) {
+        showFeedback(dashboardFeedback, "Please select a valid date range before downloading", "error");
+        return;
+      }
+
+      let originalLabel = "Download Excel";
+      if (workingDaysDownloadBtn) {
+        originalLabel = workingDaysDownloadBtn.textContent;
+        workingDaysDownloadBtn.disabled = true;
+        workingDaysDownloadBtn.textContent = "Preparing...";
+      }
+
+      try {
+        const allUsers = [];
+        let pageToFetch = 1;
+        const exportPageSize = 200;
+
+        while (true) {
+          const params = new URLSearchParams({
+            date_from: dateRange.from,
+            date_to: dateRange.to,
+            page: pageToFetch.toString(),
+            page_size: exportPageSize.toString()
+          });
+
+          const searchTerm = workingDaysSearch ? workingDaysSearch.value.trim() : "";
+          if (searchTerm) {
+            params.append("search", searchTerm);
+          }
+
+          const statusFilter = workingDaysStatusFilter ? workingDaysStatusFilter.value : "";
+          if (statusFilter) {
+            params.append("status_filter", statusFilter);
+          }
+
+          const url = `${backend_url}/admin/users/working-days?${params}`;
+          const response = await fetch(url, {
+            headers: {
+              "Authorization": `Bearer ${currentToken}`,
+              "Content-Type": "application/json"
+            }
+          });
+
+          if (!response.ok) {
+            throw new Error(`Export failed (status ${response.status})`);
+          }
+
+          const data = await response.json();
+          if (Array.isArray(data.users)) {
+            allUsers.push(...data.users);
+          }
+
+          const pagination = data.pagination || {};
+          if (!pagination.has_next) {
+            break;
+          }
+
+          pageToFetch += 1;
+
+          if (pageToFetch > 1000) {
+            console.warn("Stopping export after 1000 pages to avoid infinite loop");
+            break;
+          }
+        }
+
+        if (allUsers.length === 0) {
+          showFeedback(dashboardFeedback, "No working days data found for export", "error");
+          return;
+        }
+
+        exportWorkingDaysToExcel(allUsers, dateRange);
+        showFeedback(dashboardFeedback, `Downloaded ${allUsers.length} records`, "success");
+      } catch (error) {
+        console.error("❌ Error downloading working days data:", error);
+        showFeedback(dashboardFeedback, error.message || "Failed to download working days data", "error");
+      } finally {
+        if (workingDaysDownloadBtn) {
+          workingDaysDownloadBtn.disabled = false;
+          workingDaysDownloadBtn.textContent = originalLabel;
+        }
+      }
+    }
+
+    function exportWorkingDaysToExcel(users, dateRange) {
+      const headers = [
+        "Name",
+        "Flat Number",
+        "User Type",
+        "Status",
+        "Working Days",
+        "Total Entries",
+        "First Access",
+        "Last Access",
+        "Mobile Number",
+        "Forever Access",
+        "Access Expires"
+      ];
+
+      const headerRow = `<tr>${headers.map(h => `<th>${escapeExcelCell(h)}</th>`).join("")}</tr>`;
+
+      const rows = users.map(user => {
+        return `<tr>
+          <td>${escapeExcelCell(user.name || "Unknown")}</td>
+          <td>${escapeExcelCell(user.flat_number || "")}</td>
+          <td>${escapeExcelCell(user.user_type || "")}</td>
+          <td>${escapeExcelCell(user.status || "")}</td>
+          <td>${escapeExcelCell(user.working_days ?? 0)}</td>
+          <td>${escapeExcelCell(user.total_entries ?? 0)}</td>
+          <td>${escapeExcelCell(formatExcelDate(user.first_access))}</td>
+          <td>${escapeExcelCell(formatExcelDate(user.last_access))}</td>
+          <td>${escapeExcelCell(user.mobile_number || "")}</td>
+          <td>${escapeExcelCell(user.forever_access ? "Yes" : "No")}</td>
+          <td>${escapeExcelCell(formatExcelDate(user.expire_at))}</td>
+        </tr>`;
+      }).join("");
+
+      const tableHtml = `<table>${headerRow}${rows}</table>`;
+      const workbookHtml = `<html><head><meta charset="utf-8" /></head><body>${tableHtml}</body></html>`;
+      const blob = new Blob(["\ufeff" + workbookHtml], { type: "application/vnd.ms-excel" });
+      const downloadUrl = URL.createObjectURL(blob);
+
+      const safeFrom = sanitizeFileName(dateRange.from || "start");
+      const safeTo = sanitizeFileName(dateRange.to || "end");
+      const filename = `working-days-${safeFrom}-to-${safeTo}.xls`;
+
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+    }
+
+    function escapeExcelCell(value) {
+      if (value === null || value === undefined) {
+        return "";
+      }
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function sanitizeFileName(value) {
+      return value.replace(/[^a-z0-9\-]+/gi, "-").replace(/-+/g, "-");
+    }
+
+    function formatExcelDate(value) {
+      if (!value) {
+        return "";
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+      return date.toISOString().replace("T", " ").split(".")[0];
     }
 
     // Get date range from selection
