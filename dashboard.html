@@ -703,7 +703,14 @@
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
-    }    @media (max-width: 768px) {
+    }
+
+    @keyframes shimmerSlide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    @media (max-width: 768px) {
       .modal-dialog {
         width: min(94vw, 720px);
         padding: 24px;
@@ -883,7 +890,14 @@
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
-    }    @media (max-width: 768px) {
+    }
+
+    @keyframes shimmerSlide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    @media (max-width: 768px) {
       header { padding: 0 20px; }
       .card { padding: 24px; }
       .portal-content { padding: 20px; }
@@ -910,7 +924,34 @@
       display: flex;
       align-items: center;
       gap: 16px;
+      position: relative;
+      overflow: hidden;
       border-left: 4px solid #2a9df4;
+    }
+
+    .stat-card.loading > * {
+      visibility: hidden;
+    }
+
+    .stat-card.loading::before,
+    .stat-card.loading::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .stat-card.loading::before {
+      background: #f3f4f6;
+      opacity: 0.9;
+      z-index: 1;
+    }
+
+    .stat-card.loading::after {
+      background: linear-gradient(90deg, rgba(243, 244, 246, 0) 0%, rgba(209, 213, 219, 0.75) 50%, rgba(243, 244, 246, 0) 100%);
+      transform: translateX(-100%);
+      animation: shimmerSlide 1.4s ease-in-out infinite;
+      z-index: 2;
     }
     
     .stat-icon {
@@ -1607,12 +1648,10 @@
               <div class="filters-group">
                 <label for="working-days-period">Time Period:</label>
                 <select id="working-days-period">
-                  <option value="1">Last 1 Day</option>
-                  <option value="7">Last 7 Days</option>
-                  <option value="15">Last 15 Days</option>
-                  <option value="30" selected>Last 30 Days</option>
-                  <option value="90">Last 3 Months</option>
-                  <option value="180">Last 6 Months</option>
+                  <option value="today" selected>Today</option>
+                  <option value="tomorrow">Tomorrow</option>
+                  <option value="this_week">This Week</option>
+                  <option value="this_month">This Month</option>
                   <option value="custom">Custom Range</option>
                 </select>
                 <div id="working-days-custom-date" class="custom-date-inputs hidden">
@@ -1923,8 +1962,8 @@
 </html>
 
 <script>
-    // const backend_url = "http://localhost:8000";
-    const backend_url =  "https://gateomi-backend-647776055629.asia-south2.run.app";
+    const backend_url = "http://localhost:8000";
+    // const backend_url =  "https://gateomi-backend-647776055629.asia-south2.run.app";
     // const backend_url = "https://gateomi-backend-647776055629.asia-south1.run.app"
 
     const tokenStorageKey = 'gateomiAdminToken';
@@ -1963,6 +2002,7 @@
     let currentToken = null;
     // User Statistics elements
     const userStatsGrid = document.getElementById('user-stats-grid');
+    const userStatsCards = userStatsGrid ? Array.from(userStatsGrid.querySelectorAll('.stat-card')) : [];
     const totalUsersCount = document.getElementById('total-users-count');
     const activeUsersCount = document.getElementById('active-users-count');
     const inactiveUsersCount = document.getElementById('inactive-users-count');
@@ -1994,6 +2034,22 @@
     const yearElement = document.getElementById('year');
     if (yearElement) {
       yearElement.textContent = new Date().getFullYear();
+    }
+
+    function setUserStatsLoading(isLoading) {
+      if (!userStatsGrid || !userStatsCards.length) {
+        return;
+      }
+
+      if (isLoading) {
+        userStatsGrid.setAttribute('aria-busy', 'true');
+      } else {
+        userStatsGrid.removeAttribute('aria-busy');
+      }
+
+      userStatsCards.forEach(card => {
+        card.classList.toggle('loading', isLoading);
+      });
     }
 
     function showElement(el) {
@@ -2394,41 +2450,53 @@
       });
     }
 
-
+    
     // User Statistics Functions
     async function loadUserStatistics() {
+      setUserStatsLoading(true);
       try {
-        const response = await fetch(`${backend_url}/admin/users/statistics`, {
-          headers: {
-            'Authorization': `Bearer ${currentToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        const [countsResponse, attendanceResponse] = await Promise.all([
+          fetch(`${backend_url}/admin/users/statistics/counts`, {
+            headers: {
+              'Authorization': `Bearer ${currentToken}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch(`${backend_url}/admin/users/statistics/today-attendance`, {
+            headers: {
+              'Authorization': `Bearer ${currentToken}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ]);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        if (!countsResponse.ok) {
+          throw new Error(`Counts API error: ${countsResponse.status}`);
         }
 
-        const data = await response.json();
-        
+        if (!attendanceResponse.ok) {
+          throw new Error(`Attendance API error: ${attendanceResponse.status}`);
+        }
+
+        const countsData = await countsResponse.json();
+        const attendanceData = await attendanceResponse.json();
+
         // Update statistics cards
-        const totalUsers = data.total_users || 0;
-        const activeUsers = data.active_users || 0;
-        const inactiveUsers = data.inactive_users || 0;
-        const pendingUsers = data.pending_users || 0;
+        const totalUsers = countsData.total_users || 0;
+        const activeUsers = countsData.active_users || 0;
+        const inactiveUsers = countsData.inactive_users || 0;
+        const pendingUsers = countsData.pending_users || 0;
 
         totalUsersCount.textContent = totalUsers;
         activeUsersCount.textContent = activeUsers;
         inactiveUsersCount.textContent = inactiveUsers;
         pendingUsersCount.textContent = pendingUsers;
-        
+
         // Update attendance summary
-        const todayAttendance = data.today_attendance || {};
-        const presentCount = todayAttendance.present || 0;
-        const absentCount = todayAttendance.absent || 0;
+        const presentCount = attendanceData.present_users || 0;
+        const absentCount = Math.max(activeUsers - presentCount, 0);
         todayPresentCount.textContent = presentCount;
         todayAbsentCount.textContent = absentCount;
-        // todayTotalActive.textContent = data.today_attendance.total_active || 0;
 
         const totalAttendanceToday = presentCount + absentCount;
         if (attendancePercentage) {
@@ -2438,10 +2506,12 @@
 
         updateUsersStatusChart({ active: activeUsers, inactive: inactiveUsers, pending: pendingUsers });
         updateAttendanceChart({ present: presentCount, absent: absentCount });
-        
+
       } catch (error) {
         console.error('Error loading user statistics:', error);
         showFeedback(dashboardFeedback, 'Failed to load user statistics', 'error');
+      } finally {
+        setUserStatsLoading(false);
       }
     }
 
@@ -3386,6 +3456,7 @@
       console.log("🚀 Initializing Working Days Section...");
       // Initialize DOM elements
       initializeWorkingDaysDOM();
+      updateWorkingDaysCustomDateLimits({ setDefaults: true });
       
       // Add event listeners
       setupWorkingDaysEventListeners();
@@ -3441,11 +3512,25 @@
       
       if (workingDaysPeriod) {
         workingDaysPeriod.addEventListener("change", () => {
-          if (workingDaysPeriod.value === "custom") {
+          const isCustom = workingDaysPeriod.value === "custom";
+          if (isCustom) {
             workingDaysCustomDate.classList.remove("hidden");
+            updateWorkingDaysCustomDateLimits({ setDefaults: true });
           } else {
             workingDaysCustomDate.classList.add("hidden");
           }
+        });
+      }
+
+      if (workingDaysDateFrom) {
+        workingDaysDateFrom.addEventListener("change", () => {
+          updateWorkingDaysCustomDateLimits();
+        });
+      }
+
+      if (workingDaysDateTo) {
+        workingDaysDateTo.addEventListener("change", () => {
+          updateWorkingDaysCustomDateLimits();
         });
       }
       
@@ -3733,28 +3818,117 @@
       return date.toISOString().replace("T", " ").split(".")[0];
     }
 
+    function formatDateOnly(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function updateWorkingDaysCustomDateLimits({ setDefaults = false } = {}) {
+      if (!workingDaysDateFrom || !workingDaysDateTo) {
+        return;
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const maxDate = formatDateOnly(today);
+      const minDateObj = new Date(today);
+      minDateObj.setMonth(minDateObj.getMonth() - 3);
+      const minDate = formatDateOnly(minDateObj);
+
+      workingDaysDateFrom.min = minDate;
+      workingDaysDateFrom.max = maxDate;
+      workingDaysDateTo.min = minDate;
+      workingDaysDateTo.max = maxDate;
+
+      if (setDefaults) {
+        if (!workingDaysDateFrom.value || workingDaysDateFrom.value < minDate || workingDaysDateFrom.value > maxDate) {
+          workingDaysDateFrom.value = minDate;
+        }
+        if (!workingDaysDateTo.value || workingDaysDateTo.value < workingDaysDateFrom.value || workingDaysDateTo.value > maxDate) {
+          workingDaysDateTo.value = maxDate;
+        }
+      } else {
+        if (workingDaysDateFrom.value) {
+          if (workingDaysDateFrom.value < minDate) {
+            workingDaysDateFrom.value = minDate;
+          } else if (workingDaysDateFrom.value > maxDate) {
+            workingDaysDateFrom.value = maxDate;
+          }
+        }
+
+        if (workingDaysDateTo.value) {
+          if (workingDaysDateTo.value > maxDate) {
+            workingDaysDateTo.value = maxDate;
+          }
+          if (workingDaysDateFrom.value && workingDaysDateTo.value < workingDaysDateFrom.value) {
+            workingDaysDateTo.value = workingDaysDateFrom.value;
+          }
+        }
+      }
+
+      if (workingDaysDateFrom.value) {
+        workingDaysDateTo.min = workingDaysDateFrom.value;
+        if (workingDaysDateTo.value && workingDaysDateTo.value < workingDaysDateFrom.value) {
+          workingDaysDateTo.value = workingDaysDateFrom.value;
+        }
+      }
+    }
+
     // Get date range from selection
     function getWorkingDaysDateRange() {
-      const period = workingDaysPeriod.value;
+      const period = workingDaysPeriod ? workingDaysPeriod.value : "today";
       const today = new Date();
-      
+      today.setHours(0, 0, 0, 0);
+
       if (period === "custom") {
-        return {
-          from: workingDaysDateFrom.value,
-          to: workingDaysDateTo.value
-        };
+        updateWorkingDaysCustomDateLimits();
+        const from = workingDaysDateFrom ? workingDaysDateFrom.value : "";
+        const to = workingDaysDateTo ? workingDaysDateTo.value : "";
+        if (!from || !to || from > to) {
+          return { from: "", to: "" };
+        }
+        return { from, to };
       }
-      
-      const days = parseInt(period);
-      if (isNaN(days)) return { from: "", to: "" };
-      
-      const fromDate = new Date(today);
-      fromDate.setDate(today.getDate() - days + 1);
-      
-      return {
-        from: fromDate.toISOString().split("T")[0],
-        to: today.toISOString().split("T")[0]
-      };
+
+      switch (period) {
+        case "today":
+          return {
+            from: formatDateOnly(today),
+            to: formatDateOnly(today)
+          };
+        case "tomorrow": {
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          return {
+            from: formatDateOnly(tomorrow),
+            to: formatDateOnly(tomorrow)
+          };
+        }
+        case "this_week": {
+          const startOfWeek = new Date(today);
+          const day = startOfWeek.getDay();
+          const diffToMonday = (day + 6) % 7;
+          startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
+          return {
+            from: formatDateOnly(startOfWeek),
+            to: formatDateOnly(today)
+          };
+        }
+        case "this_month": {
+          const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+          return {
+            from: formatDateOnly(startOfMonth),
+            to: formatDateOnly(today)
+          };
+        }
+        default:
+          return {
+            from: formatDateOnly(today),
+            to: formatDateOnly(today)
+          };
+      }
     }
 
     // Show loading state
