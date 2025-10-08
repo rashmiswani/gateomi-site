@@ -246,6 +246,11 @@
       margin-bottom: 12px;
       color: #1f2937;
     }
+    .chart-card__caption {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #64748b;
+    }
     .chart-card canvas {
       width: 100% !important;
       height: 240px !important;
@@ -1615,7 +1620,7 @@
                 <p id="inactive-users-count">0</p>
               </div>
               <div class="stat-card">
-                <h4>Pending Users</h4>
+                <h4>Approval Pending Users</h4>
                 <p id="pending-users-count">0</p>
               </div>
               <div class="stat-card attendance-summary">
@@ -1634,6 +1639,15 @@
               <div class="chart-card">
                 <div class="chart-card__title">Today's Attendance</div>
                 <canvas id="attendance-chart" aria-label="Today's attendance chart" role="img"></canvas>
+              </div>
+              <div class="chart-card">
+                <div class="chart-card__title">Daily Entry Trend</div>
+                <canvas id="daily-entry-chart" aria-label="Daily entry trend chart" role="img"></canvas>
+              </div>
+              <div class="chart-card">
+                <div class="chart-card__title">Top Active Members</div>
+                <canvas id="top-users-chart" aria-label="Top active members chart" role="img"></canvas>
+                <p class="chart-card__caption" id="top-users-chart-caption"></p>
               </div>
             </div>
 
@@ -1672,6 +1686,7 @@
                   <option value="25">25 / page</option>
                   <option value="50">50 / page</option>
                   <option value="100">100 / page</option>
+                  <option value="150">150 / page</option>
                 </select>
                 <button id="working-days-load-btn" type="button">Load Data</button>
                 <button id="working-days-refresh-btn" class="refresh-btn" type="button">Refresh</button>
@@ -2011,6 +2026,9 @@
     const todayAbsentCount = document.getElementById('today-absent-count');
     const usersStatusChartCanvas = document.getElementById('users-status-chart');
     const attendanceChartCanvas = document.getElementById('attendance-chart');
+    const dailyEntryChartCanvas = document.getElementById('daily-entry-chart');
+    const topUsersChartCanvas = document.getElementById('top-users-chart');
+    const topUsersChartCaption = document.getElementById('top-users-chart-caption');
     // const todayTotalActive = document.getElementById('today-total-active');
 
 
@@ -2022,13 +2040,19 @@
     let currentLogsData = null;
     let usersStatusChartInstance = null;
     let attendanceBarChartInstance = null;
+    let dailyEntryChartInstance = null;
+    let topUsersChartInstance = null;
+    let overviewAnalyticsLoaded = false;
+    const OVERVIEW_ANALYTICS_LOOKBACK_DAYS = 14;
     const chartPalette = {
       active: '#34d399',
       inactive: '#94a3b8',
       pending: '#fbbf24',
       present: '#22c55e',
       absent: '#ef4444',
-      fallback: '#d1d5db'
+      fallback: '#d1d5db',
+      primary: '#2a9df4',
+      accent: '#7f5af0'
     };
 
     const yearElement = document.getElementById('year');
@@ -2171,6 +2195,35 @@
       } catch (error) {
         return timestamp;
       }
+    }
+
+    function formatShortDateLabel(dateInput) {
+      if (!dateInput) return '';
+      const dateValue = new Date(dateInput);
+      if (Number.isNaN(dateValue.getTime())) {
+        return dateInput;
+      }
+      return dateValue.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    function formatDateRangeLabel(from, to) {
+      if (!from || !to) return '';
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+        return `${from} – ${to}`;
+      }
+
+      const sameYear = fromDate.getFullYear() === toDate.getFullYear();
+      const startOptions = { month: 'short', day: 'numeric' };
+      const endOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+      if (!sameYear) {
+        startOptions.year = 'numeric';
+      }
+
+      const fromLabel = fromDate.toLocaleDateString(undefined, startOptions);
+      const toLabel = toDate.toLocaleDateString(undefined, endOptions);
+      return `${fromLabel} – ${toLabel}`;
     }
 
     function getRecognitionScoreClass(score) {
@@ -2656,6 +2709,234 @@
         attendanceBarChartInstance.data = chartData;
         attendanceBarChartInstance.options = chartOptions;
         attendanceBarChartInstance.update();
+      }
+    }
+
+    async function loadOverviewAnalytics({ force = false } = {}) {
+      if (!currentToken) {
+        return;
+      }
+
+      if (overviewAnalyticsLoaded && !force) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${backend_url}/admin/authorized-summary?days=${OVERVIEW_ANALYTICS_LOOKBACK_DAYS}`, {
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          handleLogout(true);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`Analytics API error: ${response.status}`);
+        }
+
+        const analyticsData = await response.json();
+        overviewAnalyticsLoaded = true;
+        updateDailyEntryTrendChart(analyticsData);
+        updateTopUsersChart(analyticsData);
+      } catch (error) {
+        console.error('Error loading overview analytics:', error);
+        updateDailyEntryTrendChart(null);
+        updateTopUsersChart(null);
+        if (topUsersChartCaption) {
+          topUsersChartCaption.textContent = 'Analytics unavailable right now.';
+        }
+      }
+    }
+
+    function updateDailyEntryTrendChart(analyticsData) {
+      if (!dailyEntryChartCanvas || typeof Chart === 'undefined') {
+        return;
+      }
+
+      const dailySummaries = Array.isArray(analyticsData?.daily) ? [...analyticsData.daily] : [];
+      dailySummaries.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      const labels = dailySummaries.map(day => formatShortDateLabel(day.date));
+      const dataPoints = dailySummaries.map(day =>
+        (day.records || []).reduce((sum, record) => sum + (Number(record.entry_count) || 0), 0)
+      );
+
+      if (!labels.length) {
+        labels.push('No data');
+        dataPoints.push(0);
+      }
+
+      const maxValue = Math.max(...dataPoints, 1);
+
+      const chartData = {
+        labels,
+        datasets: [
+          {
+            label: 'Entries',
+            data: dataPoints,
+            fill: true,
+            backgroundColor: 'rgba(42, 157, 244, 0.18)',
+            borderColor: chartPalette.primary,
+            pointBackgroundColor: chartPalette.primary,
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            tension: 0.35,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          },
+        ],
+      };
+
+      const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            grid: {
+              display: false,
+            },
+            ticks: {
+              maxRotation: 0,
+              autoSkip: true,
+              autoSkipPadding: 10,
+            },
+          },
+          y: {
+            beginAtZero: true,
+            suggestedMax: maxValue + Math.ceil(maxValue * 0.15),
+            grid: {
+              color: '#e2e8f0',
+            },
+            ticks: {
+              precision: 0,
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            callbacks: {
+              title: (items) => items[0]?.label || '',
+              label: (context) => `Entries: ${context.parsed.y ?? context.parsed}`,
+            },
+          },
+        },
+      };
+
+      if (!dailyEntryChartInstance) {
+        dailyEntryChartInstance = new Chart(dailyEntryChartCanvas, {
+          type: 'line',
+          data: chartData,
+          options: chartOptions,
+        });
+      } else {
+        dailyEntryChartInstance.data = chartData;
+        dailyEntryChartInstance.options = chartOptions;
+        dailyEntryChartInstance.update();
+      }
+    }
+
+    function updateTopUsersChart(analyticsData) {
+      if (!topUsersChartCanvas || typeof Chart === 'undefined') {
+        return;
+      }
+
+      const entryTotals = new Map();
+      const dailySummaries = Array.isArray(analyticsData?.daily) ? analyticsData.daily : [];
+
+      dailySummaries.forEach(day => {
+        (day.records || []).forEach(record => {
+          const name = (record.person_name || 'Unknown').trim() || 'Unknown';
+          const entries = Number(record.entry_count) || 0;
+          if (entries > 0) {
+            entryTotals.set(name, (entryTotals.get(name) || 0) + entries);
+          }
+        });
+      });
+
+      const sortedEntries = Array.from(entryTotals.entries()).sort((a, b) => b[1] - a[1]);
+      const topEntries = sortedEntries.slice(0, 5);
+
+      let labels = topEntries.map(([name]) => name);
+      let values = topEntries.map(([, count]) => count);
+
+      if (!labels.length) {
+        labels = ['No data'];
+        values = [0];
+      }
+
+      const chartData = {
+        labels,
+        datasets: [
+          {
+            label: 'Entries',
+            data: values,
+            backgroundColor: chartPalette.accent,
+            borderRadius: 12,
+            borderSkipped: false,
+            maxBarThickness: 32,
+          },
+        ],
+      };
+
+      const chartOptions = {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            beginAtZero: true,
+            grid: {
+              color: '#e2e8f0',
+            },
+            ticks: {
+              precision: 0,
+            },
+          },
+          y: {
+            grid: {
+              display: false,
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.label}: ${context.parsed.x ?? context.parsed}`,
+            },
+          },
+        },
+      };
+
+      if (!topUsersChartInstance) {
+        topUsersChartInstance = new Chart(topUsersChartCanvas, {
+          type: 'bar',
+          data: chartData,
+          options: chartOptions,
+        });
+      } else {
+        topUsersChartInstance.data = chartData;
+        topUsersChartInstance.options = chartOptions;
+        topUsersChartInstance.update();
+      }
+
+      if (topUsersChartCaption) {
+        if (sortedEntries.length === 0) {
+          topUsersChartCaption.textContent = 'No recent activity captured.';
+        } else {
+          const windowLabel = formatDateRangeLabel(analyticsData?.date_range?.from, analyticsData?.date_range?.to)
+            || `last ${OVERVIEW_ANALYTICS_LOOKBACK_DAYS} days`;
+          topUsersChartCaption.textContent = `Top ${topEntries.length} members by entries (${windowLabel})`;
+        }
       }
     }
 
@@ -3413,6 +3694,7 @@
         case 'overview-section':
           initializeWorkingDaysSection();
           loadUserStatistics();
+          loadOverviewAnalytics();
           break;
         case 'users-section':
           initializeUsersSection();
@@ -4060,6 +4342,7 @@
     setupUserManagementEventListeners();
     initializeWorkingDaysSection();
     loadUserStatistics(); // Load user stats on page load since overview is active by default
+    loadOverviewAnalytics();
   </script>
 </body>
 </html>
