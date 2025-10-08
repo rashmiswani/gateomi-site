@@ -2226,6 +2226,26 @@
       return `${fromLabel} – ${toLabel}`;
     }
 
+    function formatDateTimeIST(value) {
+      if (!value) {
+        return '-';
+      }
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return '-';
+      }
+
+      return date.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    }
+
     function getRecognitionScoreClass(score) {
       if (!score) return "";
       if (score >= 0.8) return "high";
@@ -3125,6 +3145,9 @@
         currentAttendanceData = data;
         currentAttendanceTotalCount = data.pagination.total_count;
         currentAttendanceTotalPages = data.pagination.total_pages;
+        if (data.pagination && typeof data.pagination.page === 'number') {
+          currentAttendancePage = data.pagination.page;
+        }
         
         renderAttendanceTable();
         updateAttendanceStats();
@@ -4299,8 +4322,8 @@
               <strong style="font-size: 18px; color: #2a9df4;">${user.working_days || 0}</strong>
             </td>
             <td>${user.total_entries || 0}</td>
-            <td>${user.first_access ? new Date(user.first_access).toLocaleDateString() : "-"}</td>
-            <td>${user.last_access ? new Date(user.last_access).toLocaleDateString() : "-"}</td>
+            <td>${formatDateTimeIST(user.first_access)}</td>
+            <td>${formatDateTimeIST(user.last_access)}</td>
           </tr>
         `;
       }).join("");
