@@ -475,28 +475,38 @@
     }
     .modal-dialog {
       position: relative;
-      width: min(90vw, 860px);
+      width: min(92vw, 880px);
       max-height: 90vh;
       overflow-y: auto;
       background: #ffffff;
-      border-radius: 16px;
+      border-radius: 18px;
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
-      padding: 30px;
+      padding: 32px;
       z-index: 1;
     }
     .modal-close {
       position: absolute;
-      top: 16px;
-      right: 16px;
-      background: #0f172a;
-      color: white;
-      border: none;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      font-size: 18px;
-      line-height: 32px;
+      top: 18px;
+      right: 18px;
+      background: rgba(15, 23, 42, 0.08);
+      color: #0f172a;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      font-size: 20px;
+      line-height: 1;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.18s ease, transform 0.18s ease;
+    }
+    .modal-close:hover,
+    .modal-close:focus-visible {
+      background: rgba(15, 23, 42, 0.16);
+      transform: scale(1.05);
+      outline: none;
     }
     .modal-loading,
     .modal-error {
@@ -519,6 +529,231 @@
       flex-direction: column;
       gap: 24px;
     }
+    .user-form-dialog {
+      width: min(92vw, 640px);
+      max-height: 90vh;
+      padding: 36px 36px 30px;
+      border-radius: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .user-form-dialog h3 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .user-form-society {
+      font-size: 13px;
+      color: #475569;
+      margin-top: 2px;
+      letter-spacing: 0.01em;
+    }
+    .user-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px 20px;
+      margin-top: 6px;
+    }
+    .user-form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .user-form-field label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .user-form-field input,
+    .user-form-field select {
+      width: 100%;
+      border: 1px solid #d0d5dd;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: #ffffff;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      min-height: 44px;
+      height: 44px;
+      line-height: 24px;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2357636B' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+    .user-form-field input:focus,
+    .user-form-field select:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+    }
+    .user-form-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: #1f2937;
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      font-weight: 600;
+      margin-top: 12px;
+    }
+    .user-form-toggle input[type="checkbox"] {
+      width: auto;
+      height: auto;
+      margin: 0;
+    }
+    .user-form-expire-row.hidden {
+      display: none !important;
+    }
+    .user-form-upload {
+      border: 1px dashed rgba(37, 99, 235, 0.35);
+      background: rgba(59, 130, 246, 0.08);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+      color: #475569;
+      margin-top: 18px;
+    }
+    .user-form-upload input[type="file"] {
+      border: none;
+      padding: 0;
+    }
+    .user-form-note {
+      margin: 0;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .user-form-existing {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 18px;
+      background: #f8fafc;
+      margin-top: 18px;
+    }
+    .user-form-existing.hidden {
+      display: none;
+    }
+    .user-form-existing-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: #475569;
+      font-weight: 600;
+    }
+    .user-form-existing-header span {
+      font-weight: 500;
+      color: #1d4ed8;
+    }
+    .user-form-existing-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .user-form-existing-card {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: #f1f5f9;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+    }
+    .user-form-existing-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .user-form-existing-card.removed {
+      border-color: #f87171;
+    }
+    .user-form-existing-card.removed img {
+      filter: grayscale(1);
+      opacity: 0.4;
+    }
+    .user-form-existing-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .user-form-existing-toggle {
+      position: absolute;
+      left: 6px;
+      top: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      background: rgba(15, 23, 42, 0.82);
+      color: #ffffff;
+    }
+    .user-form-existing-card.removed .user-form-existing-toggle {
+      background: #dc2626;
+    }
+    .user-form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 6px;
+      padding-top: 18px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .user-form-actions button.secondary {
+      background: #6b7280;
+    }
+    .user-form-submit {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .user-form-submit .spinner {
+      width: 18px;
+      height: 18px;
+      border-width: 2px;
+    }
+    @media (max-width: 640px) {
+      .user-form-dialog {
+        padding: 28px 22px 24px;
+      }
+      .user-form-grid {
+        grid-template-columns: 1fr;
+      }
+      .user-form-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+      }
+      .user-form-actions button {
+        width: 100%;
+      }
+    }
     .user-detail-header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -538,10 +773,28 @@
       font-size: 14px;
       color: #475569;
     }
+    #user-detail-dialog {
+      width: min(92vw, 720px);
+    }
     .user-detail-gallery {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 12px;
+    }
+    .user-detail-gallery.empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: #f8fafc;
+      border: 1px dashed #d8dee9;
+      border-radius: 14px;
+    }
+    .user-detail-gallery-placeholder {
+      font-size: 14px;
+      color: #64748b;
+      text-align: center;
+      width: 100%;
     }
     .user-detail-gallery img {
       width: 100%;
@@ -1551,6 +1804,205 @@
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
+    /* Visitor pass management */
+    .visitor-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 1024px) {
+      .visitor-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .visitor-form-card,
+    .visitor-table-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(148, 163, 184, 0.12);
+    }
+    .visitor-form .form-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .visitor-form .form-field {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 16px;
+      min-width: 180px;
+    }
+    .visitor-form label {
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 6px;
+    }
+    .visitor-form input,
+    .visitor-form select,
+    .visitor-form textarea {
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      color: #1f2937;
+      background: #ffffff;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    .visitor-form input:focus,
+    .visitor-form select:focus,
+    .visitor-form textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+    }
+    .visitor-form textarea {
+      resize: vertical;
+    }
+    .checkbox-field {
+      flex-direction: row !important;
+      align-items: center;
+      gap: 8px;
+    }
+    .checkbox-field input {
+      width: auto;
+      accent-color: #3b82f6;
+    }
+    .hint-text {
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .visitor-form .form-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .visitor-form .form-actions button {
+      flex: 1;
+    }
+    .visitor-pass-preview {
+      margin-top: 24px;
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px dashed #93c5fd;
+      background: #eff6ff;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .preview-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      text-align: center;
+    }
+    .preview-code {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+    }
+    .code-label {
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .code-value {
+      font-family: 'Inter', monospace;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #1f2937;
+    }
+    .preview-content img {
+      width: 200px;
+      height: 200px;
+      object-fit: contain;
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1px solid #dbeafe;
+      padding: 12px;
+    }
+    .preview-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .preview-meta {
+      font-size: 13px;
+      color: #1f2937;
+    }
+    .link-button {
+      background: none;
+      border: none;
+      color: #2563eb;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+    }
+    .link-button:hover {
+      text-decoration: underline;
+    }
+    .visitor-table-card .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      gap: 12px;
+    }
+    .visitor-table-card .table-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .visitor-table-card select {
+      border-radius: 8px;
+      padding: 8px 12px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+    }
+    .visitor-action-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .visitor-action-buttons .danger {
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid rgba(248, 113, 113, 0.5);
+    }
+    .visitor-action-buttons .danger:hover {
+      background: #fecaca;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .badge.active {
+      background: rgba(34, 197, 94, 0.16);
+      color: #166534;
+    }
+    .badge.expired {
+      background: rgba(248, 113, 113, 0.16);
+      color: #991b1b;
+    }
+    .badge.used,
+    .badge.revoked {
+      background: rgba(249, 115, 22, 0.16);
+      color: #92400e;
+    }
 </style>
 </head>
 <body>
@@ -1592,7 +2044,7 @@
           <button class="nav-link" data-section="user-attendance-section">User Attendance</button>
           <button class="nav-link" data-section="access-logs-section">Access Logs</button>
           
-          <button class="nav-link" data-section="visitors-section">Visitors (Comming soon)</button>
+          <button class="nav-link" data-section="visitors-section">Visitor Passes</button>
           
           
           
@@ -1795,6 +2247,152 @@
               </div>
             </div>
           </section>
+          <section id="visitors-section" class="portal-section">
+            <div class="section-heading">
+              <h3>Visitor Passes</h3>
+              <p class="small-label">Generate QR codes and access codes for visitors and track their status.</p>
+            </div>
+            <div class="visitor-grid">
+              <div class="visitor-form-card">
+                <form id="visitor-pass-form" class="visitor-form">
+                  <div class="form-row">
+                    <div class="form-field">
+                      <label for="visitor-name-input">Visitor Name</label>
+                      <input type="text" id="visitor-name-input" required placeholder="Full name" />
+                    </div>
+                    <div class="form-field">
+                      <label for="visitor-contact-input">Contact Number</label>
+                      <input type="tel" id="visitor-contact-input" placeholder="Optional" />
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-field">
+                      <label for="visitor-purpose-input">Purpose</label>
+                      <input type="text" id="visitor-purpose-input" placeholder="e.g. Delivery, Guest" />
+                    </div>
+                    <div class="form-field">
+                      <label for="visitor-host-input">Host Name</label>
+                      <input type="text" id="visitor-host-input" placeholder="Resident or company name" />
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-field">
+                      <label for="visitor-tower-input">Tower / Building</label>
+                      <input type="text" id="visitor-tower-input" placeholder="Optional" />
+                    </div>
+                    <div class="form-field">
+                      <label for="visitor-flat-input">Flat / Unit</label>
+                      <input type="text" id="visitor-flat-input" placeholder="Optional" />
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-field">
+                      <label for="visitor-validity-select">Validity</label>
+                      <select id="visitor-validity-select">
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="240">4 hours</option>
+                        <option value="720">12 hours</option>
+                        <option value="1440">1 day</option>
+                        <option value="4320">3 days</option>
+                        <option value="10080">7 days</option>
+                        <option value="43200">30 days</option>
+                        <option value="custom">Custom range</option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label for="visitor-max-uses-input">Max Entries</label>
+                      <input type="number" id="visitor-max-uses-input" min="1" placeholder="1" />
+                    </div>
+                  </div>
+                  <div id="visitor-custom-range" class="form-row hidden">
+                    <div class="form-field">
+                      <label for="visitor-custom-start">Valid From</label>
+                      <input type="datetime-local" id="visitor-custom-start" />
+                    </div>
+                    <div class="form-field">
+                      <label for="visitor-custom-end">Valid Until</label>
+                      <input type="datetime-local" id="visitor-custom-end" />
+                    </div>
+                  </div>
+                  <div class="form-field checkbox-field">
+                    <label>
+                      <input type="checkbox" id="visitor-allow-multiple" />
+                      Allow multiple entries
+                    </label>
+                    <span class="hint-text">If unchecked, the pass expires after the first successful scan.</span>
+                  </div>
+                  <div class="form-field">
+                    <label for="visitor-notes-input">Notes for security</label>
+                    <textarea id="visitor-notes-input" rows="3" placeholder="Optional instructions for guards"></textarea>
+                  </div>
+                  <div id="visitor-form-feedback" class="feedback hidden"></div>
+                  <div class="form-actions">
+                    <button type="submit">Generate Visitor Pass</button>
+                    <button type="button" id="visitor-reset-form" class="secondary">Clear</button>
+                  </div>
+                </form>
+                <div id="visitor-pass-preview" class="visitor-pass-preview hidden">
+                  <div class="preview-header">
+                    <h4>Visitor Pass Ready</h4>
+                    <button type="button" id="visitor-close-preview" class="link-button">Hide</button>
+                  </div>
+                  <div class="preview-content">
+                    <div class="preview-code">
+                      <span class="code-label">Code:</span>
+                      <span id="visitor-pass-code" class="code-value"></span>
+                      <button type="button" id="visitor-copy-code" class="link-button">Copy</button>
+                    </div>
+                    <img id="visitor-pass-qr" alt="Visitor QR code" />
+                    <div class="preview-actions">
+                      <button type="button" id="visitor-download-qr">Download QR</button>
+                      <button type="button" id="visitor-refresh-pass" class="secondary">Refresh List</button>
+                    </div>
+                    <p id="visitor-preview-meta" class="preview-meta"></p>
+                  </div>
+                </div>
+              </div>
+              <div class="visitor-table-card">
+                <div class="table-header">
+                  <div>
+                    <h4>Existing Passes</h4>
+                    <p class="small-label">Codes expire automatically at the selected time.</p>
+                  </div>
+                  <div class="table-actions">
+                    <select id="visitor-status-filter">
+                      <option value="">All statuses</option>
+                      <option value="active">Active</option>
+                      <option value="used">Used</option>
+                      <option value="expired">Expired</option>
+                      <option value="revoked">Revoked</option>
+                    </select>
+                    <button type="button" id="refresh-visitor-passes" class="secondary">Refresh</button>
+                  </div>
+                </div>
+                <div class="table-wrapper">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Visitor</th>
+                        <th>Code</th>
+                        <th>Status</th>
+                        <th>Valid Until</th>
+                        <th>Entries</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="visitor-pass-table-body">
+                      <tr>
+                        <td colspan="6" style="text-align: center; padding: 32px; color: #6b7280;">
+                          No passes yet. Generate one to get started.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
           <section id="users-section" class="portal-section">
           
             <div class="section-heading">
@@ -1833,6 +2431,7 @@
                 <button id="users-apply-filters" type="button">Apply Filters</button>
                 <button id="users-clear-filters" class="secondary" type="button">Clear</button>
                 <button id="users-refresh" class="refresh-btn" type="button">Refresh</button>
+                <button id="users-add" type="button">Add User</button>
               </div>
             </div>
 
@@ -1973,13 +2572,114 @@
   <footer>
     © <span id="year"></span> Gateomi. All rights reserved.
   </footer>
-</body>
-</html>
+  <div id="user-form-overlay" class="modal hidden">
+    <div class="modal-backdrop" data-close-user-form="true"></div>
+    <div class="modal-dialog user-form-dialog">
+      <button class="modal-close" type="button" data-close-user-form="true" aria-label="Close user form">&times;</button>
+      <form id="user-form" novalidate>
+        <div>
+          <h3 id="user-form-title">Register New User</h3>
+          <p class="user-form-society" id="user-form-society"></p>
+        </div>
+        <div id="user-form-error" class="modal-error hidden"></div>
+        <div class="user-form-grid">
+          <div class="user-form-field">
+            <label for="user-form-name">Full Name</label>
+            <input type="text" id="user-form-name" name="name" placeholder="e.g. Riya Sharma" required />
+          </div>
+          <div class="user-form-field">
+            <label for="user-form-mobile">Mobile Number</label>
+            <input type="tel" id="user-form-mobile" name="mobile_number" placeholder="10-digit mobile" required />
+          </div>
+          <div class="user-form-field">
+            <label for="user-form-type">User Type</label>
+            <select id="user-form-type" name="user_type" required>
+              <option value="">Select type</option>
+              <option value="resident">Resident</option>
+              <option value="maintenance staff">Maintenance Staff</option>
+              <option value="housekeeping staff">Housekeeping Staff</option>
+              <option value="security">Security</option>
+              <option value="labor">Labor</option>
+              <option value="maid">Maid</option>
+              <option value="mali">Mali</option>
+            </select>
+          </div>
+          <div class="user-form-field">
+            <label for="user-form-tower">Tower</label>
+            <input type="text" id="user-form-tower" name="tower_name" placeholder="Optional unless resident" />
+          </div>
+          <div class="user-form-field">
+            <label for="user-form-flat">Flat Number</label>
+            <input type="text" id="user-form-flat" name="flat_number" placeholder="Required for residents" />
+          </div>
+        </div>
+        <div class="user-form-field">
+          <label class="user-form-toggle">
+            <input type="checkbox" id="user-form-forever" name="forever_access" />
+            Grant forever access (no expiry)
+          </label>
+        </div>
+        <div class="user-form-field user-form-expire-row" id="user-form-expire-row">
+          <label for="user-form-expire">Access expiry date</label>
+          <input type="date" id="user-form-expire" name="expire_at" />
+        </div>
+        <div class="user-form-existing hidden" id="user-form-existing">
+          <div class="user-form-existing-header">
+            <strong>Existing Images</strong>
+            <span id="user-form-existing-count"></span>
+          </div>
+          <div class="user-form-existing-grid" id="user-form-existing-grid"></div>
+          <p class="user-form-note">Select images to remove before saving.</p>
+        </div>
+        <div class="user-form-upload" id="user-form-images-row">
+          <div><strong>Face Images</strong></div>
+          <p class="user-form-note">Upload up to 6 clear face photos (use high quality images for best accuracy).</p>
+          <input type="file" id="user-form-images" accept="image/*" multiple />
+        </div>
+        <div class="user-form-actions">
+          <button type="button" class="secondary" id="user-form-cancel">Cancel</button>
+          <button type="submit" id="user-form-submit" class="user-form-submit">
+            <span class="spinner hidden" id="user-form-submit-spinner"></span>
+            <span id="user-form-submit-text">Register User</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
+  <div id="user-detail-overlay" class="modal hidden">
+    <div class="modal-backdrop" data-close-detail="true"></div>
+    <div class="modal-dialog" id="user-detail-dialog">
+      <button class="modal-close" id="user-detail-close" aria-label="Close user detail">&times;</button>
+      <div id="user-detail-loading" class="modal-loading">Loading user details…</div>
+      <div id="user-detail-error" class="modal-error hidden"></div>
+      <div id="user-detail-content" class="modal-content hidden">
+        <div class="user-detail-header" id="user-detail-info"></div>
+        <div class="user-detail-gallery" id="user-detail-gallery"></div>
+        <div class="user-detail-logs">
+          <h4>Daily Access Summary</h4>
+          <div class="table-wrapper">
+            <table class="detail-logs-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Total Logs</th>
+                  <th>Entries</th>
+                  <th>Exits</th>
+                  <th>First Entry</th>
+                  <th>Last Exit</th>
+                </tr>
+              </thead>
+              <tbody id="user-detail-logs-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 <script>
     // const backend_url = "http://localhost:8000";
     const backend_url =  "https://gateomi-backend-647776055629.asia-south2.run.app";
-    // const backend_url = "https://gateomi-backend-647776055629.asia-south1.run.app"
 
     const tokenStorageKey = 'gateomiAdminToken';
     const profileStorageKey = 'gateomiAdminProfile';
@@ -2014,6 +2714,46 @@
     const accessLogsPrevButton = document.getElementById('access-logs-prev');
     const accessLogsNextButton = document.getElementById('access-logs-next');
 
+    // User detail modal elements
+    const userDetailOverlay = document.getElementById('user-detail-overlay');
+    const userDetailLoading = document.getElementById('user-detail-loading');
+    const userDetailError = document.getElementById('user-detail-error');
+    const userDetailContent = document.getElementById('user-detail-content');
+    const userDetailInfo = document.getElementById('user-detail-info');
+    const userDetailGallery = document.getElementById('user-detail-gallery');
+    const userDetailLogsBody = document.getElementById('user-detail-logs-body');
+    const userDetailCloseButton = document.getElementById('user-detail-close');
+    const userDetailBackdrop = userDetailOverlay ? userDetailOverlay.querySelector('[data-close-detail="true"]') : null;
+
+    // Visitor pass elements
+    const visitorPassForm = document.getElementById('visitor-pass-form');
+    const visitorNameInput = document.getElementById('visitor-name-input');
+    const visitorContactInput = document.getElementById('visitor-contact-input');
+    const visitorPurposeInput = document.getElementById('visitor-purpose-input');
+    const visitorHostInput = document.getElementById('visitor-host-input');
+    const visitorTowerInput = document.getElementById('visitor-tower-input');
+    const visitorFlatInput = document.getElementById('visitor-flat-input');
+    const visitorValiditySelect = document.getElementById('visitor-validity-select');
+    const visitorMaxUsesInput = document.getElementById('visitor-max-uses-input');
+    const visitorCustomRange = document.getElementById('visitor-custom-range');
+    const visitorCustomStart = document.getElementById('visitor-custom-start');
+    const visitorCustomEnd = document.getElementById('visitor-custom-end');
+    const visitorAllowMultiple = document.getElementById('visitor-allow-multiple');
+    const visitorNotesInput = document.getElementById('visitor-notes-input');
+    const visitorFormFeedback = document.getElementById('visitor-form-feedback');
+    const visitorResetFormBtn = document.getElementById('visitor-reset-form');
+    const visitorPassPreview = document.getElementById('visitor-pass-preview');
+    const visitorPassCodeEl = document.getElementById('visitor-pass-code');
+    const visitorPassQrEl = document.getElementById('visitor-pass-qr');
+    const visitorCopyCodeBtn = document.getElementById('visitor-copy-code');
+    const visitorDownloadQrBtn = document.getElementById('visitor-download-qr');
+    const visitorClosePreviewBtn = document.getElementById('visitor-close-preview');
+    const visitorRefreshPassBtn = document.getElementById('visitor-refresh-pass');
+    const visitorPreviewMeta = document.getElementById('visitor-preview-meta');
+    const visitorStatusFilter = document.getElementById('visitor-status-filter');
+    const refreshVisitorPassesBtn = document.getElementById('refresh-visitor-passes');
+    const visitorTableBody = document.getElementById('visitor-pass-table-body');
+
     let currentToken = null;
     // User Statistics elements
     const userStatsGrid = document.getElementById('user-stats-grid');
@@ -2038,22 +2778,26 @@
     let currentLogsPage = 1;
     let currentLogsPageSize = 50;
     let currentLogsData = null;
+    let visitorPasses = [];
+    let isSubmittingVisitor = false;
+    let currentVisitorPreview = null;
     let usersStatusChartInstance = null;
     let attendanceBarChartInstance = null;
     let dailyEntryChartInstance = null;
-    let topUsersChartInstance = null;
-    let overviewAnalyticsLoaded = false;
-    const OVERVIEW_ANALYTICS_LOOKBACK_DAYS = 14;
-    const chartPalette = {
-      active: '#34d399',
+let topUsersChartInstance = null;
+let overviewAnalyticsLoaded = false;
+const OVERVIEW_ANALYTICS_LOOKBACK_DAYS = 14;
+const chartPalette = {
+  active: '#34d399',
       inactive: '#94a3b8',
       pending: '#fbbf24',
       present: '#22c55e',
       absent: '#ef4444',
       fallback: '#d1d5db',
-      primary: '#2a9df4',
-      accent: '#7f5af0'
-    };
+  primary: '#2a9df4',
+  accent: '#7f5af0'
+};
+const MAX_USER_IMAGES = 6;
 
     const yearElement = document.getElementById('year');
     if (yearElement) {
@@ -2170,6 +2914,10 @@
         currentToken = storedToken;
         currentProfile = JSON.parse(storedProfile);
         societySubtitle.textContent = `${currentProfile.society}, ${currentProfile.city}, ${currentProfile.state}`;
+        const adminDisplayName = currentProfile.name || currentProfile.full_name || '';
+        if (visitorHostInput && adminDisplayName) {
+          visitorHostInput.value = adminDisplayName;
+        }
         updateHeaderForLoggedInUser();
       } catch (error) {
         localStorage.removeItem(tokenStorageKey);
@@ -2464,6 +3212,495 @@
       customDateRange.classList.add("hidden");
       currentLogsPage = 1;
       loadAccessLogs();
+    }
+
+    // Visitor passes functionality
+    function formatVisitorDate(value) {
+      return formatDateTimeIST(value);
+    }
+
+    function formatVisitorEntries(pass) {
+      const used = typeof pass.use_count === "number" ? pass.use_count : 0;
+      if (pass.max_uses === undefined || pass.max_uses === null) {
+        return `${used} / unlimited`;
+      }
+      return `${used} / ${pass.max_uses}`;
+    }
+
+    function normalizeVisitorStatus(pass) {
+      const status = (pass.status || "").toLowerCase();
+      if (status !== "active") {
+        return status;
+      }
+      if (pass.valid_until) {
+        const expiresAt = new Date(pass.valid_until);
+        if (!Number.isNaN(expiresAt.getTime()) && expiresAt < new Date()) {
+          return "expired";
+        }
+      }
+      return "active";
+    }
+
+    function showVisitorFeedback(message, type = "info") {
+      if (visitorFormFeedback) {
+        showFeedback(visitorFormFeedback, message, type);
+      } else {
+        showFeedback(dashboardFeedback, message, type);
+      }
+    }
+
+    function resetVisitorForm() {
+      if (visitorPassForm) {
+        visitorPassForm.reset();
+      }
+      if (visitorValiditySelect) {
+        visitorValiditySelect.value = "60";
+      }
+      if (visitorCustomRange) {
+        visitorCustomRange.classList.add("hidden");
+      }
+      if (visitorAllowMultiple) {
+        visitorAllowMultiple.checked = false;
+      }
+      if (visitorMaxUsesInput) {
+        visitorMaxUsesInput.value = "";
+        visitorMaxUsesInput.disabled = true;
+      }
+      if (visitorHostInput && currentProfile) {
+        const adminDisplayName = currentProfile.name || currentProfile.full_name || '';
+        if (adminDisplayName) {
+          visitorHostInput.value = adminDisplayName;
+        }
+      }
+    }
+
+    function hideVisitorPreview() {
+      currentVisitorPreview = null;
+      if (visitorPassPreview) {
+        visitorPassPreview.classList.add("hidden");
+      }
+    }
+
+    function updateVisitorPreview(pass) {
+      if (!visitorPassPreview) {
+        return;
+      }
+      currentVisitorPreview = pass;
+      if (visitorPassCodeEl) {
+        visitorPassCodeEl.textContent = pass.code || "—";
+      }
+      if (visitorPassQrEl) {
+        if (pass.qr_code_data_url) {
+          visitorPassQrEl.src = pass.qr_code_data_url;
+          visitorPassQrEl.alt = `Visitor pass QR for ${pass.visitor_name || "visitor"}`;
+          visitorPassQrEl.classList.remove("hidden");
+        } else {
+          visitorPassQrEl.removeAttribute("src");
+          visitorPassQrEl.classList.add("hidden");
+        }
+      }
+      if (visitorPreviewMeta) {
+        const parts = [];
+        if (pass.valid_until) {
+          parts.push(`Valid until ${formatVisitorDate(pass.valid_until)}`);
+        }
+        if (pass.allow_multiple_entries) {
+          parts.push(
+            pass.max_uses ? `Multiple entries (${pass.max_uses} max)` : "Multiple entries enabled"
+          );
+        } else {
+          parts.push("Single entry only");
+        }
+        visitorPreviewMeta.textContent = parts.join(" • ");
+      }
+      visitorPassPreview.classList.remove("hidden");
+    }
+
+    async function loadVisitorPasses(status = "") {
+      if (!visitorTableBody || !currentToken) {
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams({ limit: "100" });
+        if (status) {
+          params.append("status_filter", status);
+        }
+
+        visitorTableBody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align:center; padding: 32px; color: #475569;">
+              Loading visitor passes...
+            </td>
+          </tr>
+        `;
+
+        const response = await fetch(`${backend_url}/admin/visitor-passes?${params.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load visitor passes (${response.status})`);
+        }
+
+        const data = await response.json();
+        visitorPasses = Array.isArray(data.passes) ? data.passes : [];
+        renderVisitorPassTable(visitorPasses);
+      } catch (error) {
+        console.error("Visitor pass load error:", error);
+        visitorTableBody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align:center; padding: 32px; color: #dc2626;">
+              ${error.message || "Unable to load visitor passes"}
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    function renderVisitorPassTable(passes) {
+      if (!visitorTableBody) {
+        return;
+      }
+
+      if (!passes.length) {
+        visitorTableBody.innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align:center; padding: 32px; color: #6b7280;">
+              No visitor passes found for this filter.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      visitorTableBody.innerHTML = passes
+        .map((pass) => {
+          const statusClass = normalizeVisitorStatus(pass);
+          return `
+            <tr data-pass-id="${pass.id}">
+              <td>
+                <div class="person-cell">
+                  <div class="person-name">${pass.visitor_name || "Visitor"}</div>
+                  <div class="person-meta">${pass.purpose || ""}</div>
+                </div>
+              </td>
+              <td>
+                <code>${pass.code || "-"}</code>
+              </td>
+              <td>
+                <span class="badge ${statusClass}">${statusClass}</span>
+              </td>
+              <td>${formatVisitorDate(pass.valid_until)}</td>
+              <td>${formatVisitorEntries(pass)}</td>
+              <td>
+                <div class="visitor-action-buttons">
+                  <button type="button" class="secondary" data-action="view" data-pass-id="${pass.id}">View</button>
+                  <button type="button" class="secondary" data-action="copy" data-pass-code="${pass.code || ""}">Copy</button>
+                  ${
+                    statusClass === "active"
+                      ? `<button type="button" class="secondary danger" data-action="revoke" data-pass-id="${pass.id}">Revoke</button>`
+                      : ""
+                  }
+                </div>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+    }
+
+    async function viewVisitorPass(passId) {
+      if (!passId || !currentToken) {
+        return;
+      }
+      try {
+        const response = await fetch(`${backend_url}/admin/visitor-passes/${passId}`, {
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch visitor pass details");
+        }
+
+        const data = await response.json();
+        updateVisitorPreview(data);
+      } catch (error) {
+        console.error("View visitor pass error:", error);
+        showVisitorFeedback(error.message || "Unable to load visitor pass details", "error");
+      }
+    }
+
+    async function revokeVisitorPass(passId) {
+      if (!passId || !currentToken) {
+        return;
+      }
+      const confirmed = window.confirm("Revoke this visitor pass? This action cannot be undone.");
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${backend_url}/admin/visitor-passes/${passId}/revoke`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.detail || "Failed to revoke visitor pass");
+        }
+
+        showVisitorFeedback("Visitor pass revoked successfully", "success");
+        await loadVisitorPasses(visitorStatusFilter ? visitorStatusFilter.value : "");
+      } catch (error) {
+        console.error("Revoke visitor pass error:", error);
+        showVisitorFeedback(error.message || "Failed to revoke visitor pass", "error");
+      }
+    }
+
+    function handleVisitorTableClick(event) {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      const action = target.dataset.action;
+      if (!action) {
+        return;
+      }
+
+      if (action === "view") {
+        const passId = target.dataset.passId;
+        viewVisitorPass(passId);
+      } else if (action === "copy") {
+        const code = target.dataset.passCode || (currentVisitorPreview ? currentVisitorPreview.code : "");
+        if (code) {
+          navigator.clipboard
+            .writeText(code)
+            .then(() => showVisitorFeedback("Visitor code copied to clipboard", "success"))
+            .catch(() => showVisitorFeedback("Unable to copy code", "error"));
+        }
+      } else if (action === "revoke") {
+        const passId = target.dataset.passId;
+        revokeVisitorPass(passId);
+      }
+    }
+
+    function handleVisitorValidityChange(event) {
+      if (!visitorCustomRange) {
+        return;
+      }
+      if (event.target.value === "custom") {
+        visitorCustomRange.classList.remove("hidden");
+      } else {
+        visitorCustomRange.classList.add("hidden");
+      }
+    }
+
+    function handleVisitorAllowMultipleChange() {
+      if (!visitorMaxUsesInput) {
+        return;
+      }
+      if (visitorAllowMultiple && visitorAllowMultiple.checked) {
+        visitorMaxUsesInput.disabled = false;
+      } else {
+        visitorMaxUsesInput.value = "";
+        visitorMaxUsesInput.disabled = true;
+      }
+    }
+
+    async function handleVisitorFormSubmit(event) {
+      event.preventDefault();
+      if (isSubmittingVisitor) {
+        return;
+      }
+      if (!visitorPassForm) {
+        return;
+      }
+      if (!currentToken) {
+        showVisitorFeedback("You must be logged in to create visitor passes", "error");
+        return;
+      }
+
+      const visitorName = visitorNameInput ? visitorNameInput.value.trim() : "";
+      if (!visitorName) {
+        showVisitorFeedback("Visitor name is required", "error");
+        if (visitorNameInput) {
+          visitorNameInput.focus();
+        }
+        return;
+      }
+
+      const payload = {
+        visitor_name: visitorName,
+        visitor_contact: visitorContactInput && visitorContactInput.value.trim() ? visitorContactInput.value.trim() : null,
+        purpose: visitorPurposeInput && visitorPurposeInput.value.trim() ? visitorPurposeInput.value.trim() : null,
+        host_name: visitorHostInput && visitorHostInput.value.trim() ? visitorHostInput.value.trim() : null,
+        tower_name: visitorTowerInput && visitorTowerInput.value.trim() ? visitorTowerInput.value.trim() : null,
+        flat_number: visitorFlatInput && visitorFlatInput.value.trim() ? visitorFlatInput.value.trim() : null,
+        notes: visitorNotesInput && visitorNotesInput.value.trim() ? visitorNotesInput.value.trim() : null,
+        allow_multiple_entries: visitorAllowMultiple ? visitorAllowMultiple.checked : false,
+      };
+
+      const validityChoice = visitorValiditySelect ? visitorValiditySelect.value : "60";
+      const now = new Date();
+
+      if (validityChoice === "custom") {
+        const startValue = visitorCustomStart ? visitorCustomStart.value : "";
+        const endValue = visitorCustomEnd ? visitorCustomEnd.value : "";
+
+        if (!startValue || !endValue) {
+          showVisitorFeedback("Select both start and end time for custom validity", "error");
+          return;
+        }
+
+        const startDate = new Date(startValue);
+        const endDate = new Date(endValue);
+
+        if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+          showVisitorFeedback("Invalid custom date range", "error");
+          return;
+        }
+
+        if (endDate <= startDate) {
+          showVisitorFeedback("Valid until must be after the start time", "error");
+          return;
+        }
+
+        const diffMinutes = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+        if (diffMinutes > 43200) {
+          showVisitorFeedback("Custom duration cannot exceed 30 days", "error");
+          return;
+        }
+
+        if (endDate <= now) {
+          showVisitorFeedback("Valid until must be in the future", "error");
+          return;
+        }
+
+        payload.valid_from = startDate.toISOString();
+        payload.valid_until = endDate.toISOString();
+      } else {
+        const durationMinutes = parseInt(validityChoice || "0", 10);
+        if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+          showVisitorFeedback("Choose a valid duration", "error");
+          return;
+        }
+        payload.valid_for_minutes = durationMinutes;
+      }
+
+      if (payload.allow_multiple_entries) {
+        const maxUsesValue = visitorMaxUsesInput ? parseInt(visitorMaxUsesInput.value || "0", 10) : 0;
+        payload.max_uses = Number.isFinite(maxUsesValue) && maxUsesValue > 0 ? maxUsesValue : null;
+      } else {
+        payload.max_uses = 1;
+      }
+
+      showVisitorFeedback("Generating visitor pass...", "info");
+      isSubmittingVisitor = true;
+
+      try {
+        const response = await fetch(`${backend_url}/admin/visitor-passes`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          throw new Error(errorBody.detail || "Failed to create visitor pass");
+        }
+
+        const data = await response.json();
+        showVisitorFeedback("Visitor pass generated successfully", "success");
+        updateVisitorPreview(data);
+        resetVisitorForm();
+        await loadVisitorPasses(visitorStatusFilter ? visitorStatusFilter.value : "");
+      } catch (error) {
+        console.error("Visitor pass creation error:", error);
+        showVisitorFeedback(error.message || "Failed to create visitor pass", "error");
+      } finally {
+        isSubmittingVisitor = false;
+      }
+    }
+
+    function initializeVisitorSection() {
+      if (visitorValiditySelect) {
+        visitorValiditySelect.addEventListener("change", handleVisitorValidityChange);
+      }
+      if (visitorAllowMultiple) {
+        visitorAllowMultiple.addEventListener("change", handleVisitorAllowMultipleChange);
+        handleVisitorAllowMultipleChange();
+      }
+      if (visitorPassForm) {
+        visitorPassForm.addEventListener("submit", handleVisitorFormSubmit);
+      }
+      if (visitorResetFormBtn) {
+        visitorResetFormBtn.addEventListener("click", () => {
+          resetVisitorForm();
+          hideVisitorPreview();
+        });
+      }
+      if (visitorClosePreviewBtn) {
+        visitorClosePreviewBtn.addEventListener("click", hideVisitorPreview);
+      }
+      if (visitorCopyCodeBtn) {
+        visitorCopyCodeBtn.addEventListener("click", () => {
+          if (currentVisitorPreview && currentVisitorPreview.code) {
+            navigator.clipboard
+              .writeText(currentVisitorPreview.code)
+              .then(() => showVisitorFeedback("Visitor code copied to clipboard", "success"))
+              .catch(() => showVisitorFeedback("Unable to copy code", "error"));
+          }
+        });
+      }
+      if (visitorDownloadQrBtn) {
+        visitorDownloadQrBtn.addEventListener("click", () => {
+          if (!currentVisitorPreview || !currentVisitorPreview.qr_code_data_url) {
+            showVisitorFeedback("No QR code available to download", "error");
+            return;
+          }
+          const link = document.createElement("a");
+          link.href = currentVisitorPreview.qr_code_data_url;
+          const filename = currentVisitorPreview.visitor_name
+            ? currentVisitorPreview.visitor_name.replace(/\s+/g, "_").toLowerCase()
+            : "visitor-pass";
+          link.download = `${filename}.png`;
+          link.click();
+        });
+      }
+      if (visitorRefreshPassBtn) {
+        visitorRefreshPassBtn.addEventListener("click", () =>
+          loadVisitorPasses(visitorStatusFilter ? visitorStatusFilter.value : "")
+        );
+      }
+      if (refreshVisitorPassesBtn) {
+        refreshVisitorPassesBtn.addEventListener("click", () =>
+          loadVisitorPasses(visitorStatusFilter ? visitorStatusFilter.value : "")
+        );
+      }
+      if (visitorStatusFilter) {
+        visitorStatusFilter.addEventListener("change", () =>
+          loadVisitorPasses(visitorStatusFilter.value)
+        );
+      }
+      if (visitorTableBody) {
+        visitorTableBody.addEventListener("click", handleVisitorTableClick);
+      }
+      resetVisitorForm();
     }
 
     // Event listeners
@@ -2971,8 +4208,7 @@
 
     // Utility functions
     function viewUserDetail(userId) {
-      // This would open a modal or navigate to user detail page
-      showFeedback(dashboardFeedback, `Viewing details for user: ${userId}`, 'info');
+      openUserDetail(userId);
     }
 
 
@@ -3243,7 +4479,7 @@
               <div>${user.mobile_number || 'N/A'}</div>
             </td>
             <td>
-              <span class="user-type-badge">${user.user_type || 'N/A'}</span>
+              <span class="user-type-badge">${formatUserLabel(user.user_type || 'N/A')}</span>
             </td>
             <td>
               <span class="status-badge ${statusClass}">${statusText}</span>
@@ -3321,23 +4557,7 @@
         return;
       }
 
-      // Create detailed logs view
-      let logsHtml = '';
-      if (user.logs && user.logs.length > 0) {
-        logsHtml = user.logs.map(log => `
-          <div class="log-entry">
-            <div class="log-time">${new Date(log.timestamp).toLocaleString()}</div>
-            <div class="log-action ${log.action.toLowerCase()}">${log.action}</div>
-            <div class="log-camera">${log.camera_name}</div>
-            ${log.recognition_score ? `<div class="log-score">Score: ${(log.recognition_score * 100).toFixed(1)}%</div>` : ''}
-          </div>
-        `).join('');
-      } else {
-        logsHtml = '<div class="no-logs">No logs found for this user on the selected date.</div>';
-      }
-
-      // For now, show in feedback. In a real implementation, you'd use a modal
-      showFeedback(dashboardFeedback, `Viewing attendance details for ${user.name} (${user.logs.length} logs)`, 'info');
+      openUserDetail(user.id);
     }
 
 
@@ -3352,8 +4572,22 @@
     
     // DOM elements for users section
     let usersSearch, usersStatusFilter, usersTypeFilter, usersPageSize;
-    let usersApplyFilters, usersClearFilters, usersRefresh;
+    let usersApplyFilters, usersClearFilters, usersRefresh, usersAddButton;
     let usersTableBody, usersPaginationInfo, usersPrevBtn, usersNextBtn;
+
+    // User form modal elements
+    let userFormOverlay, userForm, userFormTitle, userFormSocietyLabel;
+    let userFormSubmitButton, userFormCancelButton, userFormErrorBox;
+    let userFormNameInput, userFormMobileInput, userFormTypeSelect;
+    let userFormTowerInput, userFormFlatInput, userFormExpireInput;
+    let userFormForeverToggle, userFormImagesInput, userFormImagesRow;
+    let userFormExistingContainer, userFormExistingGrid, userFormExistingCount;
+    let userFormExpireRow, userFormSubmitText, userFormSubmitSpinner;
+    let userFormMode = 'create';
+    let editingUserId = null;
+    let editingUserImages = [];
+    let userFormRemovedImages = new Set();
+    let userDetailModalInitialized = false;
 
     // Initialize users section
     function initializeUsersSection() {
@@ -3378,6 +4612,7 @@
       usersApplyFilters = document.getElementById('users-apply-filters');
       usersClearFilters = document.getElementById('users-clear-filters');
       usersRefresh = document.getElementById('users-refresh');
+      usersAddButton = document.getElementById('users-add');
       usersTableBody = document.getElementById('users-table-body');
       usersPaginationInfo = document.getElementById('users-pagination-info');
       usersPrevBtn = document.getElementById('users-prev');
@@ -3391,6 +4626,7 @@
       if (usersApplyFilters) usersApplyFilters.addEventListener('click', applyUsersFilters);
       if (usersClearFilters) usersClearFilters.addEventListener('click', clearUsersFilters);
       if (usersRefresh) usersRefresh.addEventListener('click', () => loadUsers());
+      if (usersAddButton) usersAddButton.addEventListener('click', openCreateUserModal);
       if (usersSearch) usersSearch.addEventListener('input', debounce(applyUsersFilters, 300));
       if (usersStatusFilter) usersStatusFilter.addEventListener('change', applyUsersFilters);
       if (usersTypeFilter) usersTypeFilter.addEventListener('change', applyUsersFilters);
@@ -3513,6 +4749,731 @@
       }
     }
 
+    async function fetchUserDetail(userId) {
+      const url = `${backend_url}/admin/users/${userId}`;
+      console.log('🌐 Fetching user detail:', url);
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.status === 401) {
+        handleLogout(true);
+        throw new Error('Session expired. Please log in again.');
+      }
+
+      if (!response.ok) {
+        throw new Error(`Unable to load user detail (status ${response.status})`);
+      }
+
+      return response.json();
+    }
+
+    function initializeUserFormModal() {
+      userFormOverlay = document.getElementById('user-form-overlay');
+      userForm = document.getElementById('user-form');
+      if (!userFormOverlay || !userForm) {
+        console.warn('⚠️ User form modal elements missing');
+        return;
+      }
+
+      userFormTitle = document.getElementById('user-form-title');
+      userFormSocietyLabel = document.getElementById('user-form-society');
+      userFormSubmitButton = document.getElementById('user-form-submit');
+      userFormSubmitText = document.getElementById('user-form-submit-text');
+      userFormSubmitSpinner = document.getElementById('user-form-submit-spinner');
+      userFormCancelButton = document.getElementById('user-form-cancel');
+      userFormErrorBox = document.getElementById('user-form-error');
+      userFormNameInput = document.getElementById('user-form-name');
+      userFormMobileInput = document.getElementById('user-form-mobile');
+      userFormTypeSelect = document.getElementById('user-form-type');
+      userFormTowerInput = document.getElementById('user-form-tower');
+      userFormFlatInput = document.getElementById('user-form-flat');
+      userFormExpireInput = document.getElementById('user-form-expire');
+      userFormForeverToggle = document.getElementById('user-form-forever');
+      userFormImagesInput = document.getElementById('user-form-images');
+      userFormImagesRow = document.getElementById('user-form-images-row');
+      userFormExpireRow = document.getElementById('user-form-expire-row');
+      userFormExistingContainer = document.getElementById('user-form-existing');
+      userFormExistingGrid = document.getElementById('user-form-existing-grid');
+      userFormExistingCount = document.getElementById('user-form-existing-count');
+
+      document.querySelectorAll('[data-close-user-form]').forEach((el) => {
+        el.addEventListener('click', (event) => {
+          if (event.target === el || el.dataset.closeUserForm === 'true') {
+            closeUserFormModal();
+          }
+        });
+      });
+
+      if (userFormCancelButton) {
+        userFormCancelButton.addEventListener('click', (event) => {
+          event.preventDefault();
+          closeUserFormModal();
+        });
+      }
+
+      if (userFormForeverToggle) {
+        userFormForeverToggle.addEventListener('change', toggleUserFormExpire);
+      }
+
+      if (userFormExistingGrid) {
+        userFormExistingGrid.addEventListener('click', handleUserFormExistingImageClick);
+      }
+
+      if (userFormImagesInput) {
+        userFormImagesInput.addEventListener('change', handleUserFormImagesChange);
+      }
+
+      userForm.addEventListener('submit', handleUserFormSubmit);
+      renderUserFormExistingImages();
+    }
+
+    function openCreateUserModal() {
+      if (!currentProfile) {
+        showFeedback(dashboardFeedback, 'Profile not loaded. Please log in again.', 'error');
+        return;
+      }
+      userFormMode = 'create';
+      editingUserId = null;
+      resetUserForm();
+      if (userFormTitle) userFormTitle.textContent = 'Register New User';
+      if (userFormSubmitText) userFormSubmitText.textContent = 'Register User';
+      if (userFormImagesRow) userFormImagesRow.classList.remove('hidden');
+      if (userFormImagesInput) userFormImagesInput.required = true;
+      if (userFormSocietyLabel) {
+        userFormSocietyLabel.textContent = `${currentProfile.society}, ${currentProfile.city}, ${currentProfile.state}`;
+      }
+      toggleUserFormExpire();
+      userFormOverlay.classList.remove('hidden');
+      document.body.style.setProperty('overflow', 'hidden');
+    }
+
+    async function openEditUserModal(userId) {
+      if (!currentToken) {
+        showFeedback(dashboardFeedback, 'Please log in to edit users', 'error');
+        return;
+      }
+      userFormMode = 'edit';
+      editingUserId = userId;
+      resetUserForm();
+      try {
+        const detail = await fetchUserDetail(userId);
+        const user = detail?.user;
+        if (!user) {
+          throw new Error('User details unavailable');
+        }
+
+        const imagePaths = Array.isArray(user.images) ? user.images : [];
+        const imageUrls = Array.isArray(user.image_urls) ? user.image_urls : [];
+        editingUserImages = imagePaths.map((path, index) => ({
+          path,
+          url: imageUrls[index] || null,
+        })).filter(item => item.path);
+        userFormRemovedImages = new Set();
+        renderUserFormExistingImages();
+
+        if (userFormTitle) userFormTitle.textContent = 'Edit User Details';
+        if (userFormSubmitText) userFormSubmitText.textContent = 'Save Changes';
+        if (userFormImagesRow) userFormImagesRow.classList.remove('hidden');
+        if (userFormImagesInput) {
+          userFormImagesInput.required = false;
+          userFormImagesInput.value = '';
+        }
+        if (userFormSocietyLabel) {
+          userFormSocietyLabel.textContent = `${currentProfile?.society ?? ''}, ${currentProfile?.city ?? ''}, ${currentProfile?.state ?? ''}`;
+        }
+
+        prefillUserForm(user);
+        toggleUserFormExpire();
+        userFormOverlay.classList.remove('hidden');
+        document.body.style.setProperty('overflow', 'hidden');
+      } catch (error) {
+        console.error('❌ Failed to load user detail for edit:', error);
+        showFeedback(dashboardFeedback, error?.message || 'Unable to load user details', 'error');
+        editingUserId = null;
+        userFormMode = 'create';
+      }
+    }
+
+    function resetUserForm(user) {
+      if (userFormErrorBox) {
+        userFormErrorBox.classList.add('hidden');
+        userFormErrorBox.textContent = '';
+      }
+      if (userFormSubmitButton) {
+        userFormSubmitButton.disabled = false;
+      }
+      if (userFormSubmitSpinner) {
+        userFormSubmitSpinner.classList.add('hidden');
+      }
+      if (userFormSubmitText) {
+        userFormSubmitText.textContent = userFormMode === 'edit' ? 'Save Changes' : 'Register User';
+      }
+      editingUserImages = [];
+      userFormRemovedImages = new Set();
+      if (userFormImagesInput) {
+        userFormImagesInput.value = '';
+      }
+      renderUserFormExistingImages();
+      if (!user) {
+        if (userFormNameInput) userFormNameInput.value = '';
+        if (userFormMobileInput) userFormMobileInput.value = '';
+        if (userFormTypeSelect) userFormTypeSelect.value = '';
+        if (userFormTowerInput) userFormTowerInput.value = '';
+        if (userFormFlatInput) userFormFlatInput.value = '';
+        if (userFormExpireInput) userFormExpireInput.value = '';
+        if (userFormForeverToggle) userFormForeverToggle.checked = false;
+        if (userFormImagesInput) userFormImagesInput.value = '';
+      }
+    }
+
+    function prefillUserForm(user) {
+      if (!user) return;
+      if (userFormNameInput) userFormNameInput.value = user.name || '';
+      if (userFormMobileInput) userFormMobileInput.value = user.mobile_number || '';
+      if (userFormTypeSelect) userFormTypeSelect.value = (user.user_type || '').toLowerCase();
+      if (userFormTowerInput) userFormTowerInput.value = user.tower_name || '';
+      if (userFormFlatInput) userFormFlatInput.value = user.flat_number || '';
+      if (userFormForeverToggle) userFormForeverToggle.checked = Boolean(user.forever_access);
+      if (userFormExpireInput) {
+        if (user.forever_access) {
+          userFormExpireInput.value = '';
+        } else if (user.expire_at) {
+          const dateValue = new Date(user.expire_at);
+          if (!Number.isNaN(dateValue.getTime())) {
+            userFormExpireInput.value = dateValue.toISOString().split('T')[0];
+          } else {
+            userFormExpireInput.value = user.expire_at.slice(0, 10);
+          }
+        } else {
+          userFormExpireInput.value = '';
+        }
+      }
+    }
+
+    function closeUserFormModal() {
+      if (userFormOverlay) {
+        userFormOverlay.classList.add('hidden');
+      }
+      editingUserId = null;
+      userFormMode = 'create';
+      resetUserForm();
+      document.body.style.removeProperty('overflow');
+    }
+
+    function toggleUserFormExpire() {
+      const forever = userFormForeverToggle?.checked;
+      if (userFormExpireRow) {
+        userFormExpireRow.classList.toggle('hidden', Boolean(forever));
+      }
+      if (userFormExpireInput) {
+        userFormExpireInput.required = !forever;
+        if (forever) {
+          userFormExpireInput.value = '';
+        }
+      }
+    }
+
+    function getRemainingImageCount() {
+  return editingUserImages.filter((image) => !userFormRemovedImages.has(image.path)).length;
+}
+
+    function updateUserFormImageCounters() {
+  if (!userFormExistingCount) {
+    return;
+  }
+  const remaining = getRemainingImageCount();
+  const newFileCount = userFormImagesInput?.files ? userFormImagesInput.files.length : 0;
+  userFormExistingCount.textContent = `Keeping ${remaining} · New ${newFileCount} · Max ${MAX_USER_IMAGES}`;
+}
+
+    function renderUserFormExistingImages() {
+  if (!userFormExistingContainer || !userFormExistingGrid) {
+    return;
+  }
+
+  if (!editingUserImages || editingUserImages.length === 0) {
+    userFormExistingContainer.classList.add('hidden');
+    userFormExistingGrid.innerHTML = '';
+    updateUserFormImageCounters();
+    return;
+  }
+
+  userFormExistingContainer.classList.remove('hidden');
+  const cards = editingUserImages.map((image) => {
+    const isRemoved = userFormRemovedImages.has(image.path);
+    const imageContent = image.url
+      ? `<img src="${image.url}" alt="User photo" />`
+      : '<div class="user-form-existing-placeholder">👤</div>';
+    const buttonLabel = isRemoved ? 'Undo Remove' : 'Remove';
+    const cardClass = isRemoved ? 'user-form-existing-card removed' : 'user-form-existing-card';
+    return `
+      <div class="${cardClass}" data-image-path="${image.path}">
+        ${imageContent}
+        <button type="button" class="user-form-existing-toggle" data-remove-image="${image.path}">
+          ${buttonLabel}
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  userFormExistingGrid.innerHTML = cards;
+  updateUserFormImageCounters();
+}
+
+    function handleUserFormExistingImageClick(event) {
+  const button = event.target.closest('[data-remove-image]');
+  if (!button) {
+    return;
+  }
+  const path = button.dataset.removeImage;
+  if (!path) {
+    return;
+  }
+  if (userFormRemovedImages.has(path)) {
+    userFormRemovedImages.delete(path);
+  } else {
+    userFormRemovedImages.add(path);
+  }
+  renderUserFormExistingImages();
+}
+
+    function handleUserFormImagesChange(event) {
+  const files = Array.from(event?.target?.files || userFormImagesInput?.files || []);
+  const remaining = getRemainingImageCount();
+  if (files.length + remaining > MAX_USER_IMAGES) {
+    const allowed = Math.max(0, MAX_USER_IMAGES - remaining);
+    if (userFormErrorBox) {
+      userFormErrorBox.textContent = allowed > 0
+        ? `You can add up to ${allowed} more image${allowed === 1 ? '' : 's'}.`
+        : 'Remove existing images before uploading new ones.';
+      userFormErrorBox.classList.remove('hidden');
+    }
+    if (userFormImagesInput) {
+      userFormImagesInput.value = '';
+    }
+    return;
+  }
+  if (userFormErrorBox && userFormErrorBox.textContent?.startsWith('You can add up to')) {
+    userFormErrorBox.classList.add('hidden');
+    userFormErrorBox.textContent = '';
+  }
+  updateUserFormImageCounters();
+}
+
+    function shouldUpdateImages() {
+  const newFileCount = userFormImagesInput?.files ? userFormImagesInput.files.length : 0;
+  return userFormRemovedImages.size > 0 || newFileCount > 0;
+}
+
+    function getStatusChipClass(status) {
+      const normalized = (status || '').toLowerCase();
+      if (normalized === 'active') return 'active';
+      if (normalized === 'inactive') return 'inactive';
+      if (normalized === 'pending') return 'pending';
+      return 'pending';
+    }
+
+    function formatUserLabel(value) {
+      if (!value) return '';
+      return value
+        .split(' ')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
+
+    function initializeUserDetailModal() {
+      if (userDetailModalInitialized || !userDetailOverlay) {
+        return;
+      }
+      if (userDetailCloseButton) {
+        userDetailCloseButton.addEventListener('click', closeUserDetailModal);
+      }
+      if (userDetailBackdrop) {
+        userDetailBackdrop.addEventListener('click', closeUserDetailModal);
+      }
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !userDetailOverlay.classList.contains('hidden')) {
+          closeUserDetailModal();
+        }
+      });
+      userDetailModalInitialized = true;
+    }
+
+    function openUserDetailModal() {
+      if (!userDetailOverlay) return;
+      userDetailOverlay.classList.remove('hidden');
+      userDetailOverlay.setAttribute('aria-modal', 'true');
+      userDetailOverlay.setAttribute('role', 'dialog');
+      document.body.style.setProperty('overflow', 'hidden');
+    }
+
+    function closeUserDetailModal() {
+      if (!userDetailOverlay) return;
+      userDetailOverlay.classList.add('hidden');
+      userDetailOverlay.removeAttribute('aria-modal');
+      userDetailOverlay.removeAttribute('role');
+      if (userDetailError) {
+        userDetailError.classList.add('hidden');
+        userDetailError.textContent = '';
+      }
+      if (userDetailContent) {
+        userDetailContent.classList.add('hidden');
+      }
+      if (userDetailLoading) {
+        userDetailLoading.classList.add('hidden');
+      }
+      if (userDetailInfo) {
+        userDetailInfo.innerHTML = '';
+      }
+      if (userDetailGallery) {
+        userDetailGallery.innerHTML = '';
+        userDetailGallery.classList.remove('empty');
+      }
+      if (userDetailLogsBody) {
+        userDetailLogsBody.innerHTML = '';
+      }
+      document.body.style.removeProperty('overflow');
+    }
+
+    async function openUserDetail(userId) {
+      if (!currentToken) {
+        showFeedback(dashboardFeedback, 'Please log in to view user details', 'error');
+        return;
+      }
+      initializeUserDetailModal();
+      if (!userDetailOverlay) {
+        showFeedback(dashboardFeedback, 'User detail modal is unavailable', 'error');
+        return;
+      }
+      openUserDetailModal();
+      if (userDetailLoading) userDetailLoading.classList.remove('hidden');
+      if (userDetailContent) userDetailContent.classList.add('hidden');
+      if (userDetailError) {
+        userDetailError.classList.add('hidden');
+        userDetailError.textContent = '';
+      }
+      try {
+        const detail = await fetchUserDetail(userId);
+        renderUserDetail(detail);
+        if (userDetailLoading) userDetailLoading.classList.add('hidden');
+        if (userDetailContent) userDetailContent.classList.remove('hidden');
+      } catch (error) {
+        console.error('❌ Failed to load user detail:', error);
+        if (userDetailLoading) userDetailLoading.classList.add('hidden');
+        if (userDetailError) {
+          userDetailError.textContent = error?.message || 'Unable to load user detail';
+          userDetailError.classList.remove('hidden');
+        }
+        showFeedback(dashboardFeedback, error?.message || 'Unable to load user detail', 'error');
+      }
+    }
+
+    function renderUserDetail(detail) {
+      const user = detail?.user || {};
+      const logs = Array.isArray(detail?.daily_logs) ? detail.daily_logs : [];
+      const locationLine = [user.society, user.city, user.state].filter(Boolean).join(', ');
+      const statusClass = getStatusChipClass(user.status);
+      const statusLabel = formatUserLabel(user.status || 'Unknown');
+      const typeLabel = formatUserLabel(user.user_type);
+      const flatLabel = user.flat_number ? `Flat ${user.flat_number}` : '';
+      const towerLabel = user.tower_name ? `Tower ${user.tower_name}` : '';
+      const contactLabel = user.mobile_number ? `Mobile ${user.mobile_number}` : '';
+      const accessLabel = user.forever_access
+        ? 'Forever access'
+        : user.expire_at
+          ? `Access till ${formatDateTimeIST(user.expire_at)}`
+          : 'No expiry set';
+
+      if (userDetailInfo) {
+        userDetailInfo.innerHTML = `
+          <div>
+            <div class="user-detail-name">${user.name || 'Unknown User'}</div>
+            <div class="user-detail-meta">
+              ${locationLine ? `<span>${locationLine}</span>` : ''}
+              ${typeLabel ? `<span>${typeLabel}</span>` : ''}
+            </div>
+          </div>
+          <div class="user-detail-meta">
+            <span class="status-chip ${statusClass}">${statusLabel}</span>
+            ${contactLabel ? `<span>${contactLabel}</span>` : ''}
+            ${towerLabel ? `<span>${towerLabel}</span>` : ''}
+            ${flatLabel ? `<span>${flatLabel}</span>` : ''}
+            <span>${accessLabel}</span>
+          </div>
+        `;
+      }
+
+      if (userDetailGallery) {
+        const images = Array.isArray(user.image_urls) ? user.image_urls.filter(Boolean) : [];
+        if (images.length === 0) {
+          userDetailGallery.classList.add('empty');
+          userDetailGallery.innerHTML = '<div class="user-detail-gallery-placeholder">No images available.</div>';
+        } else {
+          userDetailGallery.classList.remove('empty');
+          userDetailGallery.innerHTML = images.map((url, index) => `
+            <figure>
+              <img src="${url}" alt="User photo ${index + 1}" />
+              <figcaption>Photo ${index + 1}</figcaption>
+            </figure>
+          `).join('');
+        }
+      }
+
+      if (userDetailLogsBody) {
+        if (logs.length === 0) {
+          userDetailLogsBody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align:center; padding: 20px; color: #64748b;">
+                No access activity captured for this user yet.
+              </td>
+            </tr>
+          `;
+        } else {
+          userDetailLogsBody.innerHTML = logs.map((log) => {
+            const logDate = log.date ? new Date(log.date) : null;
+            const dateLabel = logDate && !Number.isNaN(logDate.getTime())
+              ? formatDateOnly(logDate)
+              : (log.date || '-');
+            return `
+              <tr>
+                <td>${dateLabel}</td>
+                <td>${log.total_logs ?? 0}</td>
+                <td>${log.entries ?? 0}</td>
+                <td>${log.exits ?? 0}</td>
+                <td>${formatDateTimeIST(log.first_entry)}</td>
+                <td>${formatDateTimeIST(log.last_exit)}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+    }
+
+    function setUserFormLoading(isLoading) {
+      if (!userFormSubmitButton || !userFormSubmitText) return;
+      userFormSubmitButton.disabled = isLoading;
+      if (userFormSubmitSpinner) {
+        userFormSubmitSpinner.classList.toggle('hidden', !isLoading);
+      }
+      if (isLoading) {
+        userFormSubmitText.textContent = userFormMode === 'edit' ? 'Saving…' : 'Registering…';
+      } else {
+        userFormSubmitText.textContent = userFormMode === 'edit' ? 'Save Changes' : 'Register User';
+      }
+    }
+
+    async function handleUserFormSubmit(event) {
+      event.preventDefault();
+      if (!currentToken) {
+        showFeedback(dashboardFeedback, 'Authentication required. Please log in again.', 'error');
+        return;
+      }
+      setUserFormLoading(true);
+      if (userFormErrorBox) {
+        userFormErrorBox.classList.add('hidden');
+        userFormErrorBox.textContent = '';
+      }
+      try {
+        const mode = userFormMode;
+        if (mode === 'edit') {
+          await submitSocietyUserUpdate();
+          if (shouldUpdateImages()) {
+            await submitSocietyUserImagesUpdate();
+          }
+        } else {
+          await submitNewSocietyUser();
+        }
+        closeUserFormModal();
+        await loadUsers();
+        showFeedback(
+          dashboardFeedback,
+          mode === 'edit' ? 'User details updated successfully' : 'User registered successfully',
+          'success'
+        );
+      } catch (error) {
+        console.error('❌ User form submission error:', error);
+        const message = error?.message || 'Unable to process request';
+        if (userFormErrorBox) {
+          userFormErrorBox.textContent = message;
+          userFormErrorBox.classList.remove('hidden');
+        }
+        showFeedback(dashboardFeedback, message, 'error');
+      } finally {
+        setUserFormLoading(false);
+      }
+    }
+
+    async function submitNewSocietyUser() {
+      if (!currentProfile) {
+        throw new Error('Admin profile unavailable');
+      }
+      if (!userFormNameInput || !userFormMobileInput || !userFormTypeSelect) {
+        throw new Error('Form not ready');
+      }
+      const name = userFormNameInput.value.trim();
+      const mobile = userFormMobileInput.value.trim();
+      const userType = userFormTypeSelect.value.trim();
+      const flat = userFormFlatInput?.value.trim();
+      const tower = userFormTowerInput?.value.trim();
+      const forever = Boolean(userFormForeverToggle?.checked);
+      const expireValue = userFormExpireInput?.value ?? '';
+
+      if (!name) {
+        throw new Error('Please enter the user name');
+      }
+      if (!mobile) {
+        throw new Error('Please enter a mobile number');
+      }
+      if (!userType) {
+        throw new Error('Please select a user type');
+      }
+      if (userType === 'resident' && !flat) {
+        throw new Error('Flat number is required for residents');
+      }
+      if (!forever && !expireValue) {
+        throw new Error('Select an expiry date or mark as forever access');
+      }
+      if (!userFormImagesInput || userFormImagesInput.files.length === 0) {
+        throw new Error('Please upload at least one face image');
+      }
+      if (userFormImagesInput.files.length > MAX_USER_IMAGES) {
+        throw new Error(`You can upload up to ${MAX_USER_IMAGES} images.`);
+      }
+
+      const formData = new FormData();
+      formData.append('state_name', currentProfile.state);
+      formData.append('city_name', currentProfile.city);
+      formData.append('society_name', currentProfile.society);
+      if (tower) {
+        formData.append('tower_name', tower);
+      }
+      if (flat) {
+        formData.append('flat_number', flat);
+      }
+      formData.append('user_name', name);
+      formData.append('mobile_number', mobile);
+      formData.append('user_type', userType);
+      if (forever) {
+        formData.append('forever_access', 'true');
+      } else {
+        formData.append('expire_at', expireValue);
+      }
+      Array.from(userFormImagesInput.files).forEach((file) => {
+        formData.append('images', file, file.name);
+      });
+
+      const response = await fetch(`${backend_url}/register-user`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        const detail = errorPayload?.detail || errorPayload?.message || `Request failed (${response.status})`;
+        throw new Error(detail);
+      }
+    }
+
+    async function submitSocietyUserUpdate() {
+      if (!editingUserId) {
+        throw new Error('No user selected for editing');
+      }
+      if (!userFormNameInput || !userFormTypeSelect || !userFormMobileInput) {
+        throw new Error('Form not ready');
+      }
+
+      const name = userFormNameInput.value.trim();
+      const mobile = userFormMobileInput.value.trim();
+      const userType = userFormTypeSelect.value.trim();
+      const tower = userFormTowerInput ? userFormTowerInput.value.trim() : '';
+      const flat = userFormFlatInput ? userFormFlatInput.value.trim() : '';
+      const forever = Boolean(userFormForeverToggle?.checked);
+      const expireValue = userFormExpireInput?.value ?? '';
+
+      if (!name) {
+        throw new Error('Please enter the user name');
+      }
+      if (!mobile) {
+        throw new Error('Please enter a mobile number');
+      }
+      if (!userType) {
+        throw new Error('Please select a user type');
+      }
+      if (userType === 'resident' && (!flat || !flat.trim())) {
+        throw new Error('Flat number is required for residents');
+      }
+      if (!forever && !expireValue) {
+        throw new Error('Select an expiry date or mark as forever access');
+      }
+
+      const payload = {
+        name,
+        mobile_number: mobile,
+        user_type: userType,
+        tower_name: tower,
+        flat_number: flat,
+        forever_access: forever,
+        expire_at: forever ? null : expireValue,
+      };
+
+      const response = await fetch(`${backend_url}/admin/users/${editingUserId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        const detail = errorPayload?.detail || errorPayload?.message || `Request failed (${response.status})`;
+        throw new Error(detail);
+      }
+    }
+
+    async function submitSocietyUserImagesUpdate() {
+      if (!editingUserId) {
+        throw new Error('No user selected for editing');
+      }
+
+      const removal = Array.from(userFormRemovedImages);
+      const newFiles = userFormImagesInput?.files ? Array.from(userFormImagesInput.files) : [];
+      if (removal.length === 0 && newFiles.length === 0) {
+        return;
+      }
+
+      const remaining = getRemainingImageCount();
+      if (remaining + newFiles.length > MAX_USER_IMAGES) {
+        throw new Error(`Total images cannot exceed ${MAX_USER_IMAGES}`);
+      }
+
+      const formData = new FormData();
+      removal.forEach((path) => formData.append('images_to_remove', path));
+      newFiles.forEach((file) => formData.append('new_images', file));
+
+      const response = await fetch(`${backend_url}/admin/users/${editingUserId}/images`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}));
+        const detail = errorPayload?.detail || errorPayload?.message || `Request failed (${response.status})`;
+        throw new Error(detail);
+      }
+    }
+
     // Apply filters
     function applyUsersFilters() {
       console.log('🔍 Applying filters...');
@@ -3590,10 +5551,8 @@
       console.log(`📄 Rendering page ${currentUsersPage}: ${paginatedUsers.length} users (${currentUsersTotalCount} total)`);
 
       const rows = paginatedUsers.map(user => {
-        const statusClass = user.status === 'active' ? 'status-active' : 
-                           user.status === 'inactive' ? 'status-inactive' : 
-                           'pending';
-        const statusBadge = user.status || 'unknown';
+        const statusClass = getStatusChipClass(user.status);
+        const statusBadge = formatUserLabel(user.status || 'unknown');
         
         // Format access expiry
         let expiryClass = 'access-expiry';
@@ -3653,6 +5612,7 @@
             <td>
               <div class="table-actions">
                 <button class="action-secondary" onclick="viewUserDetails('${user.id}')">View</button>
+                <button class="action-primary" onclick="openEditUserModal('${user.id}')">Edit</button>
               </div>
             </td>
           </tr>
@@ -3695,19 +5655,7 @@
     // View user details
     function viewUserDetails(userId) {
       console.log('👤 Viewing user details for:', userId);
-      if (!currentUsersData || !currentUsersData.users) {
-        showFeedback(dashboardFeedback, 'No user data available', 'error');
-        return;
-      }
-
-      const user = currentUsersData.users.find(u => u.id === userId);
-      if (!user) {
-        showFeedback(dashboardFeedback, 'User not found', 'error');
-        return;
-      }
-
-      // For now, show in feedback. In a real implementation, you'd use a modal
-      showFeedback(dashboardFeedback, `Viewing details for: ${user.name}`, 'success');
+      openUserDetail(userId);
     }
 
 
@@ -4289,9 +6237,7 @@
       console.log(`📄 Rendering page ${workingDaysPage}: ${workingDaysData.users.length} users`);
 
       const rows = workingDaysData.users.map(user => {
-        const statusClass = user.status === "active" ? "status-active" : 
-                           user.status === "inactive" ? "status-inactive" : 
-                           "pending";
+        const statusClass = getStatusChipClass(user.status);
         
         const thumbnail = user.thumbnail_url ? 
           `<img src="${user.thumbnail_url}" alt="${user.name}" class="user-photo" />` : 
@@ -4313,10 +6259,10 @@
               ${user.email ? `<div class="person-meta">${user.email}</div>` : ""}
             </td>
             <td>
-              <span class="user-type-badge">${user.user_type || "N/A"}</span>
+              <span class="user-type-badge">${formatUserLabel(user.user_type || "N/A")}</span>
             </td>
             <td>
-              <span class="status-chip ${statusClass}">${user.status || "unknown"}</span>
+              <span class="status-chip ${statusClass}">${formatUserLabel(user.status || "unknown")}</span>
             </td>
             <td>
               <strong style="font-size: 18px; color: #2a9df4;">${user.working_days || 0}</strong>
@@ -4363,40 +6309,13 @@
     // Initialize the dashboard
     checkAuthentication();
     setupUserManagementEventListeners();
+    initializeUserFormModal();
+    initializeUserDetailModal();
+    initializeVisitorSection();
     initializeWorkingDaysSection();
     loadUserStatistics(); // Load user stats on page load since overview is active by default
     loadOverviewAnalytics();
+    loadVisitorPasses();
   </script>
 </body>
 </html>
-
-    <div id="user-detail-overlay" class="modal hidden">
-      <div class="modal-backdrop" data-close-detail="true"></div>
-      <div class="modal-dialog" id="user-detail-dialog">
-        <button class="modal-close" id="user-detail-close" aria-label="Close user detail">&times;</button>
-        <div id="user-detail-loading" class="modal-loading">Loading user details…</div>
-        <div id="user-detail-error" class="modal-error hidden"></div>
-        <div id="user-detail-content" class="modal-content hidden">
-          <div class="user-detail-header" id="user-detail-info"></div>
-          <div class="user-detail-gallery" id="user-detail-gallery"></div>
-          <div class="user-detail-logs">
-            <h4>Daily Access Summary</h4>
-            <div class="table-wrapper">
-              <table class="detail-logs-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Total Logs</th>
-                    <th>Entries</th>
-                    <th>Exits</th>
-                    <th>First Entry</th>
-                    <th>Last Exit</th>
-                  </tr>
-                </thead>
-                <tbody id="user-detail-logs-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
