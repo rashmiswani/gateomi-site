@@ -282,6 +282,14 @@
       padding: 10px 14px;
       font-size: 14px;
       background: white;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, #1f2937 50%), linear-gradient(135deg, #1f2937 50%, transparent 50%);
+      background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 34px;
     }
     .table-wrapper {
       border: 1px solid #e2e8f0;
@@ -1938,6 +1946,32 @@
       font-size: 13px;
       color: #1f2937;
     }
+    .device-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .device-choices {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .device-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #1f2937;
+    }
+    .device-option input[type="checkbox"] {
+      accent-color: #2563eb;
+    }
     .link-button {
       background: none;
       border: none;
@@ -1948,6 +1982,42 @@
     }
     .link-button:hover {
       text-decoration: underline;
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      z-index: 2000;
+    }
+    .modal-overlay.hidden {
+      display: none;
+    }
+    .visitor-preview-modal {
+      max-width: 420px;
+      width: 100%;
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 24px;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+      position: relative;
+    }
+    .visitor-preview-modal .modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: none;
+      border: none;
+      font-size: 28px;
+      line-height: 1;
+      cursor: pointer;
+      color: #1f2937;
+    }
+    .visitor-preview-modal .modal-close:hover {
+      color: #dc2626;
     }
     .visitor-table-card .table-header {
       display: flex;
@@ -1960,6 +2030,13 @@
       display: flex;
       gap: 12px;
       align-items: center;
+    }
+    .visitor-table-card .table-wrapper {
+      overflow: auto;
+      max-height: 360px;
+    }
+    .visitor-table-card .table-wrapper table {
+      min-width: 720px;
     }
     .visitor-table-card select {
       border-radius: 8px;
@@ -2253,8 +2330,8 @@
               <p class="small-label">Generate QR codes and access codes for visitors and track their status.</p>
             </div>
             <div class="visitor-grid">
-              <div class="visitor-form-card">
-                <form id="visitor-pass-form" class="visitor-form">
+    <div class="visitor-form-card">
+      <form id="visitor-pass-form" class="visitor-form">
                   <div class="form-row">
                     <div class="form-field">
                       <label for="visitor-name-input">Visitor Name</label>
@@ -2272,7 +2349,7 @@
                     </div>
                     <div class="form-field">
                       <label for="visitor-host-input">Host Name</label>
-                      <input type="text" id="visitor-host-input" placeholder="Resident or company name" />
+                      <input type="text" id="visitor-host-input" placeholder="Resident or company name" readonly />
                     </div>
                   </div>
                   <div class="form-row">
@@ -2323,6 +2400,17 @@
                     <span class="hint-text">If unchecked, the pass expires after the first successful scan.</span>
                   </div>
                   <div class="form-field">
+                    <label for="visitor-device-all">Allowed Gates</label>
+                    <div class="device-selector">
+                      <label class="device-option">
+                        <input type="checkbox" id="visitor-device-all" checked />
+                        <span>All gates</span>
+                      </label>
+                      <div id="visitor-device-list" class="device-choices"></div>
+                    </div>
+                    <span class="hint-text">Uncheck "All gates" to select specific entry points for this pass.</span>
+                  </div>
+                  <div class="form-field">
                     <label for="visitor-notes-input">Notes for security</label>
                     <textarea id="visitor-notes-input" rows="3" placeholder="Optional instructions for guards"></textarea>
                   </div>
@@ -2331,27 +2419,8 @@
                     <button type="submit">Generate Visitor Pass</button>
                     <button type="button" id="visitor-reset-form" class="secondary">Clear</button>
                   </div>
-                </form>
-                <div id="visitor-pass-preview" class="visitor-pass-preview hidden">
-                  <div class="preview-header">
-                    <h4>Visitor Pass Ready</h4>
-                    <button type="button" id="visitor-close-preview" class="link-button">Hide</button>
-                  </div>
-                  <div class="preview-content">
-                    <div class="preview-code">
-                      <span class="code-label">Code:</span>
-                      <span id="visitor-pass-code" class="code-value"></span>
-                      <button type="button" id="visitor-copy-code" class="link-button">Copy</button>
-                    </div>
-                    <img id="visitor-pass-qr" alt="Visitor QR code" />
-                    <div class="preview-actions">
-                      <button type="button" id="visitor-download-qr">Download QR</button>
-                      <button type="button" id="visitor-refresh-pass" class="secondary">Refresh List</button>
-                    </div>
-                    <p id="visitor-preview-meta" class="preview-meta"></p>
-                  </div>
-                </div>
-              </div>
+      </form>
+    </div>
               <div class="visitor-table-card">
                 <div class="table-header">
                   <div>
@@ -2377,6 +2446,7 @@
                         <th>Code</th>
                         <th>Status</th>
                         <th>Valid Until</th>
+                        <th>Allowed Gates</th>
                         <th>Entries</th>
                         <th>Actions</th>
                       </tr>
@@ -2750,6 +2820,8 @@
     const visitorClosePreviewBtn = document.getElementById('visitor-close-preview');
     const visitorRefreshPassBtn = document.getElementById('visitor-refresh-pass');
     const visitorPreviewMeta = document.getElementById('visitor-preview-meta');
+    const visitorDeviceSelectAll = document.getElementById('visitor-device-all');
+    const visitorDeviceList = document.getElementById('visitor-device-list');
     const visitorStatusFilter = document.getElementById('visitor-status-filter');
     const refreshVisitorPassesBtn = document.getElementById('refresh-visitor-passes');
     const visitorTableBody = document.getElementById('visitor-pass-table-body');
@@ -2779,25 +2851,27 @@
     let currentLogsPageSize = 50;
     let currentLogsData = null;
     let visitorPasses = [];
+    let visitorDevices = [];
+    let visitorDeviceMap = {};
     let isSubmittingVisitor = false;
     let currentVisitorPreview = null;
     let usersStatusChartInstance = null;
     let attendanceBarChartInstance = null;
     let dailyEntryChartInstance = null;
-let topUsersChartInstance = null;
-let overviewAnalyticsLoaded = false;
-const OVERVIEW_ANALYTICS_LOOKBACK_DAYS = 14;
-const chartPalette = {
-  active: '#34d399',
+    let topUsersChartInstance = null;
+    let overviewAnalyticsLoaded = false;
+    const OVERVIEW_ANALYTICS_LOOKBACK_DAYS = 14;
+    const chartPalette = {
+      active: '#34d399',
       inactive: '#94a3b8',
       pending: '#fbbf24',
       present: '#22c55e',
       absent: '#ef4444',
       fallback: '#d1d5db',
-  primary: '#2a9df4',
-  accent: '#7f5af0'
-};
-const MAX_USER_IMAGES = 6;
+      primary: '#2a9df4',
+      accent: '#7f5af0'
+    };
+    const MAX_USER_IMAGES = 6;
 
     const yearElement = document.getElementById('year');
     if (yearElement) {
@@ -3241,6 +3315,24 @@ const MAX_USER_IMAGES = 6;
       return "active";
     }
 
+    function getAllowedDeviceLabels(pass) {
+      if (!pass) {
+        return [];
+      }
+      if (Array.isArray(pass.allowed_device_labels) && pass.allowed_device_labels.length) {
+        return pass.allowed_device_labels;
+      }
+      if (Array.isArray(pass.allowed_device_ids) && pass.allowed_device_ids.length) {
+        return pass.allowed_device_ids.map((deviceId) => visitorDeviceMap[deviceId] || deviceId);
+      }
+      return [];
+    }
+
+    function getAllowedDevicesText(pass) {
+      const labels = getAllowedDeviceLabels(pass);
+      return labels.length ? labels.join(", ") : "All gates";
+    }
+
     function showVisitorFeedback(message, type = "info") {
       if (visitorFormFeedback) {
         showFeedback(visitorFormFeedback, message, type);
@@ -3266,6 +3358,10 @@ const MAX_USER_IMAGES = 6;
         visitorMaxUsesInput.value = "";
         visitorMaxUsesInput.disabled = true;
       }
+      if (visitorDeviceSelectAll) {
+        visitorDeviceSelectAll.checked = true;
+      }
+      syncVisitorDeviceSelectionState();
       if (visitorHostInput && currentProfile) {
         const adminDisplayName = currentProfile.name || currentProfile.full_name || '';
         if (adminDisplayName) {
@@ -3278,6 +3374,105 @@ const MAX_USER_IMAGES = 6;
       currentVisitorPreview = null;
       if (visitorPassPreview) {
         visitorPassPreview.classList.add("hidden");
+      }
+      const overlay = document.getElementById('visitor-preview-overlay');
+      if (overlay) {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    function syncVisitorDeviceSelectionState() {
+      if (!visitorDeviceList) {
+        return;
+      }
+      const allChecked = visitorDeviceSelectAll ? visitorDeviceSelectAll.checked : true;
+      const checkboxes = visitorDeviceList.querySelectorAll('input.visitor-device-checkbox');
+      checkboxes.forEach((checkbox) => {
+        checkbox.disabled = allChecked;
+        if (allChecked) {
+          checkbox.checked = false;
+        }
+      });
+    }
+
+    function renderVisitorDevices() {
+      if (!visitorDeviceList) {
+        return;
+      }
+
+      visitorDeviceList.innerHTML = "";
+
+      if (!visitorDevices.length) {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'person-meta';
+        placeholder.textContent = 'No devices found for this society.';
+        visitorDeviceList.appendChild(placeholder);
+        return;
+      }
+
+      visitorDevices.forEach((device) => {
+        const option = document.createElement('label');
+        option.className = 'device-option';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = device.id;
+        checkbox.dataset.deviceId = device.id;
+        checkbox.classList.add('visitor-device-checkbox');
+        checkbox.addEventListener('change', () => {
+          if (visitorDeviceSelectAll && visitorDeviceSelectAll.checked) {
+            visitorDeviceSelectAll.checked = false;
+            syncVisitorDeviceSelectionState();
+          }
+        });
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = device.label;
+        option.appendChild(checkbox);
+        option.appendChild(labelSpan);
+        visitorDeviceList.appendChild(option);
+      });
+
+      syncVisitorDeviceSelectionState();
+    }
+
+    function getSelectedVisitorDevices() {
+      if (visitorDeviceSelectAll && visitorDeviceSelectAll.checked) {
+        return [];
+      }
+      if (!visitorDeviceList) {
+        return [];
+      }
+      const checkboxes = visitorDeviceList.querySelectorAll('input.visitor-device-checkbox:checked');
+      return Array.from(checkboxes).map((checkbox) => checkbox.value);
+    }
+
+    async function loadVisitorDevices() {
+      if (!currentToken) {
+        return;
+      }
+      try {
+        const response = await fetch(`${backend_url}/admin/devices`, {
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to load devices (${response.status})`);
+        }
+        const data = await response.json();
+        visitorDevices = Array.isArray(data.devices) ? data.devices : [];
+        visitorDeviceMap = {};
+        visitorDevices.forEach((device) => {
+          visitorDeviceMap[device.id] = device.label;
+        });
+        renderVisitorDevices();
+      } catch (error) {
+        console.error('Device load error:', error);
+        visitorDevices = [];
+        visitorDeviceMap = {};
+        if (visitorDeviceList) {
+          visitorDeviceList.innerHTML = '<span class="person-meta">Unable to load devices.</span>';
+        }
       }
     }
 
@@ -3311,7 +3506,12 @@ const MAX_USER_IMAGES = 6;
         } else {
           parts.push("Single entry only");
         }
+        parts.push(`Allowed gates: ${getAllowedDevicesText(pass)}`);
         visitorPreviewMeta.textContent = parts.join(" • ");
+      }
+      const overlay = document.getElementById('visitor-preview-overlay');
+      if (overlay) {
+        overlay.classList.remove('hidden');
       }
       visitorPassPreview.classList.remove("hidden");
     }
@@ -3329,7 +3529,7 @@ const MAX_USER_IMAGES = 6;
 
         visitorTableBody.innerHTML = `
           <tr>
-            <td colspan="6" style="text-align:center; padding: 32px; color: #475569;">
+            <td colspan="7" style="text-align:center; padding: 32px; color: #475569;">
               Loading visitor passes...
             </td>
           </tr>
@@ -3353,7 +3553,7 @@ const MAX_USER_IMAGES = 6;
         console.error("Visitor pass load error:", error);
         visitorTableBody.innerHTML = `
           <tr>
-            <td colspan="6" style="text-align:center; padding: 32px; color: #dc2626;">
+            <td colspan="7" style="text-align:center; padding: 32px; color: #dc2626;">
               ${error.message || "Unable to load visitor passes"}
             </td>
           </tr>
@@ -3369,7 +3569,7 @@ const MAX_USER_IMAGES = 6;
       if (!passes.length) {
         visitorTableBody.innerHTML = `
           <tr>
-            <td colspan="6" style="text-align:center; padding: 32px; color: #6b7280;">
+            <td colspan="7" style="text-align:center; padding: 32px; color: #6b7280;">
               No visitor passes found for this filter.
             </td>
           </tr>
@@ -3380,6 +3580,7 @@ const MAX_USER_IMAGES = 6;
       visitorTableBody.innerHTML = passes
         .map((pass) => {
           const statusClass = normalizeVisitorStatus(pass);
+          const allowedSummary = getAllowedDevicesText(pass);
           return `
             <tr data-pass-id="${pass.id}">
               <td>
@@ -3395,6 +3596,7 @@ const MAX_USER_IMAGES = 6;
                 <span class="badge ${statusClass}">${statusClass}</span>
               </td>
               <td>${formatVisitorDate(pass.valid_until)}</td>
+              <td>${allowedSummary}</td>
               <td>${formatVisitorEntries(pass)}</td>
               <td>
                 <div class="visitor-action-buttons">
@@ -3513,6 +3715,9 @@ const MAX_USER_IMAGES = 6;
       }
       if (visitorAllowMultiple && visitorAllowMultiple.checked) {
         visitorMaxUsesInput.disabled = false;
+        if (!visitorMaxUsesInput.value || parseInt(visitorMaxUsesInput.value, 10) < 2) {
+          visitorMaxUsesInput.value = "10";
+        }
       } else {
         visitorMaxUsesInput.value = "";
         visitorMaxUsesInput.disabled = true;
@@ -3604,6 +3809,11 @@ const MAX_USER_IMAGES = 6;
         payload.max_uses = Number.isFinite(maxUsesValue) && maxUsesValue > 0 ? maxUsesValue : null;
       } else {
         payload.max_uses = 1;
+      }
+
+      const selectedDevices = getSelectedVisitorDevices();
+      if (selectedDevices.length) {
+        payload.allowed_device_ids = selectedDevices;
       }
 
       showVisitorFeedback("Generating visitor pass...", "info");
@@ -3700,7 +3910,11 @@ const MAX_USER_IMAGES = 6;
       if (visitorTableBody) {
         visitorTableBody.addEventListener("click", handleVisitorTableClick);
       }
+      if (visitorDeviceSelectAll) {
+        visitorDeviceSelectAll.addEventListener('change', syncVisitorDeviceSelectionState);
+      }
       resetVisitorForm();
+      loadVisitorDevices();
     }
 
     // Event listeners
@@ -6319,3 +6533,26 @@ const MAX_USER_IMAGES = 6;
   </script>
 </body>
 </html>
+  <div id="visitor-preview-overlay" class="modal-overlay hidden">
+    <div class="visitor-preview-modal">
+      <button type="button" class="modal-close" id="visitor-close-preview" aria-label="Close preview">&times;</button>
+      <div id="visitor-pass-preview" class="visitor-pass-preview hidden">
+        <div class="preview-header">
+          <h4>Visitor Pass Ready</h4>
+        </div>
+        <div class="preview-content">
+          <div class="preview-code">
+            <span class="code-label">Code:</span>
+            <span id="visitor-pass-code" class="code-value"></span>
+            <button type="button" id="visitor-copy-code" class="link-button">Copy</button>
+          </div>
+          <img id="visitor-pass-qr" alt="Visitor QR code" />
+          <div class="preview-actions">
+            <button type="button" id="visitor-download-qr">Download QR</button>
+            <button type="button" id="visitor-refresh-pass" class="secondary">Refresh List</button>
+          </div>
+          <p id="visitor-preview-meta" class="preview-meta"></p>
+        </div>
+      </div>
+    </div>
+  </div>
