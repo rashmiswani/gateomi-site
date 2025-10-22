@@ -338,6 +338,55 @@
       gap: 20px;
     }
 
+    .portal-login-section {
+      margin-top: 24px;
+      padding: 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+
+    .portal-login-note {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+    .allowed-gates-section {
+      margin-top: 24px;
+      padding: 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+    .allowed-gates-list {
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .device-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #1f2937;
+      cursor: pointer;
+      line-height: 1.2;
+    }
+    .device-option input[type="checkbox"] {
+      accent-color: #2563eb;
+      margin: 0;
+      transform: translateY(1px);
+    }
+    .device-label {
+      color: #1f2937;
+      font-weight: 500;
+      line-height: 1.4;
+      display: inline-block;
+    }
+
     @media (max-width: 768px) {
       .container {
         max-width: 95%;
@@ -442,6 +491,30 @@
         </div>
       </div>
 
+      <div class="portal-login-section">
+        <label for="portal-login-toggle">Portal Access</label>
+        <div class="checkbox-container" style="margin-top: 8px;">
+          <input type="checkbox" id="portal-login-toggle" name="portal_login">
+          <span>Provide portal login for this user</span>
+        </div>
+        <div id="portal-login-fields" class="hidden">
+          <label for="portal-email">Portal Email</label>
+          <input type="email" id="portal-email" name="portal_email" placeholder="name@example.com">
+          <p class="portal-login-note">We’ll email a temporary password and login code once the user is registered.</p>
+        </div>
+      </div>
+
+      <div class="allowed-gates-section">
+        <label>Allowed Gates</label>
+        <div class="checkbox-container" style="margin-top: 8px;">
+          <input type="checkbox" id="allowed-gates-all" checked>
+          <span>Allow this user at all gates</span>
+        </div>
+        <div id="allowed-gates-list" class="allowed-gates-list">
+          <span class="portal-login-note">Select a society to load gates.</span>
+        </div>
+      </div>
+
       <div class="checkbox-container">
         <input type="checkbox" name="forever_access" id="forever_access" value="true" 
                onchange="toggleExpireSection()">
@@ -474,7 +547,7 @@
   </footer>
 
   <script>
-    // const backend_url = "https://gateomi-backend-647776055629.asia-south1.run.app"
+    // const backend_url ="http://localhost:8000"
     const backend_url =  "https://gateomi-backend-647776055629.asia-south2.run.app";
 
     const video = document.getElementById("video");
@@ -484,6 +557,14 @@
     let capturedImages = [];
     let activeStream = null;
     let currentFacingMode = "user";
+    const portalLoginToggle = document.getElementById("portal-login-toggle");
+    const portalLoginFields = document.getElementById("portal-login-fields");
+    const portalEmailInput = document.getElementById("portal-email");
+    const portalMandatoryRoles = ["resident", "security", "maintenance staff"];
+    const allowedGatesAllToggle = document.getElementById("allowed-gates-all");
+    const allowedGatesList = document.getElementById("allowed-gates-list");
+    let societyDevices = [];
+    let societyDeviceMap = {};
 
     function applyVideoMirror() {
       const shouldMirror = currentFacingMode === "user";
@@ -607,6 +688,7 @@
 
         stateSelect.addEventListener("change", async () => {
             const selectedState = stateSelect.value;
+            resetAllowedDevicesUI();
             if (!selectedState) {
                 citySelect.innerHTML = "<option value=''>Select state first</option>";
                 citySelect.disabled = true;
@@ -638,6 +720,7 @@
             if (!selectedState || !selectedCity) {
                 societySelect.innerHTML = "<option value=''>Select state and city first</option>";
                 societySelect.disabled = true;
+                resetAllowedDevicesUI();
                 return;
             }
 
@@ -659,6 +742,15 @@
                 societySelect.disabled = true;
             }
         });
+
+        societySelect.addEventListener("change", () => {
+            const selectedSociety = societySelect.value;
+            if (!selectedSociety) {
+                resetAllowedDevicesUI();
+                return;
+            }
+            loadSocietyDevices();
+        });
     }
 
     async function submitForm(e) {
@@ -673,6 +765,28 @@
         submitBtn.textContent = "Submitting...";
 
         const formData = new FormData(form);
+        const wantsPortalLogin = portalLoginToggle ? (portalLoginToggle.checked || portalLoginToggle.disabled) : false;
+        const portalEmailValue = portalEmailInput ? portalEmailInput.value.trim() : "";
+
+        if (wantsPortalLogin && !portalEmailValue) {
+            showToast("Portal email is required for login provisioning.", true);
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Submit";
+            return;
+        }
+
+        if (portalLoginToggle) {
+            formData.set("portal_login", wantsPortalLogin ? "true" : "false");
+        }
+        if (portalEmailInput) {
+            formData.set("portal_email", portalEmailValue);
+        }
+
+        formData.delete("allowed_device_ids");
+        const selectedDevices = getSelectedAllowedDevices();
+        if (selectedDevices.length) {
+            selectedDevices.forEach((deviceId) => formData.append("allowed_device_ids", deviceId));
+        }
 
         if (foreverCheckbox.checked) {
             formData.delete("expire_at");
@@ -713,6 +827,26 @@
               document.getElementById("forever_access").checked = false;
               document.getElementById("expire_section").classList.remove("hidden");
               document.getElementById("expire_at").required = true;
+              if (portalEmailInput) {
+                portalEmailInput.value = "";
+              }
+              const currentUserType = document.getElementById("user_type").value || "";
+              applyPortalDefaultsForUserType(currentUserType);
+              resetAllowedDevicesUI();
+              if (result.portal) {
+                const portalMessages = [];
+                if (result.portal.otp_sent) {
+                  portalMessages.push("Portal login email sent.");
+                } else if (result.portal.otp) {
+                  portalMessages.push(`Portal OTP: ${result.portal.otp}`);
+                }
+                if (result.portal.temp_password) {
+                  portalMessages.push(`Temp password: ${result.portal.temp_password}`);
+                }
+                if (portalMessages.length) {
+                  showToast(portalMessages.join(" "));
+                }
+              }
             } else {
               showToast("Error: " + result.message, true);
             }
@@ -747,31 +881,178 @@
       };
     }
 
-    function toggleExpireSection() {
-        const foreverCheckbox = document.getElementById("forever_access");
-        const expireSection = document.getElementById("expire_section");
-        const expireField = document.getElementById("expire_at");
-        
-        if (foreverCheckbox.checked) {
-            expireSection.classList.add("hidden");
-            expireField.required = false;
-            expireField.value = "";
-        } else {
-            expireSection.classList.remove("hidden");
-            expireField.required = true;
-            const today = new Date().toISOString().split('T')[0];
-            expireField.min = today;
+function toggleExpireSection() {
+    const foreverCheckbox = document.getElementById("forever_access");
+    const expireSection = document.getElementById("expire_section");
+    const expireField = document.getElementById("expire_at");
+    
+    if (foreverCheckbox.checked) {
+        expireSection.classList.add("hidden");
+        expireField.required = false;
+        expireField.value = "";
+    } else {
+        expireSection.classList.remove("hidden");
+        expireField.required = true;
+        const today = new Date().toISOString().split('T')[0];
+        expireField.min = today;
+    }
+}
+
+function updatePortalLoginUI() {
+    if (!portalLoginToggle || !portalLoginFields) {
+        return;
+    }
+    const wantsPortal = portalLoginToggle.checked || portalLoginToggle.disabled;
+    portalLoginFields.classList.toggle('hidden', !wantsPortal);
+    if (portalEmailInput) {
+        portalEmailInput.required = wantsPortal;
+        if (!wantsPortal) {
+            portalEmailInput.value = '';
         }
     }
+}
 
-    document.getElementById("capture-button").addEventListener("click", captureImage);
-    document.getElementById("reg-form").addEventListener("submit", submitForm);
-    if (flipButton) {
-      flipButton.addEventListener("click", toggleCameraFacing);
+function applyPortalDefaultsForUserType(userType) {
+    if (!portalLoginToggle) {
+        return;
     }
+    if (portalMandatoryRoles.includes(userType)) {
+        portalLoginToggle.checked = true;
+        portalLoginToggle.disabled = true;
+    } else {
+        portalLoginToggle.disabled = false;
+    }
+    updatePortalLoginUI();
+}
 
-    startCamera();
-    loadStatesAndCities();
+function resetAllowedDevicesUI() {
+    if (allowedGatesAllToggle) {
+        allowedGatesAllToggle.checked = true;
+    }
+    if (allowedGatesList) {
+        allowedGatesList.innerHTML = '<span class="portal-login-note">Select a society to load gates.</span>';
+    }
+    societyDevices = [];
+    societyDeviceMap = {};
+    syncAllowedDevicesState();
+}
+
+function syncAllowedDevicesState() {
+    if (!allowedGatesList) {
+        return;
+    }
+    const allChecked = allowedGatesAllToggle ? allowedGatesAllToggle.checked : true;
+    const checkboxes = allowedGatesList.querySelectorAll('input.allowed-gate-checkbox');
+    checkboxes.forEach((checkbox) => {
+        checkbox.disabled = allChecked;
+        if (allChecked) {
+            checkbox.checked = false;
+        }
+    });
+}
+
+function getSelectedAllowedDevices() {
+    if (!allowedGatesList || (allowedGatesAllToggle && allowedGatesAllToggle.checked)) {
+        return [];
+    }
+    const checkboxes = allowedGatesList.querySelectorAll('input.allowed-gate-checkbox:checked');
+    return Array.from(checkboxes).map((checkbox) => checkbox.value);
+}
+
+function renderAllowedDevices() {
+    if (!allowedGatesList) {
+        return;
+    }
+    allowedGatesList.innerHTML = '';
+    if (!societyDevices.length) {
+        allowedGatesList.innerHTML = '<span class="portal-login-note">No gates available.</span>';
+        return;
+    }
+    societyDevices.forEach((device) => {
+        const option = document.createElement('label');
+        option.className = 'device-option';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = device.id;
+        checkbox.dataset.deviceId = device.id;
+        checkbox.classList.add('allowed-gate-checkbox');
+        checkbox.addEventListener('change', () => {
+            if (allowedGatesAllToggle && allowedGatesAllToggle.checked) {
+                allowedGatesAllToggle.checked = false;
+                syncAllowedDevicesState();
+            }
+        });
+        const span = document.createElement('span');
+        span.className = 'device-label';
+        const labelText = device.label || device.display_name || device.name || device.device_id || device.id || 'Unnamed gate';
+        span.textContent = labelText;
+        option.title = labelText;
+        option.appendChild(checkbox);
+        option.appendChild(span);
+        console.debug('Render gate option', device);
+        allowedGatesList.appendChild(option);
+    });
+    syncAllowedDevicesState();
+}
+
+async function loadSocietyDevices() {
+    if (!allowedGatesList) {
+        return;
+    }
+    const token = localStorage.getItem(tokenStorageKey);
+    if (!token) {
+        resetAllowedDevicesUI();
+        return;
+    }
+    try {
+        const response = await fetch(`${backend_url}/admin/devices`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to load devices (${response.status})`);
+        }
+        const data = await response.json();
+        societyDevices = Array.isArray(data.devices) ? data.devices : [];
+        societyDeviceMap = {};
+        societyDevices.forEach((device) => {
+            societyDeviceMap[device.id] = device.label;
+        });
+        renderAllowedDevices();
+    } catch (error) {
+        console.error('Device load error:', error);
+        societyDevices = [];
+        societyDeviceMap = {};
+        if (allowedGatesList) {
+            allowedGatesList.innerHTML = '<span class="portal-login-note">Unable to load gates.</span>';
+        }
+    }
+}
+
+document.getElementById("capture-button").addEventListener("click", captureImage);
+document.getElementById("reg-form").addEventListener("submit", submitForm);
+if (flipButton) {
+  flipButton.addEventListener("click", toggleCameraFacing);
+}
+
+if (portalLoginToggle) {
+  portalLoginToggle.addEventListener("change", () => {
+    if (portalLoginToggle.disabled) {
+      portalLoginToggle.checked = true;
+      return;
+    }
+    updatePortalLoginUI();
+  });
+}
+
+if (allowedGatesAllToggle) {
+  allowedGatesAllToggle.addEventListener('change', syncAllowedDevicesState);
+}
+
+startCamera();
+loadStatesAndCities();
 
     document.getElementById("user_type").addEventListener("change", function() {
         const userType = this.value;
@@ -789,6 +1070,8 @@
             towerField.placeholder = "Optional for non-residents";
             flatField.placeholder = "Optional for non-residents";
         }
+
+        applyPortalDefaultsForUserType(userType);
     });
 
     document.addEventListener("DOMContentLoaded", function() {
@@ -798,6 +1081,9 @@
         document.getElementById("forever_access").checked = false;
         document.getElementById("expire_section").classList.remove("hidden");
         document.getElementById("expire_at").required = true;
+        const initialUserType = document.getElementById("user_type").value;
+        applyPortalDefaultsForUserType(initialUserType);
+        resetAllowedDevicesUI();
     });
 
     // Login state management
