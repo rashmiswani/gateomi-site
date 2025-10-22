@@ -353,15 +353,51 @@
     }
     .allowed-gates-section {
       margin-top: 24px;
-      padding: 16px;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      background: #f8fafc;
+      padding: 20px;
+      border: 1px solid #dbeafe;
+      border-radius: 14px;
+      background: #f8fbff;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .allowed-gates-heading {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .allowed-gates-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .allowed-gates-hint {
+      font-size: 13px;
+      color: #6b7280;
+    }
+    .allowed-gates-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+    }
+    .allowed-gates-wrapper {
+      border: 1px solid #cbd5f5;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: block;
+    }
+    .allowed-gates-wrapper.hidden {
+      display: none;
+    }
+    .allowed-gates-wrapper.disabled {
+      opacity: 0.5;
+      pointer-events: none;
     }
     .allowed-gates-list {
-      max-height: 220px;
-      overflow-y: auto;
-      margin-top: 12px;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -369,24 +405,23 @@
     .device-option {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       font-size: 14px;
       color: #1f2937;
-      cursor: pointer;
-      line-height: 1.2;
     }
     .device-option input[type="checkbox"] {
       accent-color: #2563eb;
       margin: 0;
-      transform: translateY(1px);
+      width:2% !important
     }
     .device-label {
-      color: #1f2937;
       font-weight: 500;
-      line-height: 1.4;
-      display: inline-block;
+      color: #1f2937;
     }
 
+    #allowed-gates-all {
+      width:2% !important;
+    }
     @media (max-width: 768px) {
       .container {
         max-width: 95%;
@@ -505,13 +540,18 @@
       </div>
 
       <div class="allowed-gates-section">
-        <label>Allowed Gates</label>
-        <div class="checkbox-container" style="margin-top: 8px;">
+        <div class="allowed-gates-heading">
+          <span class="allowed-gates-title">Allowed Gates</span>
+          <span class="allowed-gates-hint">Uncheck “All gates” to limit this user to specific entry points.</span>
+        </div>
+        <div class="allowed-gates-toggle">
           <input type="checkbox" id="allowed-gates-all" checked>
           <span>Allow this user at all gates</span>
         </div>
-        <div id="allowed-gates-list" class="allowed-gates-list">
-          <span class="portal-login-note">Select a society to load gates.</span>
+        <div id="allowed-gates-wrapper" class="allowed-gates-wrapper">
+          <div id="allowed-gates-list" class="allowed-gates-list">
+            <span class="portal-login-note">Select a society to load gates.</span>
+          </div>
         </div>
       </div>
 
@@ -562,6 +602,7 @@
     const portalEmailInput = document.getElementById("portal-email");
     const portalMandatoryRoles = ["resident", "security", "maintenance staff"];
     const allowedGatesAllToggle = document.getElementById("allowed-gates-all");
+    const allowedGatesWrapper = document.getElementById("allowed-gates-wrapper");
     const allowedGatesList = document.getElementById("allowed-gates-list");
     let societyDevices = [];
     let societyDeviceMap = {};
@@ -932,6 +973,10 @@ function resetAllowedDevicesUI() {
     if (allowedGatesList) {
         allowedGatesList.innerHTML = '<span class="portal-login-note">Select a society to load gates.</span>';
     }
+    if (allowedGatesWrapper) {
+        allowedGatesWrapper.classList.add('hidden');
+        allowedGatesWrapper.classList.remove('disabled');
+    }
     societyDevices = [];
     societyDeviceMap = {};
     syncAllowedDevicesState();
@@ -942,6 +987,10 @@ function syncAllowedDevicesState() {
         return;
     }
     const allChecked = allowedGatesAllToggle ? allowedGatesAllToggle.checked : true;
+    if (allowedGatesWrapper) {
+        allowedGatesWrapper.classList.toggle('hidden', societyDevices.length === 0);
+        allowedGatesWrapper.classList.toggle('disabled', allChecked);
+    }
     const checkboxes = allowedGatesList.querySelectorAll('input.allowed-gate-checkbox');
     checkboxes.forEach((checkbox) => {
         checkbox.disabled = allChecked;
@@ -992,6 +1041,9 @@ function renderAllowedDevices() {
         console.debug('Render gate option', device);
         allowedGatesList.appendChild(option);
     });
+    if (allowedGatesWrapper) {
+        allowedGatesWrapper.classList.remove('hidden');
+    }
     syncAllowedDevicesState();
 }
 
