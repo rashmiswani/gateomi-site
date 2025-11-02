@@ -3299,7 +3299,9 @@
     }
 
     async function loadAccessLogs() {
-      if (!currentToken) return;
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) return;
 
       // Show loading state
       accessLogsTableBody.innerHTML = "<tr><td colspan=\"6\" class=\"loading-logs\"><span class=\"spinner\"></span>Loading access logs...</td></tr>";
@@ -3519,13 +3521,15 @@
     }
 
     async function loadVisitorDevices() {
-      if (!currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
         return;
       }
       try {
         const response = await fetch(`${backend_url}/admin/devices`, {
           headers: {
-            Authorization: getBasicAuthHeader(),
+            Authorization: authHeader,
             'Content-Type': 'application/json'
           }
         });
@@ -3590,7 +3594,9 @@
     }
 
     async function loadVisitorPasses(status = "") {
-      if (!visitorTableBody || !currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!visitorTableBody || !authHeader) {
         return;
       }
 
@@ -4055,13 +4061,13 @@
         const [countsResponse, attendanceResponse] = await Promise.all([
           fetch(`${backend_url}/admin/users/statistics/counts`, {
             headers: {
-              'Authorization': `Bearer ${currentToken}`,
+              'Authorization': getBasicAuthHeader(),
               'Content-Type': 'application/json'
             }
           }),
           fetch(`${backend_url}/admin/users/statistics/today-attendance`, {
             headers: {
-              'Authorization': `Bearer ${currentToken}`,
+              'Authorization': getBasicAuthHeader(),
               'Content-Type': 'application/json'
             }
           })
@@ -4257,7 +4263,9 @@
     }
 
     async function loadOverviewAnalytics({ force = false } = {}) {
-      if (!currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
         return;
       }
 
@@ -4268,7 +4276,7 @@
       try {
         const response = await fetch(`${backend_url}/admin/authorized-summary?days=${OVERVIEW_ANALYTICS_LOOKBACK_DAYS}`, {
           headers: {
-            'Authorization': `Bearer ${currentToken}`,
+            'Authorization': authHeader,
             'Content-Type': 'application/json'
           }
         });
@@ -4600,7 +4608,9 @@
     async function loadUserAttendance() {
       console.log('📊 Loading user attendance data...');
       
-      if (!currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
         showFeedback(dashboardFeedback, 'Please log in to view attendance data', 'error');
         return;
       }
@@ -4645,7 +4655,7 @@
         
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${currentToken}`,
+            'Authorization': getBasicAuthHeader(),
             'Content-Type': 'application/json'
           }
         });
@@ -4983,7 +4993,7 @@
         
         const response = await fetch(url, {
           headers: {
-            'Authorization': `Bearer ${currentToken}`,
+            'Authorization': getBasicAuthHeader(),
             'Content-Type': 'application/json'
           }
         });
@@ -6302,7 +6312,9 @@
     async function loadWorkingDays() {
       console.log("📊 Loading working days data...");
       
-      if (!currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
         showFeedback(dashboardFeedback, "Please log in to view working days data", "error");
         return;
       }
@@ -6342,7 +6354,7 @@
         
         const response = await fetch(url, {
           headers: {
-            "Authorization": `Bearer ${currentToken}`,
+            "Authorization": authHeader,
             "Content-Type": "application/json"
           }
         });
@@ -6423,7 +6435,7 @@
           const url = `${backend_url}/admin/users/working-days?${params}`;
           const response = await fetch(url, {
             headers: {
-              "Authorization": `Bearer ${currentToken}`,
+              "Authorization": getBasicAuthHeader(),
               "Content-Type": "application/json"
             }
           });
