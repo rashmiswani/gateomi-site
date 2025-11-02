@@ -3695,13 +3695,15 @@
     }
 
     async function viewVisitorPass(passId) {
-      if (!passId || !currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!passId || !authHeader) {
         return;
       }
       try {
         const response = await fetch(`${backend_url}/admin/visitor-passes/${passId}`, {
           headers: {
-            Authorization: getBasicAuthHeader(),
+            Authorization: authHeader,
             "Content-Type": "application/json",
           },
         });
@@ -3719,7 +3721,9 @@
     }
 
     async function revokeVisitorPass(passId) {
-      if (!passId || !currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!passId || !authHeader) {
         return;
       }
       const confirmed = window.confirm("Revoke this visitor pass? This action cannot be undone.");
@@ -3811,7 +3815,9 @@
       if (!visitorPassForm) {
         return;
       }
-      if (!currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
         showVisitorFeedback("You must be logged in to create visitor passes", "error");
         return;
       }
@@ -4972,7 +4978,9 @@
     async function loadUsers() {
       console.log('📊 Loading users data...');
       
-      if (!currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
         showFeedback(dashboardFeedback, 'Please log in to view users', 'error');
         return;
       }
