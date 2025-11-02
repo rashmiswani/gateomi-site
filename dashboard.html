@@ -5396,7 +5396,11 @@
       }
 
       const remainingExisting = editingUserImages.filter((image) => !userFormRemovedImages.has(image.path));
-      const hasImages = (remainingExisting && remainingExisting.length > 0) || userFormCapturedImages.length > 0;
+      const uploadedFiles = userFormImagesInput?.files ? Array.from(userFormImagesInput.files) : [];
+      const uploadedFilesNotCaptured = uploadedFiles.filter(file => {
+        return !userFormCapturedImages.some(item => item.file.name === file.name);
+      });
+      const hasImages = (remainingExisting && remainingExisting.length > 0) || userFormCapturedImages.length > 0 || uploadedFilesNotCaptured.length > 0;
 
       if (!hasImages) {
         userFormExistingContainer.classList.add('hidden');
@@ -5407,7 +5411,7 @@
 
       userFormExistingContainer.classList.remove('hidden');
       
-      // Render existing images (from database)
+      // Render existing images (from database) - no "Existing" badge needed
       const existingCards = remainingExisting.map((image) => {
         const isRemoved = userFormRemovedImages.has(image.path);
         const imageContent = image.url
@@ -5419,7 +5423,6 @@
         return `
           <div class="${cardClass}" data-image-path="${image.path}" data-image-type="existing">
             ${imageContent}
-            <div class="user-form-image-badge">Existing</div>
             <button type="button" class="user-form-existing-toggle" data-remove-image="${image.path}" title="${buttonTitle}">
               ${buttonIcon}
             </button>
@@ -5440,12 +5443,33 @@
         `;
       }).join('');
 
-      userFormExistingGrid.innerHTML = existingCards + capturedCards;
+      // Render uploaded images (from file input, not camera)
+      const uploadedFiles = userFormImagesInput?.files ? Array.from(userFormImagesInput.files) : [];
+      const uploadedFilesNotCaptured = uploadedFiles.filter(file => {
+        return !userFormCapturedImages.some(item => item.file.name === file.name);
+      });
+
+      // Create data URLs for uploaded files and render them
+      const uploadedCards = uploadedFilesNotCaptured.map((file, index) => {
+        // Create a preview URL for the uploaded file
+        const objectURL = URL.createObjectURL(file);
+        return `
+          <div class="user-form-existing-card user-form-captured-card" data-uploaded-file-index="${index}" data-image-type="uploaded" data-file-name="${file.name}">
+            <img src="${objectURL}" alt="Uploaded photo" />
+            <div class="user-form-image-badge user-form-image-badge-new">New (Upload)</div>
+            <button type="button" class="user-form-existing-toggle" data-remove-uploaded="${index}" data-file-name="${file.name}" title="Remove">
+              ×
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      userFormExistingGrid.innerHTML = existingCards + capturedCards + uploadedCards;
       updateUserFormImageCounters();
     }
 
     function handleUserFormExistingImageClick(event) {
-      const button = event.target.closest('[data-remove-image], [data-remove-captured]');
+      const button = event.target.closest('[data-remove-image], [data-remove-captured], [data-remove-uploaded]');
       if (!button) {
         return;
       }
@@ -5468,6 +5492,21 @@
             userFormImagesInput.files = dt.files;
           }
           
+          renderUserFormExistingImages();
+          return;
+        }
+      }
+
+      // Handle uploaded image removal (from file input, not camera)
+      if (button.dataset.removeUploaded !== undefined) {
+        const fileName = button.dataset.fileName;
+        if (fileName && userFormImagesInput) {
+          const dt = new DataTransfer();
+          Array.from(userFormImagesInput.files).forEach(f => {
+            if (f.name !== fileName) dt.items.add(f);
+          });
+          userFormImagesInput.files = dt.files;
+          userFormImagesInput.dispatchEvent(new Event('change', { bubbles: true }));
           renderUserFormExistingImages();
           return;
         }
@@ -5511,6 +5550,7 @@
           Array.from(files).slice(0, filesToKeep).forEach(f => dt.items.add(f));
           userFormImagesInput.files = dt.files;
         }
+        renderUserFormExistingImages();
         updateUserFormImageCounters();
         return;
       }
@@ -5519,6 +5559,9 @@
         userFormErrorBox.classList.add('hidden');
         userFormErrorBox.textContent = '';
       }
+      
+      // Re-render images to show newly uploaded files
+      renderUserFormExistingImages();
       updateUserFormImageCounters();
     }
 
@@ -6101,7 +6144,10 @@
     function renderUsersTable() {
       console.log('🎨 Rendering users table...');
       
-      if (!currentUsersData || !currentUsersData.users || currentUsersData.users.length === 0) {
+      // Use server-side paginated results directly (no client-side filtering/pagination)
+      const users = currentUsersData?.users || [];
+      
+      if (users.length === 0) {
         if (usersTableBody) {
           usersTableBody.innerHTML = `
             <tr>
@@ -6114,43 +6160,9 @@
         return;
       }
 
-      // Apply client-side filtering and pagination
-      let filteredUsers = currentUsersData.users;
-      
-      // Apply search filter
-      const searchTerm = usersSearch ? usersSearch.value.trim().toLowerCase() : '';
-      if (searchTerm) {
-        filteredUsers = filteredUsers.filter(user => 
-          (user.name && user.name.toLowerCase().includes(searchTerm)) ||
-          (user.flat_number && user.flat_number.toLowerCase().includes(searchTerm)) ||
-          (user.mobile_number && user.mobile_number.includes(searchTerm))
-        );
-      }
-      
-      // Apply status filter
-      const statusFilter = usersStatusFilter ? usersStatusFilter.value : '';
-      if (statusFilter) {
-        filteredUsers = filteredUsers.filter(user => user.status === statusFilter);
-      }
-      
-      // Apply type filter
-      const typeFilter = usersTypeFilter ? usersTypeFilter.value : '';
-      if (typeFilter) {
-        filteredUsers = filteredUsers.filter(user => user.user_type === typeFilter);
-      }
-      
-      // Update total count for pagination
-      currentUsersTotalCount = filteredUsers.length;
-      currentUsersTotalPages = Math.ceil(currentUsersTotalCount / currentUsersPageSize);
-      
-      // Apply pagination
-      const startIndex = (currentUsersPage - 1) * currentUsersPageSize;
-      const endIndex = startIndex + currentUsersPageSize;
-      const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+      console.log(`📄 Rendering page ${currentUsersPage}: ${users.length} users`);
 
-      console.log(`📄 Rendering page ${currentUsersPage}: ${paginatedUsers.length} users (${currentUsersTotalCount} total)`);
-
-      const rows = paginatedUsers.map(user => {
+      const rows = users.map(user => {
         const statusClass = getStatusChipClass(user.status);
         const statusBadge = formatUserLabel(user.status || 'unknown');
         
