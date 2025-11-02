@@ -2201,6 +2201,7 @@
           <button class="nav-link" data-section="access-logs-section">Access Logs</button>
           
           <button class="nav-link" data-section="visitors-section">Visitor Passes</button>
+          <button class="nav-link" data-section="devices-section">Devices</button>
           
           
           
@@ -2714,6 +2715,42 @@
               </div>
             </div>
           </section>
+
+          <!-- Devices Section -->
+          <section id="devices-section" class="portal-section">
+            <div class="section-heading">
+              <h3>Device Management</h3>
+              <p class="small-label">Add, edit, and manage devices for your society.</p>
+            </div>
+            
+            <div class="filters-bar">
+              <div class="filters-group">
+                <button id="devices-add-btn" type="button" class="primary">+ Add Device</button>
+                <button id="devices-refresh-btn" type="button" class="secondary">Refresh</button>
+              </div>
+            </div>
+
+            <!-- Devices Table -->
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Device ID</th>
+                    <th>Display Name</th>
+                    <th>Hardware URL</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="devices-table-body">
+                  <tr>
+                    <td colspan="4" style="text-align: center; padding: 40px; color: #6b7280;">
+                      <div class="spinner"></div> Loading devices...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
       </div>
     </section>
@@ -2839,6 +2876,47 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Device Form Modal -->
+  <div id="device-form-overlay" class="modal hidden">
+    <div class="modal-backdrop" data-close-device-form="true"></div>
+    <div class="modal-dialog user-form-dialog">
+      <button class="modal-close" type="button" data-close-device-form="true" aria-label="Close device form">&times;</button>
+      <form id="device-form" novalidate>
+        <div>
+          <h3 id="device-form-title">Add New Device</h3>
+          <p class="user-form-society" id="device-form-society"></p>
+        </div>
+        <div id="device-form-error" class="modal-error hidden"></div>
+        <div class="user-form-grid">
+          <div class="user-form-field">
+            <label for="device-form-username">Device Username *</label>
+            <input type="text" id="device-form-username" name="username" placeholder="e.g. device001" required />
+          </div>
+          <div class="user-form-field">
+            <label for="device-form-password">Device Password *</label>
+            <input type="password" id="device-form-password" name="password" placeholder="Enter device password" required />
+          </div>
+          <div class="user-form-field">
+            <label for="device-form-display-name">Display Name</label>
+            <input type="text" id="device-form-display-name" name="display_name" placeholder="e.g. Main Gate Camera" />
+          </div>
+          <div class="user-form-field">
+            <label for="device-form-hardware-url">Gateomi Hardware URL (Optional)</label>
+            <input type="url" id="device-form-hardware-url" name="gateomi_hardware_url" placeholder="https://example.com/webhook" />
+            <p class="user-form-note">URL to ping after successful authorization</p>
+          </div>
+        </div>
+        <div class="user-form-actions">
+          <button type="button" class="secondary" id="device-form-cancel">Cancel</button>
+          <button type="submit" id="device-form-submit" class="user-form-submit">
+            <span class="spinner hidden" id="device-form-submit-spinner"></span>
+            <span id="device-form-submit-text">Add Device</span>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 <script>
@@ -4645,9 +4723,13 @@
         }
       });
       attendanceNextBtn.addEventListener('click', () => {
+        console.log('📄 Next button clicked. Current page:', currentAttendancePage, 'Total pages:', currentAttendanceTotalPages);
         if (currentAttendancePage < currentAttendanceTotalPages) {
           currentAttendancePage++;
+          console.log('📄 Loading page:', currentAttendancePage);
           loadUserAttendance();
+        } else {
+          console.log('⚠️ Already on last page');
         }
       });
       
@@ -4726,11 +4808,23 @@
         console.log('📦 Received data:', data);
         
         currentAttendanceData = data;
-        currentAttendanceTotalCount = data.pagination.total_count;
-        currentAttendanceTotalPages = data.pagination.total_pages;
-        if (data.pagination && typeof data.pagination.page === 'number') {
-          currentAttendancePage = data.pagination.page;
+        if (data.pagination) {
+          currentAttendanceTotalCount = data.pagination.total_count || 0;
+          currentAttendanceTotalPages = data.pagination.total_pages || 1;
+          if (typeof data.pagination.page === 'number') {
+            currentAttendancePage = data.pagination.page;
+          }
+        } else {
+          // Fallback if pagination data is missing
+          currentAttendanceTotalCount = data.users ? data.users.length : 0;
+          currentAttendanceTotalPages = 1;
         }
+        
+        console.log('📊 Pagination data:', {
+          page: currentAttendancePage,
+          totalPages: currentAttendanceTotalPages,
+          totalCount: currentAttendanceTotalCount
+        });
         
         renderAttendanceTable();
         updateAttendanceStats();
@@ -6284,6 +6378,9 @@
         case 'access-logs-section':
           // Access logs are loaded in activateSection
           break;
+        case 'devices-section':
+          loadDevices();
+          break;
         default:
           console.log('No specific data loading for section:', sectionId);
       }
@@ -6916,6 +7013,331 @@
       console.log(`📄 Pagination: Page ${workingDaysPage}/${totalPages}, Items ${startItem}-${endItem}/${totalItems}`);
     }
 
+    // ========== DEVICE MANAGEMENT ==========
+    const devicesTableBody = document.getElementById('devices-table-body');
+    const devicesAddBtn = document.getElementById('devices-add-btn');
+    const devicesRefreshBtn = document.getElementById('devices-refresh-btn');
+    const deviceFormOverlay = document.getElementById('device-form-overlay');
+    const deviceForm = document.getElementById('device-form');
+    const deviceFormTitle = document.getElementById('device-form-title');
+    const deviceFormError = document.getElementById('device-form-error');
+    const deviceFormCancel = document.getElementById('device-form-cancel');
+    const deviceFormSubmit = document.getElementById('device-form-submit');
+    const deviceFormSubmitSpinner = document.getElementById('device-form-submit-spinner');
+    const deviceFormSubmitText = document.getElementById('device-form-submit-text');
+    const deviceFormUsername = document.getElementById('device-form-username');
+    const deviceFormPassword = document.getElementById('device-form-password');
+    const deviceFormDisplayName = document.getElementById('device-form-display-name');
+    const deviceFormHardwareUrl = document.getElementById('device-form-hardware-url');
+
+    let currentEditingDeviceId = null;
+    let devicesData = [];
+
+    // Load devices
+    async function loadDevices() {
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
+        showFeedback(dashboardFeedback, 'Please log in to view devices', 'error');
+        return;
+      }
+
+      if (devicesTableBody) {
+        devicesTableBody.innerHTML = `
+          <tr>
+            <td colspan="4" style="text-align: center; padding: 40px; color: #6b7280;">
+              <span class="spinner"></span> Loading devices...
+            </td>
+          </tr>
+        `;
+      }
+
+      try {
+        const response = await fetch(`${backend_url}/admin/devices`, {
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          handleLogout(true);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`Failed to load devices: ${response.status}`);
+        }
+
+        const data = await response.json();
+        devicesData = data.devices || [];
+        renderDevicesTable();
+      } catch (error) {
+        console.error('❌ Error loading devices:', error);
+        if (devicesTableBody) {
+          devicesTableBody.innerHTML = `
+            <tr>
+              <td colspan="4" style="text-align: center; padding: 40px; color: #dc2626;">
+                ❌ Failed to load devices: ${error.message}
+              </td>
+            </tr>
+          `;
+        }
+        showFeedback(dashboardFeedback, `Failed to load devices: ${error.message}`, 'error');
+      }
+    }
+
+    // Render devices table
+    function renderDevicesTable() {
+      if (!devicesTableBody) return;
+
+      if (!devicesData || devicesData.length === 0) {
+        devicesTableBody.innerHTML = `
+          <tr>
+            <td colspan="4" style="text-align: center; padding: 40px; color: #6b7280;">
+              No devices found. Click "Add Device" to create one.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      const rows = devicesData.map(device => {
+        const displayName = device.display_name || device.username;
+        const hardwareUrl = device.gateomi_hardware_url || '<span style="color: #9ca3af;">Not configured</span>';
+        return `
+          <tr>
+            <td><strong>${device.username}</strong></td>
+            <td>${displayName}</td>
+            <td style="word-break: break-all; max-width: 300px;">${hardwareUrl}</td>
+            <td>
+              <button type="button" class="link-button" onclick="openEditDeviceModal('${device.username}')">Edit</button>
+              <button type="button" class="link-button danger" onclick="deleteDevice('${device.username}')">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      devicesTableBody.innerHTML = rows;
+    }
+
+    // Open device form modal
+    function openDeviceModal(deviceId = null) {
+      currentEditingDeviceId = deviceId;
+      
+      if (deviceId) {
+        deviceFormTitle.textContent = 'Edit Device';
+        deviceFormSubmitText.textContent = 'Update Device';
+        const device = devicesData.find(d => d.username === deviceId);
+        if (device) {
+          deviceFormUsername.value = device.username;
+          deviceFormUsername.disabled = true;
+          deviceFormPassword.value = '';
+          deviceFormPassword.placeholder = 'Leave blank to keep current password';
+          deviceFormPassword.required = false;
+          deviceFormDisplayName.value = device.display_name || '';
+          deviceFormHardwareUrl.value = device.gateomi_hardware_url || '';
+        }
+      } else {
+        deviceFormTitle.textContent = 'Add New Device';
+        deviceFormSubmitText.textContent = 'Add Device';
+        deviceForm.reset();
+        deviceFormUsername.disabled = false;
+        deviceFormPassword.required = true;
+        deviceFormPassword.placeholder = 'Enter device password';
+      }
+      
+      hideDeviceFormError();
+      deviceFormOverlay.classList.remove('hidden');
+    }
+
+    window.openEditDeviceModal = openDeviceModal;
+
+    // Close device form modal
+    function closeDeviceModal() {
+      deviceFormOverlay.classList.add('hidden');
+      deviceForm.reset();
+      currentEditingDeviceId = null;
+      deviceFormUsername.disabled = false;
+      deviceFormPassword.required = true;
+      deviceFormPassword.placeholder = 'Enter device password';
+    }
+
+    // Show device form error
+    function showDeviceFormError(message) {
+      if (deviceFormError) {
+        deviceFormError.textContent = message;
+        deviceFormError.classList.remove('hidden');
+      }
+    }
+
+    // Hide device form error
+    function hideDeviceFormError() {
+      if (deviceFormError) {
+        deviceFormError.classList.add('hidden');
+        deviceFormError.textContent = '';
+      }
+    }
+
+    // Handle device form submit
+    async function handleDeviceFormSubmit(e) {
+      e.preventDefault();
+      hideDeviceFormError();
+
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
+        showDeviceFormError('Please log in to manage devices');
+        return;
+      }
+
+      const username = deviceFormUsername.value.trim();
+      const password = deviceFormPassword.value.trim();
+      const displayName = deviceFormDisplayName.value.trim() || null;
+      const hardwareUrl = deviceFormHardwareUrl.value.trim() || null;
+
+      if (!username) {
+        showDeviceFormError('Device username is required');
+        return;
+      }
+
+      if (!currentEditingDeviceId && !password) {
+        showDeviceFormError('Device password is required');
+        return;
+      }
+
+      // Show loading state
+      deviceFormSubmit.disabled = true;
+      deviceFormSubmitSpinner.classList.remove('hidden');
+      deviceFormSubmitText.textContent = currentEditingDeviceId ? 'Updating...' : 'Adding...';
+
+      try {
+        const url = currentEditingDeviceId
+          ? `${backend_url}/admin/devices/${encodeURIComponent(currentEditingDeviceId)}`
+          : `${backend_url}/admin/devices`;
+        
+        const method = currentEditingDeviceId ? 'PATCH' : 'POST';
+        
+        const payload = currentEditingDeviceId
+          ? {
+              ...(password && { password }),
+              ...(displayName !== null && { display_name: displayName }),
+              ...(hardwareUrl !== null && { gateomi_hardware_url: hardwareUrl }),
+            }
+          : {
+              username,
+              password,
+              display_name: displayName,
+              gateomi_hardware_url: hardwareUrl,
+            };
+
+        const response = await fetch(url, {
+          method,
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.status === 401) {
+          handleLogout(true);
+          return;
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+          throw new Error(errorData.detail || `Failed to ${currentEditingDeviceId ? 'update' : 'create'} device: ${response.status}`);
+        }
+
+        const data = await response.json();
+        showFeedback(dashboardFeedback, data.message || `Device ${currentEditingDeviceId ? 'updated' : 'created'} successfully`, 'success');
+        
+        closeDeviceModal();
+        loadDevices();
+      } catch (error) {
+        console.error(`❌ Error ${currentEditingDeviceId ? 'updating' : 'creating'} device:`, error);
+        showDeviceFormError(error.message);
+      } finally {
+        deviceFormSubmit.disabled = false;
+        deviceFormSubmitSpinner.classList.add('hidden');
+        deviceFormSubmitText.textContent = currentEditingDeviceId ? 'Update Device' : 'Add Device';
+      }
+    }
+
+    // Delete device
+    async function deleteDevice(deviceId) {
+      if (!confirm(`Are you sure you want to delete device "${deviceId}"? This action cannot be undone.`)) {
+        return;
+      }
+
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
+        showFeedback(dashboardFeedback, 'Please log in to delete devices', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${backend_url}/admin/devices/${encodeURIComponent(deviceId)}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          handleLogout(true);
+          return;
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+          throw new Error(errorData.detail || `Failed to delete device: ${response.status}`);
+        }
+
+        const data = await response.json();
+        showFeedback(dashboardFeedback, data.message || 'Device deleted successfully', 'success');
+        loadDevices();
+      } catch (error) {
+        console.error('❌ Error deleting device:', error);
+        showFeedback(dashboardFeedback, `Failed to delete device: ${error.message}`, 'error');
+      }
+    }
+
+    window.deleteDevice = deleteDevice;
+
+    // Initialize device management
+    function initializeDevicesSection() {
+      if (devicesAddBtn) {
+        devicesAddBtn.addEventListener('click', () => openDeviceModal());
+      }
+      if (devicesRefreshBtn) {
+        devicesRefreshBtn.addEventListener('click', loadDevices);
+      }
+      if (deviceForm) {
+        deviceForm.addEventListener('submit', handleDeviceFormSubmit);
+      }
+      if (deviceFormCancel) {
+        deviceFormCancel.addEventListener('click', closeDeviceModal);
+      }
+      
+      // Close modal on backdrop click
+      const backdrop = deviceFormOverlay?.querySelector('.modal-backdrop');
+      if (backdrop) {
+        backdrop.addEventListener('click', (e) => {
+          if (e.target.dataset.closeDeviceForm === 'true') {
+            closeDeviceModal();
+          }
+        });
+      }
+      
+      // Close modal on close button
+      const closeBtn = deviceFormOverlay?.querySelector('.modal-close');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', closeDeviceModal);
+      }
+    }
+
+
     // Initialize the dashboard
     checkAuthentication();
     setupUserManagementEventListeners();
@@ -6923,6 +7345,7 @@
     initializeUserDetailModal();
     initializeVisitorSection();
     initializeWorkingDaysSection();
+    initializeDevicesSection();
     loadUserStatistics(); // Load user stats on page load since overview is active by default
     loadOverviewAnalytics();
     loadVisitorPasses();
