@@ -720,11 +720,31 @@
       background: #f1f5f9;
       box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
     }
+    .user-form-captured-card {
+      border: 2px solid #10b981;
+      background: #ecfdf5;
+    }
     .user-form-existing-card img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
+    }
+    .user-form-image-badge {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      background: rgba(37, 99, 235, 0.9);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      z-index: 1;
+    }
+    .user-form-image-badge-new {
+      background: rgba(16, 185, 129, 0.9);
     }
     .user-form-existing-card.removed {
       border-color: #f87171;
@@ -5267,7 +5287,7 @@
       if (userFormCameraPreview) {
         userFormCameraPreview.innerHTML = '';
       }
-      renderUserFormExistingImages();
+      renderUserFormExistingImages(); // This will show both existing and captured images
       if (!user) {
         if (userFormNameInput) userFormNameInput.value = '';
         if (userFormMobileInput) userFormMobileInput.value = '';
@@ -5328,96 +5348,161 @@
     }
 
     function getRemainingImageCount() {
-  return editingUserImages.filter((image) => !userFormRemovedImages.has(image.path)).length;
-}
+      const remainingExisting = editingUserImages.filter((image) => !userFormRemovedImages.has(image.path)).length;
+      const capturedCount = userFormCapturedImages.length;
+      return remainingExisting + capturedCount;
+    }
 
     function updateUserFormImageCounters() {
-  if (!userFormExistingCount) {
-    return;
-  }
-  const remaining = getRemainingImageCount();
-  const newFileCount = userFormImagesInput?.files ? userFormImagesInput.files.length : 0;
-  userFormExistingCount.textContent = `Keeping ${remaining} · New ${newFileCount} · Max ${MAX_USER_IMAGES}`;
-}
+      if (!userFormExistingCount) {
+        return;
+      }
+      const remainingExisting = editingUserImages.filter((image) => !userFormRemovedImages.has(image.path)).length;
+      const capturedCount = userFormCapturedImages.length;
+      const fileInputCount = userFormImagesInput?.files ? userFormImagesInput.files.length : 0;
+      // fileInputCount includes captured images, so subtract capturedCount to get only file uploads
+      const fileUploadCount = Math.max(0, fileInputCount - capturedCount);
+      const total = remainingExisting + capturedCount + fileUploadCount;
+      userFormExistingCount.textContent = `Existing: ${remainingExisting} · Captured: ${capturedCount} · Uploaded: ${fileUploadCount} · Max ${MAX_USER_IMAGES}`;
+    }
 
     function renderUserFormExistingImages() {
-  if (!userFormExistingContainer || !userFormExistingGrid) {
-    return;
-  }
+      if (!userFormExistingContainer || !userFormExistingGrid) {
+        return;
+      }
 
-  if (!editingUserImages || editingUserImages.length === 0) {
-    userFormExistingContainer.classList.add('hidden');
-    userFormExistingGrid.innerHTML = '';
-    updateUserFormImageCounters();
-    return;
-  }
+      const remainingExisting = editingUserImages.filter((image) => !userFormRemovedImages.has(image.path));
+      const hasImages = (remainingExisting && remainingExisting.length > 0) || userFormCapturedImages.length > 0;
 
-  userFormExistingContainer.classList.remove('hidden');
-  const cards = editingUserImages.map((image) => {
-    const isRemoved = userFormRemovedImages.has(image.path);
-    const imageContent = image.url
-      ? `<img src="${image.url}" alt="User photo" />`
-      : '<div class="user-form-existing-placeholder">👤</div>';
-    const buttonLabel = isRemoved ? 'Undo Remove' : 'Remove';
-    const cardClass = isRemoved ? 'user-form-existing-card removed' : 'user-form-existing-card';
-    return `
-      <div class="${cardClass}" data-image-path="${image.path}">
-        ${imageContent}
-        <button type="button" class="user-form-existing-toggle" data-remove-image="${image.path}">
-          ${buttonLabel}
-        </button>
-      </div>
-    `;
-  }).join('');
+      if (!hasImages) {
+        userFormExistingContainer.classList.add('hidden');
+        userFormExistingGrid.innerHTML = '';
+        updateUserFormImageCounters();
+        return;
+      }
 
-  userFormExistingGrid.innerHTML = cards;
-  updateUserFormImageCounters();
-}
+      userFormExistingContainer.classList.remove('hidden');
+      
+      // Render existing images (from database)
+      const existingCards = remainingExisting.map((image) => {
+        const isRemoved = userFormRemovedImages.has(image.path);
+        const imageContent = image.url
+          ? `<img src="${image.url}" alt="User photo" />`
+          : '<div class="user-form-existing-placeholder">👤</div>';
+        const buttonLabel = isRemoved ? 'Undo Remove' : 'Remove';
+        const cardClass = isRemoved ? 'user-form-existing-card removed' : 'user-form-existing-card';
+        return `
+          <div class="${cardClass}" data-image-path="${image.path}" data-image-type="existing">
+            ${imageContent}
+            <div class="user-form-image-badge">Existing</div>
+            <button type="button" class="user-form-existing-toggle" data-remove-image="${image.path}">
+              ${buttonLabel}
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      // Render captured images (from camera)
+      const capturedCards = userFormCapturedImages.map((item, index) => {
+        return `
+          <div class="user-form-existing-card user-form-captured-card" data-captured-index="${index}" data-image-type="captured">
+            <img src="${item.dataURL}" alt="Captured photo" />
+            <div class="user-form-image-badge user-form-image-badge-new">New (Camera)</div>
+            <button type="button" class="user-form-existing-toggle" data-remove-captured="${index}">
+              Remove
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      userFormExistingGrid.innerHTML = existingCards + capturedCards;
+      updateUserFormImageCounters();
+    }
 
     function handleUserFormExistingImageClick(event) {
-  const button = event.target.closest('[data-remove-image]');
-  if (!button) {
-    return;
-  }
-  const path = button.dataset.removeImage;
-  if (!path) {
-    return;
-  }
-  if (userFormRemovedImages.has(path)) {
-    userFormRemovedImages.delete(path);
-  } else {
-    userFormRemovedImages.add(path);
-  }
-  renderUserFormExistingImages();
-}
+      const button = event.target.closest('[data-remove-image], [data-remove-captured]');
+      if (!button) {
+        return;
+      }
+
+      // Handle captured image removal
+      if (button.dataset.removeCaptured !== undefined) {
+        const index = parseInt(button.dataset.removeCaptured, 10);
+        if (index >= 0 && index < userFormCapturedImages.length) {
+          const item = userFormCapturedImages[index];
+          
+          // Remove from captured images array
+          userFormCapturedImages.splice(index, 1);
+          
+          // Remove from file input
+          if (userFormImagesInput) {
+            const dt = new DataTransfer();
+            Array.from(userFormImagesInput.files).forEach(f => {
+              if (f.name !== item.file.name) dt.items.add(f);
+            });
+            userFormImagesInput.files = dt.files;
+          }
+          
+          renderUserFormExistingImages();
+          return;
+        }
+      }
+
+      // Handle existing image removal
+      const path = button.dataset.removeImage;
+      if (!path) {
+        return;
+      }
+      if (userFormRemovedImages.has(path)) {
+        userFormRemovedImages.delete(path);
+      } else {
+        userFormRemovedImages.add(path);
+      }
+      renderUserFormExistingImages();
+    }
 
     function handleUserFormImagesChange(event) {
-  const files = Array.from(event?.target?.files || userFormImagesInput?.files || []);
-  const remaining = getRemainingImageCount();
-  if (files.length + remaining > MAX_USER_IMAGES) {
-    const allowed = Math.max(0, MAX_USER_IMAGES - remaining);
-    if (userFormErrorBox) {
-      userFormErrorBox.textContent = allowed > 0
-        ? `You can add up to ${allowed} more image${allowed === 1 ? '' : 's'}.`
-        : 'Remove existing images before uploading new ones.';
-      userFormErrorBox.classList.remove('hidden');
+      const files = Array.from(event?.target?.files || userFormImagesInput?.files || []);
+      const remainingExisting = editingUserImages.filter((image) => !userFormRemovedImages.has(image.path)).length;
+      const capturedCount = userFormCapturedImages.length;
+      
+      // Calculate total images: existing (not removed) + captured + new file uploads
+      // Note: files array includes captured images already added to file input
+      // So we need to check if the total exceeds limit
+      const totalImages = remainingExisting + capturedCount + files.length;
+      
+      if (totalImages > MAX_USER_IMAGES) {
+        const allowed = Math.max(0, MAX_USER_IMAGES - remainingExisting - capturedCount);
+        if (userFormErrorBox) {
+          userFormErrorBox.textContent = allowed > 0
+            ? `You can add up to ${allowed} more image${allowed === 1 ? '' : 's'}.`
+            : 'Remove existing images before uploading new ones.';
+          userFormErrorBox.classList.remove('hidden');
+        }
+        if (userFormImagesInput) {
+          // Reset to only keep files that don't exceed limit
+          const dt = new DataTransfer();
+          const filesToKeep = Math.max(0, MAX_USER_IMAGES - remainingExisting - capturedCount);
+          Array.from(files).slice(0, filesToKeep).forEach(f => dt.items.add(f));
+          userFormImagesInput.files = dt.files;
+        }
+        updateUserFormImageCounters();
+        return;
+      }
+      
+      if (userFormErrorBox && userFormErrorBox.textContent?.startsWith('You can add up to')) {
+        userFormErrorBox.classList.add('hidden');
+        userFormErrorBox.textContent = '';
+      }
+      updateUserFormImageCounters();
     }
-    if (userFormImagesInput) {
-      userFormImagesInput.value = '';
-    }
-    return;
-  }
-  if (userFormErrorBox && userFormErrorBox.textContent?.startsWith('You can add up to')) {
-    userFormErrorBox.classList.add('hidden');
-    userFormErrorBox.textContent = '';
-  }
-  updateUserFormImageCounters();
-}
 
     function shouldUpdateImages() {
-  const newFileCount = userFormImagesInput?.files ? userFormImagesInput.files.length : 0;
-  return userFormRemovedImages.size > 0 || newFileCount > 0;
-}
+      const newFileCount = userFormImagesInput?.files ? userFormImagesInput.files.length : 0;
+      const capturedCount = userFormCapturedImages.length;
+      // Check if we need to update: removed images, new file uploads, or captured images
+      return userFormRemovedImages.size > 0 || newFileCount > 0 || capturedCount > 0;
+    }
 
     function getStatusChipClass(status) {
       const normalized = (status || '').toLowerCase();
@@ -5490,7 +5575,9 @@
     }
 
     async function openUserDetail(userId) {
-      if (!currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
         showFeedback(dashboardFeedback, 'Please log in to view user details', 'error');
         return;
       }
@@ -5877,7 +5964,10 @@
         return;
       }
 
-      const totalImages = getRemainingImageCount() + userFormCapturedImages.length;
+      const remainingExisting = editingUserImages.filter((image) => !userFormRemovedImages.has(image.path)).length;
+      const currentCapturedCount = userFormCapturedImages.length;
+      const totalImages = remainingExisting + currentCapturedCount;
+      
       if (totalImages >= MAX_USER_IMAGES) {
         showFeedback(dashboardFeedback, `Maximum ${MAX_USER_IMAGES} images allowed`, 'error');
         return;
@@ -5906,43 +5996,14 @@
         existingFiles.forEach(f => dt.items.add(f));
         dt.items.add(file);
         userFormImagesInput.files = dt.files;
-        userFormImagesInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
 
-      // Show preview
-      const imgWrapper = document.createElement("div");
-      imgWrapper.style.cssText = "position: relative; display: inline-block; margin: 5px;";
+      // Render all images (existing + captured) in the main grid
+      renderUserFormExistingImages();
       
-      const img = document.createElement("img");
-      img.src = dataURL;
-      img.style.cssText = "max-width: 150px; max-height: 150px; border-radius: 4px;";
-      
-      const removeBtn = document.createElement("button");
-      removeBtn.innerHTML = "&times;";
-      removeBtn.style.cssText = "position: absolute; top: -8px; right: -8px; background: #dc3545; color: white; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 14px;";
-      removeBtn.title = "Remove this image";
-      removeBtn.onclick = () => {
-        const index = userFormCapturedImages.findIndex(item => item.dataURL === dataURL);
-        if (index !== -1) {
-          userFormCapturedImages.splice(index, 1);
-          
-          // Remove from file input
-          if (userFormImagesInput) {
-            const dt = new DataTransfer();
-            Array.from(userFormImagesInput.files).forEach(f => {
-              if (f !== file) dt.items.add(f);
-            });
-            userFormImagesInput.files = dt.files;
-          }
-          
-          imgWrapper.remove();
-        }
-      };
-
-      imgWrapper.appendChild(img);
-      imgWrapper.appendChild(removeBtn);
+      // Clear camera preview (images now show in main grid)
       if (userFormCameraPreview) {
-        userFormCameraPreview.appendChild(imgWrapper);
+        userFormCameraPreview.innerHTML = '';
       }
     }
 
