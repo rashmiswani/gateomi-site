@@ -3703,7 +3703,7 @@
       try {
         const response = await fetch(`${backend_url}/admin/visitor-passes/${passId}`, {
           headers: {
-            Authorization: authHeader,
+            Authorization: authHeader, // Use authHeader already validated above
             "Content-Type": "application/json",
           },
         });
@@ -3735,7 +3735,7 @@
         const response = await fetch(`${backend_url}/admin/visitor-passes/${passId}/revoke`, {
           method: "POST",
           headers: {
-            Authorization: getBasicAuthHeader(),
+            Authorization: authHeader, // Use authHeader already validated above
             "Content-Type": "application/json",
           },
         });
@@ -5001,7 +5001,7 @@
         
         const response = await fetch(url, {
           headers: {
-            'Authorization': getBasicAuthHeader(),
+            'Authorization': authHeader, // Use authHeader already validated above
             'Content-Type': 'application/json'
           }
         });
@@ -5195,7 +5195,9 @@
     }
 
     async function openEditUserModal(userId) {
-      if (!currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
         showFeedback(dashboardFeedback, 'Please log in to edit users', 'error');
         return;
       }
@@ -5616,7 +5618,9 @@
 
     async function handleUserFormSubmit(event) {
       event.preventDefault();
-      if (!currentToken) {
+      // Check Basic Auth credentials instead of token
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
         showFeedback(dashboardFeedback, 'Authentication required. Please log in again.', 'error');
         return;
       }
@@ -5656,6 +5660,12 @@
     }
 
     async function submitNewSocietyUser() {
+      // Check Basic Auth credentials
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
       if (!currentProfile) {
         throw new Error('Admin profile unavailable');
       }
@@ -5717,7 +5727,7 @@
       const response = await fetch(`${backend_url}/register-user`, {
         method: 'POST',
         headers: {
-          Authorization: getBasicAuthHeader(),
+          Authorization: authHeader, // Use authHeader already validated above
         },
         body: formData,
       });
@@ -5735,6 +5745,12 @@
       }
       if (!userFormNameInput || !userFormTypeSelect || !userFormMobileInput) {
         throw new Error('Form not ready');
+      }
+
+      // Check Basic Auth credentials
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
+        throw new Error('Authentication required. Please log in again.');
       }
 
       const name = userFormNameInput.value.trim();
@@ -5774,7 +5790,7 @@
       const response = await fetch(`${backend_url}/admin/users/${editingUserId}`, {
         method: 'PATCH',
         headers: {
-          Authorization: getBasicAuthHeader(),
+          Authorization: authHeader,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
@@ -5935,6 +5951,12 @@
         throw new Error('No user selected for editing');
       }
 
+      // Check Basic Auth credentials
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
       const removal = Array.from(userFormRemovedImages);
       const newFiles = userFormImagesInput?.files ? Array.from(userFormImagesInput.files) : [];
       if (removal.length === 0 && newFiles.length === 0) {
@@ -5953,7 +5975,7 @@
       const response = await fetch(`${backend_url}/admin/users/${editingUserId}/images`, {
         method: 'PATCH',
         headers: {
-          Authorization: getBasicAuthHeader(),
+          Authorization: authHeader,
         },
         body: formData,
       });
