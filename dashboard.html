@@ -607,19 +607,26 @@
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
-      font-size: 13px;
+      font-size: 14px;
       color: #1f2937;
-      padding: 10px 12px;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      background: #f8fafc;
-      font-weight: 600;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      font-weight: 500;
       margin-top: 12px;
+      cursor: pointer;
+    }
+    .user-form-toggle:hover {
+      color: #2563eb;
     }
     .user-form-toggle input[type="checkbox"] {
-      width: auto;
-      height: auto;
+      width: 18px;
+      height: 18px;
       margin: 0;
+      cursor: pointer;
+      accent-color: #2563eb;
+      flex-shrink: 0;
     }
     .user-form-expire-row.hidden {
       display: none !important;
@@ -765,18 +772,35 @@
     }
     .user-form-existing-toggle {
       position: absolute;
-      left: 6px;
-      top: 6px;
-      padding: 4px 8px;
-      font-size: 11px;
-      border-radius: 999px;
-      border: none;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      font-size: 20px;
+      font-weight: bold;
+      line-height: 1;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
       cursor: pointer;
-      background: rgba(15, 23, 42, 0.82);
+      background: rgba(220, 38, 38, 0.9);
       color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+    }
+    .user-form-existing-toggle:hover {
+      background: rgba(220, 38, 38, 1);
+      transform: scale(1.1);
     }
     .user-form-existing-card.removed .user-form-existing-toggle {
-      background: #dc2626;
+      background: rgba(16, 185, 129, 0.9);
+      border-color: #ffffff;
+    }
+    .user-form-existing-card.removed .user-form-existing-toggle:hover {
+      background: rgba(16, 185, 129, 1);
     }
     .user-form-actions {
       display: flex;
@@ -5389,14 +5413,15 @@
         const imageContent = image.url
           ? `<img src="${image.url}" alt="User photo" />`
           : '<div class="user-form-existing-placeholder">👤</div>';
-        const buttonLabel = isRemoved ? 'Undo Remove' : 'Remove';
+        const buttonIcon = isRemoved ? '↩' : '×';
+        const buttonTitle = isRemoved ? 'Undo Remove' : 'Remove';
         const cardClass = isRemoved ? 'user-form-existing-card removed' : 'user-form-existing-card';
         return `
           <div class="${cardClass}" data-image-path="${image.path}" data-image-type="existing">
             ${imageContent}
             <div class="user-form-image-badge">Existing</div>
-            <button type="button" class="user-form-existing-toggle" data-remove-image="${image.path}">
-              ${buttonLabel}
+            <button type="button" class="user-form-existing-toggle" data-remove-image="${image.path}" title="${buttonTitle}">
+              ${buttonIcon}
             </button>
           </div>
         `;
@@ -5408,8 +5433,8 @@
           <div class="user-form-existing-card user-form-captured-card" data-captured-index="${index}" data-image-type="captured">
             <img src="${item.dataURL}" alt="Captured photo" />
             <div class="user-form-image-badge user-form-image-badge-new">New (Camera)</div>
-            <button type="button" class="user-form-existing-toggle" data-remove-captured="${index}">
-              Remove
+            <button type="button" class="user-form-existing-toggle" data-remove-captured="${index}" title="Remove">
+              ×
             </button>
           </div>
         `;
