@@ -290,8 +290,13 @@
       }
     }
 
-    function handleLoginSuccess(token, profile) {
-      // Store authentication data
+    function handleLoginSuccess(token, profile, email, password) {
+      // Store email and password in sessionStorage for Basic Auth
+      // Using sessionStorage instead of localStorage for better security
+      sessionStorage.setItem('portal_email', email);
+      sessionStorage.setItem('portal_password', password);
+      
+      // Store token for backward compatibility (though we'll use Basic Auth now)
       localStorage.setItem(tokenStorageKey, token);
       localStorage.setItem(profileStorageKey, JSON.stringify(profile));
       
@@ -305,15 +310,18 @@
     }
 
     function tryRestoreSession() {
-      const storedToken = localStorage.getItem(tokenStorageKey);
+      const storedEmail = sessionStorage.getItem('portal_email');
+      const storedPassword = sessionStorage.getItem('portal_password');
       const storedProfile = localStorage.getItem(profileStorageKey);
       
-      if (storedToken && storedProfile) {
+      if (storedEmail && storedPassword && storedProfile) {
         try {
           // If user is already logged in, redirect to dashboard
           window.location.href = 'dashboard.html';
         } catch (error) {
           // Clear invalid session data
+          sessionStorage.removeItem('portal_email');
+          sessionStorage.removeItem('portal_password');
           localStorage.removeItem(tokenStorageKey);
           localStorage.removeItem(profileStorageKey);
         }
@@ -344,7 +352,8 @@
         }
 
         const data = await response.json();
-        handleLoginSuccess(data.access_token, data.admin);
+        // Store email and password for Basic Auth
+        handleLoginSuccess(data.access_token, data.admin, payload.email, payload.password);
       } catch (error) {
         showFeedback(error.message || 'Login failed. Please try again.', 'error');
       } finally {

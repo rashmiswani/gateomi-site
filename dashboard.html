@@ -640,6 +640,41 @@
       border: none;
       padding: 0;
     }
+    .user-form-image-options {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .user-form-camera-section {
+      border: 1px dashed rgba(37, 99, 235, 0.35);
+      background: rgba(59, 130, 246, 0.08);
+      border-radius: 14px;
+      padding: 18px;
+      margin-top: 18px;
+    }
+    .user-form-camera-section.hidden {
+      display: none;
+    }
+    .user-form-camera-controls {
+      margin-top: 12px;
+    }
+    .user-form-camera-controls video {
+      width: 100%;
+      max-width: 640px;
+      border-radius: 8px;
+      background: #000;
+    }
+    .user-form-camera-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .user-form-camera-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
     .user-form-note {
       margin: 0;
       font-size: 12px;
@@ -2704,7 +2739,22 @@
         <div class="user-form-upload" id="user-form-images-row">
           <div><strong>Face Images</strong></div>
           <p class="user-form-note">Upload up to 6 clear face photos (use high quality images for best accuracy).</p>
-          <input type="file" id="user-form-images" accept="image/*" multiple />
+          <div class="user-form-image-options">
+            <input type="file" id="user-form-images" accept="image/*" multiple />
+            <button type="button" id="user-form-camera-btn" class="secondary">📷 Capture from Camera</button>
+          </div>
+        </div>
+        <div class="user-form-camera-section hidden" id="user-form-camera-section">
+          <div><strong>Camera Capture</strong></div>
+          <div class="user-form-camera-controls">
+            <video id="user-form-camera-video" autoplay playsinline></video>
+            <div class="user-form-camera-buttons">
+              <button type="button" id="user-form-capture-btn">Capture Image</button>
+              <button type="button" id="user-form-flip-camera-btn" class="secondary">Flip Camera</button>
+              <button type="button" id="user-form-close-camera-btn" class="secondary">Close Camera</button>
+            </div>
+          </div>
+          <div id="user-form-camera-preview" class="user-form-camera-preview"></div>
         </div>
         <div class="user-form-actions">
           <button type="button" class="secondary" id="user-form-cancel">Cancel</button>
@@ -2930,12 +2980,31 @@
     function handleLogout(skipMessage = false) {
       currentToken = null;
       currentProfile = null;
+      // Clear Basic Auth credentials
+      sessionStorage.removeItem('portal_email');
+      sessionStorage.removeItem('portal_password');
       localStorage.removeItem(tokenStorageKey);
       localStorage.removeItem(profileStorageKey);
-      updateHeaderForLoggedOutUser();      if (!skipMessage) {
+      updateHeaderForLoggedOutUser();
+      if (!skipMessage) {
         showFeedback(dashboardFeedback, 'You have been logged out.', 'success');
       }
       window.location.href = 'login.html';
+    }
+    
+    // Helper function to create Basic Auth header
+    function getBasicAuthHeader() {
+      const email = sessionStorage.getItem('portal_email');
+      const password = sessionStorage.getItem('portal_password');
+      
+      if (!email || !password) {
+        handleLogout(true);
+        return null;
+      }
+      
+      // Create Basic Auth credentials: base64(email:password)
+      const credentials = btoa(`${email}:${password}`);
+      return `Basic ${credentials}`;
     }
 
     function updateHeaderForLoggedInUser() {
@@ -2976,16 +3045,18 @@
       }
     }
     function checkAuthentication() {
-      const storedToken = localStorage.getItem(tokenStorageKey);
+      const storedEmail = sessionStorage.getItem('portal_email');
+      const storedPassword = sessionStorage.getItem('portal_password');
       const storedProfile = localStorage.getItem(profileStorageKey);
       
-      if (!storedToken || !storedProfile) {
+      if (!storedEmail || !storedPassword || !storedProfile) {
         window.location.href = 'login.html';
         return;
       }
       
       try {
-        currentToken = storedToken;
+        // currentToken is kept for backward compatibility but not used for auth
+        // We use Basic Auth instead
         currentProfile = JSON.parse(storedProfile);
         societySubtitle.textContent = `${currentProfile.society}, ${currentProfile.city}, ${currentProfile.state}`;
         const adminDisplayName = currentProfile.name || currentProfile.full_name || '';
@@ -2994,9 +3065,11 @@
         }
         updateHeaderForLoggedInUser();
       } catch (error) {
+        sessionStorage.removeItem('portal_email');
+        sessionStorage.removeItem('portal_password');
         localStorage.removeItem(tokenStorageKey);
         localStorage.removeItem(profileStorageKey);
-      updateHeaderForLoggedOutUser();
+        updateHeaderForLoggedOutUser();
         window.location.href = 'login.html';
       }
     }
@@ -3245,7 +3318,7 @@
         if (logsActionFilter.value) params.append("action", logsActionFilter.value);
 
         const response = await fetch(`${backend_url}/admin/authorized-logs?${params}`, {
-          headers: { "Authorization": `Bearer ${currentToken}` }
+          headers: { "Authorization": getBasicAuthHeader() }
         });
 
         if (response.status === 401) {
@@ -3452,7 +3525,7 @@
       try {
         const response = await fetch(`${backend_url}/admin/devices`, {
           headers: {
-            Authorization: `Bearer ${currentToken}`,
+            Authorization: getBasicAuthHeader(),
             'Content-Type': 'application/json'
           }
         });
@@ -3537,7 +3610,7 @@
 
         const response = await fetch(`${backend_url}/admin/visitor-passes?${params.toString()}`, {
           headers: {
-            Authorization: `Bearer ${currentToken}`,
+            Authorization: getBasicAuthHeader(),
             "Content-Type": "application/json",
           },
         });
@@ -3622,7 +3695,7 @@
       try {
         const response = await fetch(`${backend_url}/admin/visitor-passes/${passId}`, {
           headers: {
-            Authorization: `Bearer ${currentToken}`,
+            Authorization: getBasicAuthHeader(),
             "Content-Type": "application/json",
           },
         });
@@ -3652,7 +3725,7 @@
         const response = await fetch(`${backend_url}/admin/visitor-passes/${passId}/revoke`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${currentToken}`,
+            Authorization: getBasicAuthHeader(),
             "Content-Type": "application/json",
           },
         });
@@ -3823,7 +3896,7 @@
         const response = await fetch(`${backend_url}/admin/visitor-passes`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${currentToken}`,
+            Authorization: getBasicAuthHeader(),
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
@@ -4783,6 +4856,8 @@
     let currentUsersPageSize = 25;
     let currentUsersTotalCount = 0;
     let currentUsersTotalPages = 0;
+    let currentUsersSearch = '';
+    let currentUsersStatusFilter = '';
     
     // DOM elements for users section
     let usersSearch, usersStatusFilter, usersTypeFilter, usersPageSize;
@@ -4801,6 +4876,12 @@
     let editingUserId = null;
     let editingUserImages = [];
     let userFormRemovedImages = new Set();
+    let userFormCameraBtn, userFormCameraSection, userFormCameraVideo;
+    let userFormCaptureBtn, userFormFlipCameraBtn, userFormCloseCameraBtn;
+    let userFormCameraPreview;
+    let userFormCameraStream = null;
+    let userFormCameraFacingMode = "user";
+    let userFormCapturedImages = [];
     let userDetailModalInitialized = false;
 
     // Initialize users section
@@ -4849,10 +4930,8 @@
         usersPageSize.addEventListener('change', (e) => {
           currentUsersPageSize = parseInt(e.target.value);
           currentUsersPage = 1;
-          if (currentUsersData) {
-            renderUsersTable();
-            updateUsersPagination();
-          }
+          // Reload users from API with new page size
+          loadUsers();
         });
       }
       
@@ -4860,10 +4939,8 @@
         usersPrevBtn.addEventListener('click', () => {
           if (currentUsersPage > 1) {
             currentUsersPage--;
-            if (currentUsersData) {
-              renderUsersTable();
-              updateUsersPagination();
-            }
+            // Reload users from API for previous page
+            loadUsers();
           }
         });
       }
@@ -4872,10 +4949,8 @@
         usersNextBtn.addEventListener('click', () => {
           if (currentUsersPage < currentUsersTotalPages) {
             currentUsersPage++;
-            if (currentUsersData) {
-              renderUsersTable();
-              updateUsersPagination();
-            }
+            // Reload users from API for next page
+            loadUsers();
           }
         });
       }
@@ -4896,8 +4971,14 @@
       showUsersLoading();
 
       try {
-        // Current API doesn't support filtering/pagination, so we get all users
-        const url = `${backend_url}/admin/users`;
+        // Build URL with pagination and filters
+        const params = new URLSearchParams();
+        params.append('page', currentUsersPage.toString());
+        params.append('page_size', currentUsersPageSize.toString());
+        if (currentUsersSearch) params.append('search', currentUsersSearch);
+        if (currentUsersStatusFilter) params.append('status_filter', currentUsersStatusFilter);
+        
+        const url = `${backend_url}/admin/users?${params.toString()}`;
         console.log('🌐 Making request to:', url);
         
         const response = await fetch(url, {
@@ -4923,9 +5004,16 @@
         console.log('📦 Received data:', data);
         
         currentUsersData = data;
-        // Current API doesn't support pagination, so we'll handle it client-side
-        currentUsersTotalCount = data.users ? data.users.length : 0;
-        currentUsersTotalPages = Math.ceil(currentUsersTotalCount / currentUsersPageSize);
+        // Use pagination from API response
+        if (data.pagination) {
+          currentUsersTotalCount = data.pagination.total || 0;
+          currentUsersTotalPages = data.pagination.total_pages || 0;
+          currentUsersPage = data.pagination.page || 1;
+        } else {
+          // Fallback for old API without pagination
+          currentUsersTotalCount = data.users ? data.users.length : 0;
+          currentUsersTotalPages = Math.ceil(currentUsersTotalCount / currentUsersPageSize);
+        }
         
         renderUsersTable();
         updateUsersPagination();
@@ -4968,7 +5056,7 @@
       console.log('🌐 Fetching user detail:', url);
       const response = await fetch(url, {
         headers: {
-          Authorization: `Bearer ${currentToken}`,
+          Authorization: getBasicAuthHeader(),
           'Content-Type': 'application/json',
         },
       });
@@ -5013,6 +5101,13 @@
       userFormExistingContainer = document.getElementById('user-form-existing');
       userFormExistingGrid = document.getElementById('user-form-existing-grid');
       userFormExistingCount = document.getElementById('user-form-existing-count');
+      userFormCameraBtn = document.getElementById('user-form-camera-btn');
+      userFormCameraSection = document.getElementById('user-form-camera-section');
+      userFormCameraVideo = document.getElementById('user-form-camera-video');
+      userFormCaptureBtn = document.getElementById('user-form-capture-btn');
+      userFormFlipCameraBtn = document.getElementById('user-form-flip-camera-btn');
+      userFormCloseCameraBtn = document.getElementById('user-form-close-camera-btn');
+      userFormCameraPreview = document.getElementById('user-form-camera-preview');
 
       document.querySelectorAll('[data-close-user-form]').forEach((el) => {
         el.addEventListener('click', (event) => {
@@ -5039,6 +5134,22 @@
 
       if (userFormImagesInput) {
         userFormImagesInput.addEventListener('change', handleUserFormImagesChange);
+      }
+
+      if (userFormCameraBtn) {
+        userFormCameraBtn.addEventListener('click', openUserFormCamera);
+      }
+
+      if (userFormCaptureBtn) {
+        userFormCaptureBtn.addEventListener('click', captureUserFormImage);
+      }
+
+      if (userFormFlipCameraBtn) {
+        userFormFlipCameraBtn.addEventListener('click', flipUserFormCamera);
+      }
+
+      if (userFormCloseCameraBtn) {
+        userFormCloseCameraBtn.addEventListener('click', closeUserFormCamera);
       }
 
       userForm.addEventListener('submit', handleUserFormSubmit);
@@ -5130,6 +5241,11 @@
       userFormRemovedImages = new Set();
       if (userFormImagesInput) {
         userFormImagesInput.value = '';
+      }
+      userFormCapturedImages = [];
+      closeUserFormCamera();
+      if (userFormCameraPreview) {
+        userFormCameraPreview.innerHTML = '';
       }
       renderUserFormExistingImages();
       if (!user) {
@@ -5583,7 +5699,7 @@
       const response = await fetch(`${backend_url}/register-user`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${currentToken}`,
+          Authorization: getBasicAuthHeader(),
         },
         body: formData,
       });
@@ -5640,7 +5756,7 @@
       const response = await fetch(`${backend_url}/admin/users/${editingUserId}`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${currentToken}`,
+          Authorization: getBasicAuthHeader(),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
@@ -5650,6 +5766,149 @@
         const errorPayload = await response.json().catch(() => ({}));
         const detail = errorPayload?.detail || errorPayload?.message || `Request failed (${response.status})`;
         throw new Error(detail);
+      }
+    }
+
+    // Camera functions for user form
+    async function openUserFormCamera() {
+      try {
+        if (userFormCameraSection) {
+          userFormCameraSection.classList.remove('hidden');
+        }
+        await startUserFormCamera();
+      } catch (error) {
+        console.error('❌ Failed to open camera:', error);
+        showFeedback(dashboardFeedback, 'Unable to access camera. Please allow camera permissions.', 'error');
+      }
+    }
+
+    async function startUserFormCamera(facingMode = userFormCameraFacingMode) {
+      try {
+        if (userFormCameraStream) {
+          userFormCameraStream.getTracks().forEach(track => track.stop());
+          userFormCameraStream = null;
+        }
+
+        const constraints = { video: { facingMode: { ideal: facingMode } } };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        userFormCameraStream = stream;
+        userFormCameraFacingMode = facingMode;
+        if (userFormCameraVideo) {
+          userFormCameraVideo.srcObject = stream;
+          if (facingMode === "user") {
+            userFormCameraVideo.style.transform = "scaleX(-1)";
+          } else {
+            userFormCameraVideo.style.transform = "scaleX(1)";
+          }
+        }
+      } catch (err) {
+        console.error("Camera error:", err);
+        if (facingMode !== "user") {
+          await startUserFormCamera("user");
+        } else {
+          throw new Error("Unable to access camera. Please allow camera permissions.");
+        }
+      }
+    }
+
+    async function flipUserFormCamera() {
+      if (!userFormFlipCameraBtn) return;
+      userFormFlipCameraBtn.disabled = true;
+      const nextMode = userFormCameraFacingMode === "user" ? "environment" : "user";
+      try {
+        await startUserFormCamera(nextMode);
+      } finally {
+        if (userFormFlipCameraBtn) {
+          userFormFlipCameraBtn.disabled = false;
+        }
+      }
+    }
+
+    function closeUserFormCamera() {
+      if (userFormCameraStream) {
+        userFormCameraStream.getTracks().forEach(track => track.stop());
+        userFormCameraStream = null;
+      }
+      if (userFormCameraSection) {
+        userFormCameraSection.classList.add('hidden');
+      }
+      if (userFormCameraVideo) {
+        userFormCameraVideo.srcObject = null;
+      }
+    }
+
+    async function captureUserFormImage() {
+      if (!userFormCameraVideo || !userFormCameraVideo.videoWidth) {
+        showFeedback(dashboardFeedback, 'Camera not ready', 'error');
+        return;
+      }
+
+      const totalImages = getRemainingImageCount() + userFormCapturedImages.length;
+      if (totalImages >= MAX_USER_IMAGES) {
+        showFeedback(dashboardFeedback, `Maximum ${MAX_USER_IMAGES} images allowed`, 'error');
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = userFormCameraVideo.videoWidth;
+      canvas.height = userFormCameraVideo.videoHeight;
+      const ctx = canvas.getContext("2d");
+
+      if (userFormCameraFacingMode === "user") {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(userFormCameraVideo, 0, 0, canvas.width, canvas.height);
+
+      const dataURL = canvas.toDataURL("image/jpeg", 0.9);
+      const blob = await (await fetch(dataURL)).blob();
+      const file = new File([blob], `captured-${Date.now()}.jpg`, { type: "image/jpeg" });
+      userFormCapturedImages.push({ dataURL, file });
+
+      // Add to file input
+      if (userFormImagesInput) {
+        const dt = new DataTransfer();
+        const existingFiles = Array.from(userFormImagesInput.files || []);
+        existingFiles.forEach(f => dt.items.add(f));
+        dt.items.add(file);
+        userFormImagesInput.files = dt.files;
+        userFormImagesInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      // Show preview
+      const imgWrapper = document.createElement("div");
+      imgWrapper.style.cssText = "position: relative; display: inline-block; margin: 5px;";
+      
+      const img = document.createElement("img");
+      img.src = dataURL;
+      img.style.cssText = "max-width: 150px; max-height: 150px; border-radius: 4px;";
+      
+      const removeBtn = document.createElement("button");
+      removeBtn.innerHTML = "&times;";
+      removeBtn.style.cssText = "position: absolute; top: -8px; right: -8px; background: #dc3545; color: white; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 14px;";
+      removeBtn.title = "Remove this image";
+      removeBtn.onclick = () => {
+        const index = userFormCapturedImages.findIndex(item => item.dataURL === dataURL);
+        if (index !== -1) {
+          userFormCapturedImages.splice(index, 1);
+          
+          // Remove from file input
+          if (userFormImagesInput) {
+            const dt = new DataTransfer();
+            Array.from(userFormImagesInput.files).forEach(f => {
+              if (f !== file) dt.items.add(f);
+            });
+            userFormImagesInput.files = dt.files;
+          }
+          
+          imgWrapper.remove();
+        }
+      };
+
+      imgWrapper.appendChild(img);
+      imgWrapper.appendChild(removeBtn);
+      if (userFormCameraPreview) {
+        userFormCameraPreview.appendChild(imgWrapper);
       }
     }
 
@@ -5676,7 +5935,7 @@
       const response = await fetch(`${backend_url}/admin/users/${editingUserId}/images`, {
         method: 'PATCH',
         headers: {
-          Authorization: `Bearer ${currentToken}`,
+          Authorization: getBasicAuthHeader(),
         },
         body: formData,
       });
@@ -5691,11 +5950,12 @@
     // Apply filters
     function applyUsersFilters() {
       console.log('🔍 Applying filters...');
+      // Get filter values from DOM
+      currentUsersSearch = usersSearch ? usersSearch.value.trim() : '';
+      currentUsersStatusFilter = usersStatusFilter ? usersStatusFilter.value.trim() : '';
       currentUsersPage = 1; // Reset to first page when filters change
-      if (currentUsersData) {
-        renderUsersTable();
-        updateUsersPagination();
-      }
+      // Reload users from API with new filters
+      loadUsers();
     }
 
     // Clear filters
@@ -5704,11 +5964,11 @@
       if (usersSearch) usersSearch.value = '';
       if (usersStatusFilter) usersStatusFilter.value = '';
       if (usersTypeFilter) usersTypeFilter.value = '';
+      currentUsersSearch = '';
+      currentUsersStatusFilter = '';
       currentUsersPage = 1;
-      if (currentUsersData) {
-        renderUsersTable();
-        updateUsersPagination();
-      }
+      // Reload users from API without filters
+      loadUsers();
     }
 
     // Render users table
