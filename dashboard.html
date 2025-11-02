@@ -5443,11 +5443,7 @@
         `;
       }).join('');
 
-      // Render uploaded images (from file input, not camera)
-      const uploadedFiles = userFormImagesInput?.files ? Array.from(userFormImagesInput.files) : [];
-      const uploadedFilesNotCaptured = uploadedFiles.filter(file => {
-        return !userFormCapturedImages.some(item => item.file.name === file.name);
-      });
+      // Render uploaded images (from file input, not camera) - using uploadedFilesNotCaptured already defined above
 
       // Create data URLs for uploaded files and render them
       const uploadedCards = uploadedFilesNotCaptured.map((file, index) => {
