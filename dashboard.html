@@ -2014,6 +2014,17 @@
       border-radius: 12px;
       border: 1px solid #dbeafe;
       padding: 12px;
+      display: block;
+      margin: 0 auto;
+    }
+    .preview-content img.hidden {
+      display: none !important;
+    }
+    #visitor-pass-qr {
+      max-width: 250px;
+      width: 100%;
+      height: auto;
+      min-height: 200px;
     }
     .preview-actions {
       display: flex;
@@ -2047,9 +2058,16 @@
       gap: 8px;
       font-size: 14px;
       color: #1f2937;
+      cursor: pointer;
+    }
+    .device-option span {
+      flex: 1;
     }
     .device-option input[type="checkbox"] {
       accent-color: #2563eb;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
     }
     .link-button {
       background: none;
@@ -2758,6 +2776,32 @@
   <footer>
     © <span id="year"></span> Gateomi. All rights reserved.
   </footer>
+
+  <!-- Visitor Preview Modal -->
+  <div id="visitor-preview-overlay" class="modal-overlay hidden">
+    <div class="visitor-preview-modal">
+      <button type="button" class="modal-close" id="visitor-close-preview" aria-label="Close preview">&times;</button>
+      <div id="visitor-pass-preview" class="visitor-pass-preview hidden">
+        <div class="preview-header">
+          <h4 id="visitor-preview-title">Visitor Pass Ready</h4>
+        </div>
+        <div class="preview-content">
+          <div class="preview-code">
+            <span class="code-label">Code:</span>
+            <span id="visitor-pass-code" class="code-value"></span>
+            <button type="button" id="visitor-copy-code" class="link-button">Copy</button>
+          </div>
+          <img id="visitor-pass-qr" alt="Visitor QR code" />
+          <div class="preview-actions">
+            <button type="button" id="visitor-download-qr">Download QR</button>
+            <button type="button" id="visitor-refresh-pass" class="secondary">Refresh List</button>
+          </div>
+          <p id="visitor-preview-meta" class="preview-meta"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="user-form-overlay" class="modal hidden">
     <div class="modal-backdrop" data-close-user-form="true"></div>
     <div class="modal-dialog user-form-dialog">
@@ -3659,10 +3703,18 @@
           throw new Error(`Failed to load devices (${response.status})`);
         }
         const data = await response.json();
+        // Handle new API format: devices have device_id, username, display_name
         visitorDevices = Array.isArray(data.devices) ? data.devices : [];
         visitorDeviceMap = {};
-        visitorDevices.forEach((device) => {
-          visitorDeviceMap[device.id] = device.label;
+        // Normalize device data to consistent format
+        visitorDevices = visitorDevices.map((device) => {
+          const deviceId = device.device_id || device.username || device.id;
+          const deviceLabel = device.display_name || device.username || device.device_id || deviceId;
+          visitorDeviceMap[deviceId] = deviceLabel;
+          return {
+            id: deviceId,
+            label: deviceLabel
+          };
         });
         renderVisitorDevices();
       } catch (error) {
@@ -3676,23 +3728,70 @@
     }
 
     function updateVisitorPreview(pass) {
+      console.log('🔍 updateVisitorPreview called with:', { 
+        id: pass.id, 
+        code: pass.code, 
+        has_qr: !!pass.qr_code_data_url,
+        qr_preview: pass.qr_code_data_url ? pass.qr_code_data_url.substring(0, 50) + '...' : null
+      });
+      
       if (!visitorPassPreview) {
+        console.error('❌ visitorPassPreview element not found');
         return;
       }
+      
       currentVisitorPreview = pass;
+      
+      // Update title
+      const previewTitle = document.getElementById('visitor-preview-title');
+      if (previewTitle) {
+        previewTitle.textContent = pass.visitor_name ? `Visitor Pass: ${pass.visitor_name}` : 'Visitor Pass Ready';
+      }
+      
+      // Update code
       if (visitorPassCodeEl) {
         visitorPassCodeEl.textContent = pass.code || "—";
       }
+      
+      // Update QR code - make sure it's visible
       if (visitorPassQrEl) {
         if (pass.qr_code_data_url) {
+          // Set the source first
           visitorPassQrEl.src = pass.qr_code_data_url;
           visitorPassQrEl.alt = `Visitor pass QR for ${pass.visitor_name || "visitor"}`;
+          
+          // Force visibility
+          visitorPassQrEl.style.display = "block";
+          visitorPassQrEl.style.visibility = "visible";
+          visitorPassQrEl.style.opacity = "1";
           visitorPassQrEl.classList.remove("hidden");
+          
+          // Add onload to ensure it displays after image loads
+          visitorPassQrEl.onload = function() {
+            console.log('✅ QR code image loaded and displayed');
+            visitorPassQrEl.style.display = "block";
+            visitorPassQrEl.style.visibility = "visible";
+            visitorPassQrEl.style.opacity = "1";
+          };
+          
+          // Add onerror handler
+          visitorPassQrEl.onerror = function() {
+            console.error('❌ Failed to load QR code image');
+            visitorPassQrEl.style.display = "none";
+          };
+          
+          console.log('✅ QR code set and visible');
         } else {
+          console.warn('⚠️ No QR code data URL in pass:', pass);
           visitorPassQrEl.removeAttribute("src");
+          visitorPassQrEl.style.display = "none";
           visitorPassQrEl.classList.add("hidden");
         }
+      } else {
+        console.error('❌ visitorPassQrEl element not found');
       }
+      
+      // Update metadata
       if (visitorPreviewMeta) {
         const parts = [];
         if (pass.valid_until) {
@@ -3708,11 +3807,18 @@
         parts.push(`Allowed gates: ${getAllowedDevicesText(pass)}`);
         visitorPreviewMeta.textContent = parts.join(" • ");
       }
+      
+      // Show overlay and preview
       const overlay = document.getElementById('visitor-preview-overlay');
       if (overlay) {
         overlay.classList.remove('hidden');
+        console.log('✅ Overlay shown');
+      } else {
+        console.error('❌ visitor-preview-overlay element not found');
       }
+      
       visitorPassPreview.classList.remove("hidden");
+      console.log('✅ Preview modal shown');
     }
 
     async function loadVisitorPasses(status = "") {
@@ -3723,7 +3829,7 @@
       }
 
       try {
-        const params = new URLSearchParams({ limit: "100" });
+        const params = new URLSearchParams({ limit: "100", include_qr: "true" });
         if (status) {
           params.append("status_filter", status);
         }
@@ -3823,6 +3929,7 @@
         return;
       }
       try {
+        // API already includes QR code by default (include_qr=True is hardcoded in backend)
         const response = await fetch(`${backend_url}/admin/visitor-passes/${passId}`, {
           headers: {
             Authorization: authHeader, // Use authHeader already validated above
@@ -3835,6 +3942,7 @@
         }
 
         const data = await response.json();
+        console.log('📱 Viewing visitor pass:', { id: data.id, has_qr: !!data.qr_code_data_url });
         updateVisitorPreview(data);
       } catch (error) {
         console.error("View visitor pass error:", error);
@@ -4042,7 +4150,9 @@
         }
 
         const data = await response.json();
+        console.log('✅ Visitor pass created:', { id: data.id, has_qr: !!data.qr_code_data_url, code: data.code });
         showVisitorFeedback("Visitor pass generated successfully", "success");
+        // Show QR code preview immediately after generation
         updateVisitorPreview(data);
         resetVisitorForm();
         await loadVisitorPasses(visitorStatusFilter ? visitorStatusFilter.value : "");
@@ -7352,26 +7462,3 @@
   </script>
 </body>
 </html>
-  <div id="visitor-preview-overlay" class="modal-overlay hidden">
-    <div class="visitor-preview-modal">
-      <button type="button" class="modal-close" id="visitor-close-preview" aria-label="Close preview">&times;</button>
-      <div id="visitor-pass-preview" class="visitor-pass-preview hidden">
-        <div class="preview-header">
-          <h4>Visitor Pass Ready</h4>
-        </div>
-        <div class="preview-content">
-          <div class="preview-code">
-            <span class="code-label">Code:</span>
-            <span id="visitor-pass-code" class="code-value"></span>
-            <button type="button" id="visitor-copy-code" class="link-button">Copy</button>
-          </div>
-          <img id="visitor-pass-qr" alt="Visitor QR code" />
-          <div class="preview-actions">
-            <button type="button" id="visitor-download-qr">Download QR</button>
-            <button type="button" id="visitor-refresh-pass" class="secondary">Refresh List</button>
-          </div>
-          <p id="visitor-preview-meta" class="preview-meta"></p>
-        </div>
-      </div>
-    </div>
-  </div>
