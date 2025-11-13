@@ -438,6 +438,20 @@
     .table-actions button.action-secondary {
       background: #6b7280;
     }
+    .table-actions button.action-success {
+      background: #22c55e;
+      color: white;
+    }
+    .table-actions button.action-success:hover {
+      background: #16a34a;
+    }
+    .table-actions button.action-warning {
+      background: #f59e0b;
+      color: white;
+    }
+    .table-actions button.action-warning:hover {
+      background: #d97706;
+    }
     .pagination-bar {
       display: flex;
       align-items: center;
@@ -6425,6 +6439,7 @@
               <div class="table-actions">
                 <button class="action-secondary" onclick="viewUserDetails('${user.id}')">View</button>
                 <button class="action-primary" onclick="openEditUserModal('${user.id}')">Edit</button>
+                ${getStatusChangeButtons(user.status, user.id)}
               </div>
             </td>
           </tr>
@@ -6468,6 +6483,96 @@
     function viewUserDetails(userId) {
       console.log('👤 Viewing user details for:', userId);
       openUserDetail(userId);
+    }
+
+    // Get status change buttons based on current status
+    function getStatusChangeButtons(currentStatus, userId) {
+      const status = (currentStatus || '').toLowerCase();
+      let buttons = '';
+      
+      if (status === 'pending') {
+        // Pending users can be activated or inactivated
+        buttons = `
+          <button class="action-success" onclick="updateUserStatus('${userId}', 'active')" title="Activate user">
+            ✓ Activate
+          </button>
+          <button class="action-warning" onclick="updateUserStatus('${userId}', 'inactive')" title="Mark as inactive">
+            ✗ Inactivate
+          </button>
+        `;
+      } else if (status === 'active') {
+        // Active users can be deactivated
+        buttons = `
+          <button class="action-warning" onclick="updateUserStatus('${userId}', 'inactive')" title="Deactivate user">
+            ✗ Deactivate
+          </button>
+        `;
+      } else if (status === 'inactive') {
+        // Inactive users can be activated
+        buttons = `
+          <button class="action-success" onclick="updateUserStatus('${userId}', 'active')" title="Activate user">
+            ✓ Activate
+          </button>
+        `;
+      }
+      
+      return buttons;
+    }
+
+    // Update user status
+    async function updateUserStatus(userId, newStatus) {
+      console.log(`🔄 Updating user ${userId} status to: ${newStatus}`);
+      
+      const authHeader = getBasicAuthHeader();
+      if (!authHeader) {
+        showFeedback(dashboardFeedback, 'Please log in to update user status', 'error');
+        return;
+      }
+
+      // Confirm action
+      const statusLabels = {
+        'active': 'activate',
+        'inactive': 'deactivate',
+        'pending': 'set to pending'
+      };
+      const actionLabel = statusLabels[newStatus] || newStatus;
+      const confirmed = confirm(`Are you sure you want to ${actionLabel} this user?`);
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${backend_url}/admin/users/${userId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: newStatus })
+        });
+
+        if (response.status === 401) {
+          handleLogout(true);
+          throw new Error('Session expired. Please log in again.');
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `Failed to update user status (${response.status})`);
+        }
+
+        const data = await response.json();
+        console.log('✅ User status updated:', data);
+        
+        showFeedback(dashboardFeedback, `User status updated to ${newStatus} successfully`, 'success');
+        
+        // Reload users list to reflect the change
+        await loadUsers();
+        
+      } catch (error) {
+        console.error('❌ Error updating user status:', error);
+        showFeedback(dashboardFeedback, error.message || 'Failed to update user status', 'error');
+      }
     }
 
 
