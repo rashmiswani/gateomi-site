@@ -180,108 +180,6 @@
       color: #777;
     }
 
-  /* SEO content section (styled, not plain) */
-.seo-section{
-  padding: 80px 40px;
-  background: linear-gradient(180deg, #ffffff 0%, #f6f7fb 100%);
-}
-.seo-wrap{
-  max-width: 1100px;
-  margin: 0 auto;
-}
-.seo-header{
-  display:flex;
-  flex-wrap:wrap;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:16px;
-  margin-bottom: 22px;
-}
-.seo-header h2{
-  font-size: 34px;
-  line-height: 1.2;
-  color:#111;
-}
-.seo-header p{
-  max-width: 520px;
-  color:#555;
-  font-size:16px;
-  line-height:1.6;
-}
-.seo-grid{
-  display:grid;
-  grid-template-columns: 1.2fr 0.8fr;
-  gap: 24px;
-}
-@media (max-width: 900px){
-  .seo-grid{ grid-template-columns: 1fr; }
-}
-.seo-card{
-  background: rgba(255,255,255,0.9);
-  border: 1px solid #e8e8ef;
-  border-radius: 16px;
-  padding: 26px;
-  box-shadow: 0 10px 26px rgba(0,0,0,0.06);
-}
-.seo-card p{
-  color:#444;
-  font-size:16px;
-  line-height:1.8;
-  margin-bottom: 14px;
-}
-.seo-card p:last-child{ margin-bottom: 0; }
-
-.seo-bullets{
-  display:grid;
-  gap: 12px;
-}
-.bullet{
-  display:flex;
-  gap: 12px;
-  align-items:flex-start;
-  padding: 14px 14px;
-  border-radius: 14px;
-  border: 1px solid #e8e8ef;
-  background: #fff;
-}
-.bullet strong{
-  display:block;
-  color:#111;
-  margin-bottom: 2px;
-}
-.bullet span{
-  color:#555;
-  font-size:14px;
-  line-height:1.5;
-}
-.bullet .dot{
-  width:10px;height:10px;border-radius:999px;
-  margin-top: 6px;
-  background: #7f5af0;
-  flex: 0 0 auto;
-}
-
-.seo-links{
-  margin-top: 16px;
-  display:flex;
-  flex-wrap:wrap;
-  gap: 10px;
-}
-.seo-links a{
-  display:inline-flex;
-  padding:10px 14px;
-  border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid #e8e8ef;
-  text-decoration:none;
-  color:#111;
-  font-weight:600;
-  font-size:14px;
-}
-.seo-links a:hover{
-  box-shadow: 0 8px 18px rgba(0,0,0,0.08);
-  transform: translateY(-1px);
-}
 
     
   </style>
@@ -384,7 +282,12 @@
       <!-- Left Column -->
       <div style="flex: 1 1 45%;">
         <h2 style="font-size: 42px; margin-bottom: 20px; line-height: 1.3;">Comprehensive security solutions for your building</h2>
+        <p style="font-size: 18px; color: #666;"> Gateomi is an advanced AI-powered smart security platform built to strengthen access control and
+          surveillance for residential societies, offices, and enterprises. By combining real-time face recognition
+          with seamless CCTV integration, Gateomi helps detect authorized and unauthorized access instantly—
+          without manual intervention.</p>
         <p style="font-size: 18px; color: #666;">Discover our cutting-edge facial recognition technology for secure access.</p>
+        
       </div>
   
       <!-- Right Column -->
@@ -409,87 +312,6 @@
   
     </div>
   </section>
-  <section class="seo-section" id="about-security">
-  <div class="seo-wrap">
-
-    <div class="seo-header">
-      <div>
-        <h2>AI-Powered Security Solutions by Gateomi</h2>
-      </div>
-      <p>
-        Upgrade building safety with real-time face recognition, instant alerts, and CCTV integration—
-        designed for residential societies and commercial facilities.
-      </p>
-    </div>
-
-    <div class="seo-grid">
-
-      <!-- Left: SEO paragraphs (keeps Seobility happy) -->
-      <div class="seo-card">
-        <p>
-          Gateomi is an advanced AI-powered smart security platform built to strengthen access control and
-          surveillance for residential societies, offices, and enterprises. By combining real-time face recognition
-          with seamless CCTV integration, Gateomi helps detect authorized and unauthorized access instantly—
-          without manual intervention.
-        </p>
-
-        <p>
-          Our intelligent security system works with your existing cameras, reducing installation cost while delivering
-          enterprise-grade protection. From instant alerts and real-time monitoring to touchless entry and automated
-          access management, Gateomi improves safety, efficiency, and peace of mind.
-        </p>
-
-        <p>
-          If you manage a gated community, office building, or retail space, Gateomi offers scalable AI security solutions
-          tailored to modern needs—built with reliability and privacy in mind.
-        </p>
-
-        <div class="seo-links">
-          <a href="/register.html">Register a user</a>
-          <a href="/login.html">Admin login</a>
-          <a href="/dashboard.html">View security dashboard</a>
-          <a href="#contact">Request a demo</a>
-        </div>
-      </div>
-
-      <!-- Right: Highlights / benefits -->
-      <div class="seo-bullets">
-        <div class="bullet">
-          <div class="dot"></div>
-          <div>
-            <strong>Real-time access decisions</strong>
-            <span>Identify visitors quickly and reduce security response time.</span>
-          </div>
-        </div>
-
-        <div class="bullet">
-          <div class="dot"></div>
-          <div>
-            <strong>Works with existing CCTV</strong>
-            <span>No need to replace your camera setup—integrate in minutes.</span>
-          </div>
-        </div>
-
-        <div class="bullet">
-          <div class="dot"></div>
-          <div>
-            <strong>Instant alerts & monitoring</strong>
-            <span>Get notified immediately when unusual activity is detected.</span>
-          </div>
-        </div>
-
-        <div class="bullet">
-          <div class="dot"></div>
-          <div>
-            <strong>Built for societies & businesses</strong>
-            <span>Designed for secure access control at scale.</span>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
 
   
   <section class="cta-section" id="contact" style="
