@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#faf9f7" />
+  <title>Menu — Orderkaro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="menu-page">
+  <div class="sticky-menu-header" role="banner">
+    <div class="brand-bar">
+      <div class="brand-bar__inner">
+        <div class="brand-lockup brand-lockup--stack">
+          <div class="restaurant-logo-slot" data-restaurant-logo-slot aria-label="Restaurant logo"></div>
+          <span class="brand-sub">Table service</span>
+        </div>
+      </div>
+    </div>
+
+    <header class="page-header">
+      <div class="page-header__row">
+        <div>
+          <h1 class="restaurant-name">Loading…</h1>
+        </div>
+        <span class="table-badge">Table —</span>
+      </div>
+    </header>
+
+    <div class="menu-loading-strip" id="orderkaro-loading-tabs" aria-live="polite">
+      <div class="skeleton skeleton--tabs"></div>
+    </div>
+
+    <nav class="category-strip" id="category-tabs" aria-label="Menu categories" hidden></nav>
+  </div>
+
+  <div class="app-shell app-shell--menu" aria-busy="true">
+    <div class="banner-error" id="orderkaro-error" role="alert" hidden></div>
+
+    <div class="menu-loading" id="orderkaro-loading" aria-live="polite">
+      <div class="skeleton skeleton--card"></div>
+      <div class="skeleton skeleton--card"></div>
+    </div>
+
+    <div id="menu-sections"></div>
+  </div>
+
+  <div class="sticky-cart">
+    <div class="sticky-cart__inner">
+      <div class="sticky-cart__info">
+        <span class="sticky-cart__count">0 items</span>
+        <span class="sticky-cart__total">₹0</span>
+      </div>
+      <a href="cart.html" class="btn btn--primary">View cart</a>
+    </div>
+  </div>
+
+  <script type="module" src="js/menu-page.js"></script>
+</body>
+</html>
