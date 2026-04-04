@@ -14,7 +14,7 @@ export function getApiBase() {
   if (typeof window.__ORDERKARO_API__ === "string" && window.__ORDERKARO_API__.length > 0) {
     return window.__ORDERKARO_API__.replace(/\/$/, "")
   }
-  return "http://localhost:3000"
+  return "https://gateomi-orderkaro.onrender.com"
 }
 
 export const DEFAULT_SLUG = "demo-bistro"
