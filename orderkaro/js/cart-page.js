@@ -1,4 +1,5 @@
 import { rememberCartPath, LAST_ORDER_ID_KEY } from "./config.js"
+import { appendDayOrderId } from "./order-day-history.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
 import { createOrder } from "./api.js"
 import {
@@ -116,6 +117,8 @@ async function placeOrder(cart) {
       } catch {
         /* ignore */
       }
+      const { slug, tableNumber } = resolveTableContext()
+      appendDayOrderId(slug, tableNumber, id)
     }
     const base = withTableQuery("success.html")
     const sep = base.includes("?") ? "&" : "?"

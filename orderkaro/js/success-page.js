@@ -1,6 +1,7 @@
-import { withTableQuery } from "./nav.js"
+import { withTableQuery, resolveTableContext } from "./nav.js"
 import { formatOrderId } from "./format.js"
 import { LAST_ORDER_ID_KEY, rememberSuccessPath } from "./config.js"
+import { appendDayOrderId } from "./order-day-history.js"
 
 function getOrderIdFromUrl() {
   try {
@@ -28,6 +29,11 @@ function main() {
     } catch {
       /* ignore */
     }
+  }
+
+  if (id) {
+    const { slug, tableNumber } = resolveTableContext()
+    appendDayOrderId(slug, tableNumber, id)
   }
 
   if (id && !fromUrl) {

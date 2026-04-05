@@ -815,6 +815,61 @@ body.menu-page {
   box-shadow: var(--shadow-sm);
 }
 
+/* Today’s order IDs from this browser (localStorage), same restaurant + table */
+.my-orders-today {
+  margin: 0 20px 16px;
+  padding: 14px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.my-orders-today__title {
+  margin: 0 0 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.my-orders-today__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.my-orders-today__item {
+  margin: 0;
+}
+
+.my-orders-today__link {
+  display: inline-block;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.my-orders-today__link:hover {
+  border-color: var(--text-primary);
+}
+
+.my-orders-today__link--active {
+  background: var(--text-primary);
+  color: #fff;
+  border-color: var(--text-primary);
+}
+
 .track-header {
   padding: 28px 20px 12px;
   text-align: center;
@@ -898,6 +953,8 @@ body.menu-page {
 .timeline__step {
   position: relative;
   padding-bottom: 28px;
+  /* Absolute .timeline__dot sits here; without left padding, labels overlap the circle on narrow screens */
+  padding-left: 36px;
 }
 
 .timeline__step:last-child {
@@ -1256,6 +1313,7 @@ body.menu-page {
     flex: 1;
     min-width: 0;
     padding-bottom: 0;
+    padding-left: 0;
     display: flex;
     flex-direction: column;
     align-items: center;

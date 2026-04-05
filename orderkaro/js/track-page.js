@@ -1,4 +1,5 @@
 import { getTableContext, LAST_ORDER_ID_KEY, rememberTrackPath } from "./config.js"
+import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
 import { withTableQuery } from "./nav.js"
 import { fetchOrder } from "./api.js"
 import { formatOrderId, formatTrackDateTime } from "./format.js"
@@ -148,10 +149,33 @@ async function poll(orderId) {
   }
 }
 
+function renderMyOrdersList(slug, tableNumber, currentOrderId) {
+  const wrap = document.getElementById("my-orders-today")
+  const list = document.getElementById("my-orders-today-list")
+  if (!wrap || !list) return
+  const { orderIds } = loadDayOrders(slug, tableNumber)
+  if (orderIds.length === 0) {
+    wrap.hidden = true
+    return
+  }
+  wrap.hidden = false
+  list.innerHTML = orderIds
+    .map((oid) => {
+      const u = new URL(withTableQuery("track.html"), window.location.href)
+      u.searchParams.set("orderId", oid)
+      const active = oid === currentOrderId ? " my-orders-today__link--active" : ""
+      return `<li class="my-orders-today__item"><a class="my-orders-today__link${active}" href="${u.pathname}${u.search}">${formatOrderId(oid)}</a></li>`
+    })
+    .join("")
+}
+
 function main() {
   rememberTrackPath()
 
+  const { slug, tableNumber } = getTableContext()
+
   const fromUrl = getOrderId()
+  const hadUrl = !!fromUrl
   let orderId = fromUrl
   if (!orderId) {
     try {
@@ -159,7 +183,18 @@ function main() {
     } catch {
       /* ignore */
     }
-  } else {
+  }
+  if (!orderId) {
+    const { orderIds } = loadDayOrders(slug, tableNumber)
+    if (orderIds.length > 0) orderId = orderIds[orderIds.length - 1]
+  }
+  if (fromUrl) {
+    try {
+      sessionStorage.setItem(LAST_ORDER_ID_KEY, orderId)
+    } catch {
+      /* ignore */
+    }
+  } else if (orderId) {
     try {
       sessionStorage.setItem(LAST_ORDER_ID_KEY, orderId)
     } catch {
@@ -167,7 +202,19 @@ function main() {
     }
   }
 
-  if (orderId && !fromUrl) {
+  if (orderId) {
+    appendDayOrderId(slug, tableNumber, orderId)
+    try {
+      const last = sessionStorage.getItem(LAST_ORDER_ID_KEY)
+      if (last) appendDayOrderId(slug, tableNumber, last)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  renderMyOrdersList(slug, tableNumber, orderId)
+
+  if (orderId && !hadUrl) {
     try {
       const u = new URL(window.location.href)
       u.searchParams.set("orderId", orderId)
