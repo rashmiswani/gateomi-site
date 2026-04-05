@@ -107,38 +107,19 @@ body.menu-page {
   box-shadow: 0 8px 32px rgba(20, 20, 20, 0.05);
 }
 
-.sticky-menu-header .brand-bar {
-  padding: 8px 20px 0;
-  background: transparent;
-}
-
-.sticky-menu-header .brand-lockup--stack {
-  gap: 4px;
-}
-
-.sticky-menu-header .restaurant-logo-slot img {
-  max-height: 32px;
-}
-
-.sticky-menu-header .brand-lockup--stack .restaurant-logo-slot img {
-  max-height: 36px;
-}
-
-.sticky-menu-header .page-header {
-  padding: 6px 20px 10px;
-  background: transparent;
-  box-shadow: none;
-  position: static;
+.sticky-menu-header .menu-header-compact {
+  padding: 6px 16px 8px 20px;
 }
 
 .sticky-menu-header .restaurant-name {
-  font-size: 1.2rem;
-  line-height: 1.2;
+  font-size: 1.05rem;
+  line-height: 1.25;
 }
 
 .sticky-menu-header .table-badge {
   padding: 5px 10px;
   font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 /* Category tabs live in the fixed header so they stay visible while scrolling */
@@ -227,6 +208,79 @@ body.menu-page {
 
 .hub-brand .restaurant-logo-slot img {
   max-height: 48px;
+}
+
+/* OrderKaro platform wordmark (PNG) */
+.orderkaro-logo-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  line-height: 0;
+}
+
+.orderkaro-logo {
+  display: block;
+  height: 38px;
+  width: auto;
+  max-width: min(280px, 62vw);
+  object-fit: contain;
+  object-position: left center;
+}
+
+.orderkaro-logo--hub {
+  height: 54px;
+  max-width: 340px;
+}
+
+/* Menu sticky header: single row (OrderKaro + optional restaurant logo + name + table) */
+.orderkaro-logo--menu {
+  height: 26px;
+  max-width: min(160px, 38vw);
+}
+
+.menu-header-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: transparent;
+}
+
+.menu-header-compact__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.menu-header-compact__main > .orderkaro-logo-link {
+  flex-shrink: 0;
+}
+
+.menu-header-compact__title-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.menu-header-compact .restaurant-name {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.restaurant-logo-slot--compact {
+  flex-shrink: 0;
+  max-width: min(120px, 22vw);
+}
+
+.restaurant-logo-slot--compact img {
+  max-height: 28px;
+}
+
+.brand-lockup--stack .orderkaro-logo-link {
+  margin-bottom: 2px;
 }
 
 .brand-wordmark {
@@ -1057,6 +1111,10 @@ body.menu-page {
   .restaurant-name {
     font-size: 1.5rem;
   }
+
+  .sticky-menu-header .restaurant-name {
+    font-size: 1.15rem;
+  }
 }
 
 @media (min-width: 900px) {
@@ -1104,6 +1162,7 @@ body.menu-page {
 
   .brand-bar,
   .page-header,
+  .menu-header-compact,
   .category-strip {
     padding-left: clamp(20px, 3vw, 32px);
     padding-right: clamp(20px, 3vw, 32px);
