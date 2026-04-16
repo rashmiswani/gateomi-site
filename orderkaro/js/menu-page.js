@@ -1,6 +1,7 @@
-import { rememberMenuPath } from "./config.js"
+import { LAST_ORDER_ID_KEY, rememberMenuPath } from "./config.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
 import { fetchMenu } from "./api.js"
+import { loadDayOrders } from "./order-day-history.js"
 import {
   ensureCart,
   cartTotals,
@@ -16,6 +17,7 @@ function $(sel, root = document) {
 
 let menuData = null
 let menuHeaderResizeObserver = null
+let menuSearchText = ""
 
 /** Match .app-shell--menu padding to actual fixed header height (avoids a gap when the estimate is too large). */
 function syncMenuHeaderHeight() {
@@ -64,12 +66,28 @@ function updateSticky(cart) {
   const { count, total } = cartTotals(cart)
   const countEl = $(".sticky-cart__count")
   const totalEl = $(".sticky-cart__total")
-  const link = $(".sticky-cart a.btn")
+  const link = $("#view-cart-link") || $(".sticky-cart a.btn--primary")
   if (countEl) countEl.textContent = count === 1 ? "1 item" : `${count} items`
   if (totalEl) totalEl.textContent = formatMoney(total)
   if (link) {
     link.href = withTableQuery("cart.html")
     link.setAttribute("aria-disabled", count === 0 ? "true" : "false")
+  }
+  const trackLink = $("#track-order-link")
+  if (trackLink) {
+    const ctx = resolveTableContext()
+    const recent = loadDayOrders(ctx.slug, ctx.tableNumber).orderIds
+    let orderId = recent.length ? recent[recent.length - 1] : ""
+    if (!orderId) {
+      try {
+        orderId = sessionStorage.getItem(LAST_ORDER_ID_KEY) || ""
+      } catch {
+        orderId = ""
+      }
+    }
+    const u = new URL(withTableQuery("track.html"), window.location.href)
+    if (orderId) u.searchParams.set("orderId", orderId)
+    trackLink.href = `${u.pathname}${u.search}`
   }
 }
 
@@ -178,7 +196,18 @@ function renderMenu(data, cart) {
 
   tabs.innerHTML = ""
   sections.innerHTML = ""
-  tabs.hidden = categories.length === 0
+  const q = menuSearchText.trim().toLowerCase()
+  const filteredCategories = categories
+    .map((cat) => {
+      const items = (cat.items || []).filter((it) => {
+        if (!q) return true
+        const hay = `${it.name || ""} ${it.description || ""}`.toLowerCase()
+        return hay.includes(q)
+      })
+      return { ...cat, items }
+    })
+    .filter((cat) => cat.items.length > 0)
+  tabs.hidden = filteredCategories.length === 0
 
   if (categories.length === 0) {
     const p = document.createElement("p")
@@ -190,7 +219,17 @@ function renderMenu(data, cart) {
     return
   }
 
-  categories.forEach((cat, i) => {
+  if (filteredCategories.length === 0) {
+    const p = document.createElement("p")
+    p.className = "cart-empty"
+    p.style.padding = "24px 20px"
+    p.textContent = "No matching dishes found."
+    sections.appendChild(p)
+    requestAnimationFrame(() => syncMenuHeaderHeight())
+    return
+  }
+
+  filteredCategories.forEach((cat, i) => {
     const tab = document.createElement("button")
     tab.type = "button"
     tab.className = `category-tab${i === 0 ? " category-tab--active" : ""}`
@@ -201,9 +240,6 @@ function renderMenu(data, cart) {
       scrollToCategory(cat.id)
     })
     tabs.appendChild(tab)
-
-    const visibleItems = (cat.items || []).filter((it) => it.isAvailable !== false)
-    if (visibleItems.length === 0 && (cat.items || []).length === 0) return
 
     const label = document.createElement("p")
     label.className = "section-label"
@@ -292,6 +328,16 @@ async function main() {
   const cart = ensureCart(slug, tableNumber, data.restaurant.name)
   renderMenu(data, cart)
   updateSticky(cart)
+  const searchInput = $("#menu-search-input")
+  if (searchInput) {
+    searchInput.value = menuSearchText
+    searchInput.addEventListener("input", () => {
+      menuSearchText = String(searchInput.value || "")
+      const latestCart = ensureCart(slug, tableNumber, data.restaurant.name)
+      renderMenu(data, latestCart)
+      updateSticky(latestCart)
+    })
+  }
 
   if (loading) loading.hidden = true
   if (loadingTabs) loadingTabs.hidden = true

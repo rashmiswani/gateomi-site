@@ -3,6 +3,7 @@ import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
 import { withTableQuery } from "./nav.js"
 import { fetchOrder } from "./api.js"
 import { formatOrderId, formatTrackDateTime } from "./format.js"
+import { ensureCart, saveCart } from "./cart-store.js"
 
 function getOrderId() {
   try {
@@ -96,7 +97,7 @@ function renderOrder(data) {
   }
 
   const num = document.querySelector(".track-order-num")
-  if (num) num.textContent = formatOrderId(data.id)
+  if (num) num.textContent = formatOrderId(data.shortId || data.id)
 
   const hope = document.getElementById("track-hope")
   if (hope) hope.textContent = hopeMessage(data.status)
@@ -135,10 +136,12 @@ function renderOrder(data) {
 }
 
 let timer = null
+let latestOrder = null
 
 async function poll(orderId) {
   try {
     const data = await fetchOrder(orderId)
+    latestOrder = data
     renderOrder(data)
   } catch (e) {
     const err = document.querySelector("#orderkaro-error")
@@ -147,6 +150,41 @@ async function poll(orderId) {
       err.textContent = e instanceof Error ? e.message : "Could not load order"
     }
   }
+}
+
+function wireOrderAgain() {
+  const btn = document.getElementById("order-again-btn")
+  if (!btn) return
+  btn.addEventListener("click", () => {
+    const { slug, tableNumber } = getTableContext()
+    if (!latestOrder || !Array.isArray(latestOrder.items) || latestOrder.items.length === 0) {
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent = "This order has no items to reorder."
+      }
+      return
+    }
+
+    const restaurantName =
+      slug
+        .split("-")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ") || "Restaurant"
+
+    const cart = ensureCart(slug, tableNumber, restaurantName)
+    cart.lines = latestOrder.items
+      .filter((l) => l && l.menuItemId && Number(l.quantity) > 0)
+      .map((l) => ({
+        menuItemId: l.menuItemId,
+        name: l.itemName || "Item",
+        unitPrice: Number(l.unitPrice || 0),
+        quantity: Math.max(1, Math.floor(Number(l.quantity || 1))),
+        note: l.note ? String(l.note) : "",
+      }))
+    saveCart(cart)
+    window.location.href = withTableQuery("cart.html")
+  })
 }
 
 function renderMyOrdersList(slug, tableNumber, currentOrderId) {
@@ -226,6 +264,7 @@ function main() {
 
   const menu = document.querySelector('a[href*="menu"]')
   if (menu) menu.href = withTableQuery("menu.html")
+  wireOrderAgain()
 
   if (!orderId) {
     const err = document.querySelector("#orderkaro-error")

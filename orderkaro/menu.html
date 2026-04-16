@@ -30,6 +30,16 @@
     </div>
 
     <nav class="category-strip" id="category-tabs" aria-label="Menu categories" hidden></nav>
+    <div class="menu-search-bar">
+      <label for="menu-search-input" class="visually-hidden">Search menu items</label>
+      <input
+        id="menu-search-input"
+        class="menu-search-input"
+        type="search"
+        placeholder="Search dishes..."
+        autocomplete="off"
+      />
+    </div>
   </div>
 
   <div class="app-shell app-shell--menu" aria-busy="true">
@@ -49,7 +59,10 @@
         <span class="sticky-cart__count">0 items</span>
         <span class="sticky-cart__total">₹0</span>
       </div>
-      <a href="cart.html" class="btn btn--primary">View cart</a>
+      <div class="sticky-cart__actions">
+        <a href="track.html" id="track-order-link" class="btn btn--sm btn--ghost">Track order</a>
+        <a href="cart.html" id="view-cart-link" class="btn btn--primary">View cart</a>
+      </div>
     </div>
   </div>
 

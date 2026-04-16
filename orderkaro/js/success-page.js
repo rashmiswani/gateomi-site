@@ -12,10 +12,20 @@ function getOrderIdFromUrl() {
   }
 }
 
+function getShortIdFromUrl() {
+  try {
+    const u = new URL(window.location.href)
+    return u.searchParams.get("shortId") || ""
+  } catch {
+    return ""
+  }
+}
+
 function main() {
   rememberSuccessPath()
 
   const fromUrl = getOrderIdFromUrl()
+  const shortId = getShortIdFromUrl()
   let id = fromUrl
   if (!id) {
     try {
@@ -47,7 +57,7 @@ function main() {
   }
 
   const numEl = document.querySelector(".order-number")
-  if (numEl) numEl.textContent = formatOrderId(id)
+  if (numEl) numEl.textContent = formatOrderId(shortId || id)
 
   const track = document.querySelector('a[href*="track"]')
   if (track) {

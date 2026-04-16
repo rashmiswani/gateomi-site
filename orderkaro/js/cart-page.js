@@ -111,6 +111,7 @@ async function placeOrder(cart) {
     const res = await createOrder(payload)
     clearCart()
     const id = res && res.orderId ? res.orderId : ""
+    const shortId = res && res.shortId ? String(res.shortId) : ""
     if (id) {
       try {
         sessionStorage.setItem(LAST_ORDER_ID_KEY, id)
@@ -122,7 +123,11 @@ async function placeOrder(cart) {
     }
     const base = withTableQuery("success.html")
     const sep = base.includes("?") ? "&" : "?"
-    const qs = id ? `${sep}orderId=${encodeURIComponent(id)}` : ""
+    let qs = id ? `${sep}orderId=${encodeURIComponent(id)}` : ""
+    if (shortId) {
+      const sep2 = qs ? "&" : sep
+      qs += `${sep2}shortId=${encodeURIComponent(shortId)}`
+    }
     window.location.href = `${base}${qs}`
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not place order"

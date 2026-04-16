@@ -7,8 +7,10 @@ export function formatMoney(amount) {
 
 export function formatOrderId(id) {
   if (!id || typeof id !== "string") return "—"
-  const short = id.replace(/-/g, "").slice(0, 8).toUpperCase()
-  return `#${short}`
+  const clean = id.trim().toUpperCase()
+  if (/^[A-Z0-9]+-[A-Z0-9]+$/.test(clean)) return `#${clean}`
+  const short = clean.replace(/-/g, "").slice(0, 8)
+  return `#OK-${short}`
 }
 
 /** ISO string → local date + time for track page (12-hour clock). */
