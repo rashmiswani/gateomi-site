@@ -51,3 +51,17 @@ export async function fetchOrder(orderId) {
   }
   return body.data
 }
+
+export async function requestBill(orderId) {
+  const base = getApiBase()
+  const res = await fetch(`${base}/api/public/orders/${encodeURIComponent(orderId)}`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  })
+  const { body, ok } = await parseJson(res)
+  if (!ok) {
+    const msg = body && body.error ? body.error : `Could not request bill (${res.status})`
+    throw new Error(msg)
+  }
+  return body.data
+}

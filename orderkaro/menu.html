@@ -74,6 +74,16 @@
     </div>
   </div>
 
+  <div id="menu-image-lightbox" class="menu-image-lightbox" hidden aria-hidden="true">
+    <button type="button" class="menu-image-lightbox__backdrop" aria-label="Close image preview"></button>
+    <div class="menu-image-lightbox__panel" role="dialog" aria-modal="true" aria-label="Image preview">
+      <button type="button" id="menu-image-lightbox-close" class="menu-image-lightbox__close" aria-label="Close image preview">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <img id="menu-image-lightbox-img" class="menu-image-lightbox__img" alt="Menu item image preview" />
+    </div>
+  </div>
+
   <script type="module" src="js/menu-page.js"></script>
 </body>
 </html>

@@ -1,9 +1,8 @@
 import { getTableContext, LAST_ORDER_ID_KEY, rememberTrackPath } from "./config.js"
 import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
 import { withTableQuery } from "./nav.js"
-import { fetchOrder } from "./api.js"
-import { formatOrderId, formatTrackDateTime } from "./format.js"
-import { ensureCart, saveCart } from "./cart-store.js"
+import { fetchOrder, requestBill } from "./api.js"
+import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
 
 function getOrderId() {
   try {
@@ -15,11 +14,14 @@ function getOrderId() {
 }
 
 const LABELS = {
-  NEW: "New",
+  NEW: "Order placed",
+  ORDER_PLACED: "Order placed",
   ACCEPTED: "Accepted",
   PREPARING: "Preparing",
+  READY: "Ready",
   SERVED: "Served",
-  COMPLETED: "Completed",
+  PAID: "Paid",
+  COMPLETED: "Paid",
   CANCELLED: "Cancelled",
 }
 
@@ -27,122 +29,177 @@ function statusPillText(status) {
   return LABELS[status] || status
 }
 
-const HOPE_MESSAGES = {
-  NEW: "Your order is in. The kitchen will pick it up soon — your food is on the way.",
-  ACCEPTED: "The restaurant has your order. Cooking will start shortly — hang tight!",
-  PREPARING: "Your meal is being prepared fresh. It won't be long now.",
-  SERVED: "Your order is heading to your table. Enjoy every bite!",
-  COMPLETED: "Thanks for dining with us. We hope you loved it!",
-  CANCELLED: "This order was cancelled.",
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
 }
 
-function hopeMessage(status) {
-  return HOPE_MESSAGES[status] || HOPE_MESSAGES.NEW
+function orderTotal(data) {
+  if (!data.items?.length) return 0
+  return data.items.reduce((sum, l) => sum + Number(l.quantity || 0) * Number(l.unitPrice || 0), 0)
 }
 
-/** Map API fields to the three customer-facing steps (times may be null for older orders). */
-function stepTimes(data) {
-  const placed = data.createdAt || null
-  const step0 = placed
-  const step1 = data.preparingAt || data.acceptedAt || null
-  const step2 = data.servedAt || null
-  return [step0, step1, step2]
-}
-
-/** Three steps: New → Preparing → Served */
-function applyTimeline(status) {
-  const steps = document.querySelectorAll(".timeline__step")
-  if (steps.length < 3) return
-
-  const set = (i, state) => {
-    const el = steps[i]
-    el.classList.remove("timeline__step--done", "timeline__step--current", "timeline__step--pending")
-    el.classList.add(`timeline__step--${state}`)
-  }
-
+function statusUi(status) {
   if (status === "CANCELLED") {
-    set(0, "pending")
-    set(1, "pending")
-    set(2, "pending")
+    return { pillClass: "track-card__status--danger", label: statusPillText(status) }
+  }
+  if (status === "SERVED" || status === "PAID" || status === "COMPLETED") {
+    return { pillClass: "track-card__status--muted", label: statusPillText(status) }
+  }
+  const pulse =
+    status === "NEW" ||
+    status === "ORDER_PLACED" ||
+    status === "ACCEPTED" ||
+    status === "PREPARING" ||
+    status === "READY"
+  return {
+    pillClass: `track-card__status--live${pulse ? " track-card__status--pulse" : ""}`,
+    label: statusPillText(status),
+  }
+}
+
+function setHeaderContext() {
+  const { slug, tableNumber } = getTableContext()
+  const restaurantName = slug
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ")
+  const nameEl = document.getElementById("track-restaurant-name")
+  if (nameEl) nameEl.textContent = restaurantName
+  const tableEl = document.getElementById("track-table-label")
+  if (tableEl) tableEl.textContent = `Table ${tableNumber}`
+  const descEl = document.getElementById("track-editorial-desc")
+  if (descEl) {
+    descEl.textContent = `Managing your culinary journey at ${restaurantName}. All active orders for Table ${tableNumber} are listed below.`
+  }
+}
+
+function trackHrefForOrder(orderId) {
+  const u = new URL(withTableQuery("track.html"), window.location.href)
+  u.searchParams.set("orderId", orderId)
+  return `${u.pathname}${u.search}${u.hash}`
+}
+
+function lineItemTemplate(line) {
+  const photo = line?.itemPhotoUrl ? String(line.itemPhotoUrl) : ""
+  const qty = Math.max(1, Number(line?.quantity || 1))
+  return `
+    <div class="track-card__line-item">
+      <div class="track-card__line-thumb ${photo ? "" : "track-card__line-thumb--placeholder"}">
+        ${photo ? `<img src="${escapeHtml(photo)}" alt="" />` : '<span class="material-symbols-outlined" aria-hidden="true">restaurant</span>'}
+      </div>
+      <div class="track-card__line-content">
+        <div class="track-card__line-head">
+          <p class="track-card__line-name">${escapeHtml(line?.itemName || "Item")}</p>
+          <p class="track-card__line-qty">x${qty}</p>
+        </div>
+        ${line?.note ? `<p class="track-card__line-note">${escapeHtml(line.note)}</p>` : ""}
+      </div>
+    </div>
+  `
+}
+
+function createOrderCardElement(orderId, data, currentOrderId) {
+  const meta = statusUi(data.status)
+  const total = orderTotal(data)
+  const isCurrent = orderId === currentOrderId
+  const items = Array.isArray(data.items) ? data.items : []
+
+  const card = document.createElement("article")
+  card.className = `track-card${isCurrent ? " track-card--active" : ""}`
+  card.dataset.trackOrderId = orderId
+  card.innerHTML = `
+    <div class="track-card__inner">
+      <div class="track-card__head">
+        <div>
+          <p class="track-card__id-label">Order ID</p>
+          <h3 class="track-card__id-value">${escapeHtml(formatOrderId(data.shortId || orderId))}</h3>
+        </div>
+        <div class="track-card__status ${meta.pillClass}">${escapeHtml(meta.label)}</div>
+      </div>
+      ${isCurrent ? `<div class="track-card__time-row"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span>${escapeHtml(formatTrackDateTime(data.createdAt || ""))}</span></div>` : ""}
+      <div class="track-card__lines-list">${items.map((line) => lineItemTemplate(line)).join("")}</div>
+      <div class="track-card__footer">
+        <span class="track-card__footer-label">Order Total</span>
+        <span class="track-card__footer-total">${escapeHtml(formatMoney(total))}</span>
+      </div>
+      ${!isCurrent ? `<a class="track-card__jump-link" href="${trackHrefForOrder(orderId)}">View this order</a>` : ""}
+    </div>
+  `
+  return card
+}
+
+function updateTrackCard(orderId, data) {
+  const card = document.querySelector(`[data-track-order-id="${CSS.escape(orderId)}"]`)
+  if (!card) return
+  const replacement = createOrderCardElement(orderId, data, orderId)
+  card.replaceWith(replacement)
+}
+
+async function renderOrderCards(slug, tableNumber, currentOrderId) {
+  const listEl = document.getElementById("track-orders-list")
+  const emptyEl = document.getElementById("track-orders-empty")
+  if (!listEl || !emptyEl) return
+
+  let ids = [...loadDayOrders(slug, tableNumber).orderIds]
+  if (currentOrderId && !ids.includes(currentOrderId)) ids.push(currentOrderId)
+
+  if (ids.length === 0) {
+    emptyEl.hidden = false
+    listEl.replaceChildren()
     return
   }
 
-  if (status === "NEW") {
-    set(0, "current")
-    set(1, "pending")
-    set(2, "pending")
-  } else if (status === "ACCEPTED" || status === "PREPARING") {
-    set(0, "done")
-    set(1, "current")
-    set(2, "pending")
-  } else if (status === "SERVED") {
-    set(0, "done")
-    set(1, "done")
-    set(2, "current")
-  } else if (status === "COMPLETED") {
-    set(0, "done")
-    set(1, "done")
-    set(2, "done")
+  const results = await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const data = await fetchOrder(id)
+        return { id, data }
+      } catch {
+        return { id, data: null }
+      }
+    })
+  )
+  const valid = results.filter((r) => r.data).sort(
+    (a, b) => new Date(b.data.createdAt).getTime() - new Date(a.data.createdAt).getTime()
+  )
+
+  listEl.replaceChildren()
+  if (valid.length === 0) {
+    emptyEl.hidden = false
+    return
   }
+  emptyEl.hidden = true
+  valid.forEach(({ id, data }) => listEl.appendChild(createOrderCardElement(id, data, currentOrderId)))
 }
 
-function renderOrder(data) {
-  const { slug } = getTableContext()
-  const nameEl = document.querySelector(".brand-name--sub")
-  if (nameEl) {
-    nameEl.textContent = slug
-      .split("-")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ")
-  }
-
-  const num = document.querySelector(".track-order-num")
-  if (num) num.textContent = formatOrderId(data.shortId || data.id)
-
-  const hope = document.getElementById("track-hope")
-  if (hope) hope.textContent = hopeMessage(data.status)
-
-  const placedEl = document.getElementById("track-placed-time")
-  if (placedEl) {
-    const placedIso = data.createdAt || ""
-    placedEl.textContent = formatTrackDateTime(placedIso)
-    if (placedIso) placedEl.setAttribute("datetime", placedIso)
-    else placedEl.removeAttribute("datetime")
-  }
-
-  const times = stepTimes(data)
-  document.querySelectorAll(".timeline__time").forEach((el) => {
-    const i = Number(el.getAttribute("data-step-time"))
-    const iso = times[i]
-    el.textContent = formatTrackDateTime(iso || "")
-  })
-
-  const pill = document.querySelector(".status-pill")
-  if (pill) {
-    pill.classList.remove("status-pill--danger")
-    if (data.status === "CANCELLED") {
-      pill.textContent = "Cancelled"
-      pill.classList.add("status-pill--danger")
-    } else {
-      pill.textContent = statusPillText(data.status)
-    }
-  }
-
-  if (data.status === "CANCELLED") {
-    applyTimeline("CANCELLED")
-  } else {
-    applyTimeline(data.status)
-  }
+function applyAskBillState(data) {
+  const askBillBtn = document.getElementById("ask-bill-btn")
+  if (!askBillBtn) return
+  const alreadyRequested = Boolean(data.billRequestedAt)
+  askBillBtn.disabled =
+    alreadyRequested ||
+    data.status === "CANCELLED" ||
+    data.status === "PAID" ||
+    data.status === "COMPLETED"
+  askBillBtn.innerHTML = alreadyRequested
+    ? '<span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Bill Requested</span>'
+    : '<span class="material-symbols-outlined" aria-hidden="true">payments</span><span>Request Bill</span>'
 }
 
 let timer = null
 let latestOrder = null
+let currentOrderId = ""
 
 async function poll(orderId) {
   try {
     const data = await fetchOrder(orderId)
     latestOrder = data
-    renderOrder(data)
+    applyAskBillState(data)
+    updateTrackCard(orderId, data)
   } catch (e) {
     const err = document.querySelector("#orderkaro-error")
     if (err) {
@@ -152,65 +209,44 @@ async function poll(orderId) {
   }
 }
 
-function wireOrderAgain() {
-  const btn = document.getElementById("order-again-btn")
+function wireAskBill() {
+  const btn = document.getElementById("ask-bill-btn")
   if (!btn) return
-  btn.addEventListener("click", () => {
-    const { slug, tableNumber } = getTableContext()
-    if (!latestOrder || !Array.isArray(latestOrder.items) || latestOrder.items.length === 0) {
+  btn.addEventListener("click", async () => {
+    if (!currentOrderId) return
+    btn.disabled = true
+    btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span><span>Requesting...</span>'
+    try {
+      const data = await requestBill(currentOrderId)
+      const base = latestOrder && typeof latestOrder === "object" ? latestOrder : { status: "ORDER_PLACED" }
+      applyAskBillState({ ...base, billRequestedAt: data?.billRequestedAt || new Date().toISOString() })
+    } catch (e) {
+      btn.disabled = false
+      btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">payments</span><span>Request Bill</span>'
       const err = document.querySelector("#orderkaro-error")
       if (err) {
         err.hidden = false
-        err.textContent = "This order has no items to reorder."
+        err.textContent = e instanceof Error ? e.message : "Could not request bill"
       }
-      return
     }
-
-    const restaurantName =
-      slug
-        .split("-")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ") || "Restaurant"
-
-    const cart = ensureCart(slug, tableNumber, restaurantName)
-    cart.lines = latestOrder.items
-      .filter((l) => l && l.menuItemId && Number(l.quantity) > 0)
-      .map((l) => ({
-        menuItemId: l.menuItemId,
-        name: l.itemName || "Item",
-        unitPrice: Number(l.unitPrice || 0),
-        quantity: Math.max(1, Math.floor(Number(l.quantity || 1))),
-        note: l.note ? String(l.note) : "",
-      }))
-    saveCart(cart)
-    window.location.href = withTableQuery("cart.html")
   })
 }
 
-function renderMyOrdersList(slug, tableNumber, currentOrderId) {
-  const wrap = document.getElementById("my-orders-today")
-  const list = document.getElementById("my-orders-today-list")
-  if (!wrap || !list) return
-  const { orderIds } = loadDayOrders(slug, tableNumber)
-  if (orderIds.length === 0) {
-    wrap.hidden = true
-    return
-  }
-  wrap.hidden = false
-  list.innerHTML = orderIds
-    .map((oid) => {
-      const u = new URL(withTableQuery("track.html"), window.location.href)
-      u.searchParams.set("orderId", oid)
-      const active = oid === currentOrderId ? " my-orders-today__link--active" : ""
-      return `<li class="my-orders-today__item"><a class="my-orders-today__link${active}" href="${u.pathname}${u.search}">${formatOrderId(oid)}</a></li>`
-    })
-    .join("")
-}
-
-function main() {
+async function main() {
   rememberTrackPath()
+  setHeaderContext()
+  wireAskBill()
 
   const { slug, tableNumber } = getTableContext()
+  const errBanner = document.querySelector("#orderkaro-error")
+  if (errBanner) errBanner.hidden = true
+
+  const menuLink = document.getElementById("track-menu-link")
+  if (menuLink) menuLink.href = withTableQuery("menu.html")
+  const selfLink = document.getElementById("track-self-link")
+  if (selfLink) selfLink.href = withTableQuery("track.html")
+  const emptyMenu = document.getElementById("track-empty-menu-link")
+  if (emptyMenu) emptyMenu.href = withTableQuery("menu.html")
 
   const fromUrl = getOrderId()
   const hadUrl = !!fromUrl
@@ -241,6 +277,7 @@ function main() {
   }
 
   if (orderId) {
+    currentOrderId = orderId
     appendDayOrderId(slug, tableNumber, orderId)
     try {
       const last = sessionStorage.getItem(LAST_ORDER_ID_KEY)
@@ -250,7 +287,7 @@ function main() {
     }
   }
 
-  renderMyOrdersList(slug, tableNumber, orderId)
+  await renderOrderCards(slug, tableNumber, orderId)
 
   if (orderId && !hadUrl) {
     try {
@@ -261,10 +298,6 @@ function main() {
       /* ignore */
     }
   }
-
-  const menu = document.querySelector('a[href*="menu"]')
-  if (menu) menu.href = withTableQuery("menu.html")
-  wireOrderAgain()
 
   if (!orderId) {
     const err = document.querySelector("#orderkaro-error")
@@ -280,7 +313,7 @@ function main() {
   timer = window.setInterval(() => void poll(orderId), 5000)
 }
 
-main()
+void main()
 
 window.addEventListener("beforeunload", () => {
   if (timer) window.clearInterval(timer)

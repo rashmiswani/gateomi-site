@@ -8,35 +8,59 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/app.css" />
 </head>
-<body>
-  <div class="app-shell app-shell--simple">
-    <div class="brand-bar">
-      <div class="brand-bar__inner">
-        <div class="brand-lockup">
-          <a href="index.html" class="orderkaro-logo-link">
-            <img src="images/orderkaro-logo.png" alt="OrderKaro" class="orderkaro-logo" width="280" height="38" />
-          </a>
-          <div class="restaurant-logo-slot" data-restaurant-logo-slot aria-label="Restaurant logo"></div>
-        </div>
+<body class="success-status-page">
+  <header class="success-status-topbar">
+    <a href="menu.html" id="success-close-link" class="success-status-topbar__close" aria-label="Close">
+      <span class="material-symbols-outlined">close</span>
+    </a>
+    <h1>Order Status</h1>
+    <span class="success-status-topbar__spacer"></span>
+  </header>
+
+  <main class="success-status-main">
+    <div class="success-status-hero">
+      <div class="success-status-check">
+        <span class="material-symbols-outlined">check_circle</span>
       </div>
     </div>
-    <div class="success-wrap">
-      <div class="success-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </div>
-      <h1 class="success-title">Order received</h1>
-      <p class="success-sub">The kitchen has your order. Track status anytime—no account needed.</p>
+
+    <section class="success-status-copy">
+      <h2>Order Received</h2>
+      <p>The kitchen is now preparing your meal. Relax and enjoy your experience.</p>
+    </section>
+
+    <section class="success-status-ref">
+      <span>REFERENCE NUMBER</span>
       <p class="order-number" aria-label="Order number">—</p>
-      <a href="track.html" class="btn btn--primary btn--block">Track order</a>
-      <p style="margin-top: 22px;">
-        <a href="menu.html" class="text-link">Back to menu</a>
-      </p>
-    </div>
-  </div>
+    </section>
+
+    <section class="success-status-total">
+      <div>
+        <p>Total Price</p>
+        <strong id="success-total">—</strong>
+      </div>
+      <div>
+        <p>Ordered At</p>
+        <strong id="success-ordered-at">—</strong>
+      </div>
+    </section>
+
+    <section class="success-status-items">
+      <div class="success-status-items__head">
+        <span class="material-symbols-outlined">restaurant</span>
+        <h3>Item Details</h3>
+      </div>
+      <ul id="success-items-list"></ul>
+    </section>
+
+    <section class="success-status-actions">
+      <a href="track.html" id="success-track-link" class="success-status-btn success-status-btn--primary">Track Order Status</a>
+      <a href="menu.html" id="success-order-again-link" class="success-status-btn success-status-btn--secondary">Order Again</a>
+    </section>
+  </main>
   <script type="module" src="js/success-page.js"></script>
 </body>
 </html>

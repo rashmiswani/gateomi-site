@@ -1,78 +1,66 @@
 <!DOCTYPE html>
-<html lang="en">
+<html class="light" lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#faf9f7" />
-  <title>Track order — Qrave</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f9f9f9" />
+  <title>Track order — OrderKaro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/app.css" />
 </head>
-<body>
+<body class="track-page">
   <div class="banner-error" id="orderkaro-error" role="alert" hidden></div>
-  <div class="app-shell app-shell--simple">
-    <div class="brand-bar">
-      <div class="brand-bar__inner">
-        <div class="brand-lockup">
-          <a href="index.html" class="orderkaro-logo-link">
-            <img src="images/orderkaro-logo.png" alt="OrderKaro" class="orderkaro-logo" />
-          </a>
-          <div class="restaurant-logo-slot" data-restaurant-logo-slot aria-label="Restaurant logo"></div>
-        </div>
-        <div class="brand-bar__end">
-          <a href="menu.html" class="text-link">Menu</a>
-          <span class="brand-name brand-name--sub">Restaurant</span>
-        </div>
+
+  <header class="track-topbar">
+    <div class="track-topbar__inner">
+      <div class="track-topbar__brand">
+        <span class="material-symbols-outlined track-topbar__menu-icon" aria-hidden="true">restaurant</span>
+        <span class="track-topbar__name" id="track-restaurant-name">Restaurant</span>
+      </div>
+      <div class="track-topbar__end">
+        <span class="track-topbar__table-pill" id="track-table-label" aria-label="Table">Table —</span>
       </div>
     </div>
+  </header>
 
-    <section class="my-orders-today" id="my-orders-today" hidden aria-label="Your orders today">
-      <h2 class="my-orders-today__title">Your orders today</h2>
-      <ul class="my-orders-today__list" id="my-orders-today-list"></ul>
+  <main class="track-main">
+    <section class="track-editorial" aria-labelledby="track-editorial-heading">
+      <p class="track-editorial__eyebrow">Current Session</p>
+      <h2 id="track-editorial-heading" class="track-editorial__title">Track Your Table</h2>
+      <p class="track-editorial__desc" id="track-editorial-desc">
+        Managing your culinary journey. All active orders for this table are listed below.
+      </p>
     </section>
 
-    <div class="track-header">
-      <p class="track-order-id">Order</p>
-      <p class="track-order-num">—</p>
-      <span class="status-pill">…</span>
+    <div id="track-orders-empty" class="track-empty" hidden>
+      <p class="track-empty__text">No orders for this table yet.</p>
+      <a href="menu.html" id="track-empty-menu-link" class="track-empty__link">Browse menu</a>
     </div>
 
-    <p class="track-hope" id="track-hope" role="status" aria-live="polite"></p>
+    <div id="track-orders-list" class="track-orders-list" aria-live="polite"></div>
+  </main>
 
-    <div class="track-placed">
-      <span class="track-placed__label">Order placed</span>
-      <time class="track-placed__time" id="track-placed-time" datetime="">—</time>
-    </div>
-
-    <div class="track-actions">
-      <button type="button" class="btn btn--primary btn--block" id="order-again-btn">Order again</button>
-    </div>
-
-    <div class="timeline">
-      <div class="timeline__track">
-        <div class="timeline__step timeline__step--current">
-          <span class="timeline__dot"></span>
-          <p class="timeline__label">Order Placed</p>
-          <p class="timeline__hint">Sent to the restaurant</p>
-          <p class="timeline__time" data-step-time="0">—</p>
-        </div>
-        <div class="timeline__step timeline__step--pending">
-          <span class="timeline__dot"></span>
-          <p class="timeline__label">Preparing</p>
-          <p class="timeline__hint">Your order is being prepared</p>
-          <p class="timeline__time" data-step-time="1">—</p>
-        </div>
-        <div class="timeline__step timeline__step--pending">
-          <span class="timeline__dot"></span>
-          <p class="timeline__label">Served</p>
-          <p class="timeline__hint">On the way to your table</p>
-          <p class="timeline__time" data-step-time="2">—</p>
-        </div>
-      </div>
-    </div>
+  <div class="track-bill-cta-wrap">
+    <button type="button" class="track-bill-cta" id="ask-bill-btn">
+      <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+      <span>Request Bill</span>
+    </button>
   </div>
+
+  <nav class="track-bottom-nav" aria-label="Primary">
+    <a href="menu.html" id="track-menu-link" class="track-bottom-nav__item">
+      <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
+      <span>Menu</span>
+    </a>
+    <a href="track.html" id="track-self-link" class="track-bottom-nav__item track-bottom-nav__item--active">
+      <span class="material-symbols-outlined" aria-hidden="true">receipt_long</span>
+      <span>My Orders</span>
+    </a>
+  </nav>
+
   <script type="module" src="js/track-page.js"></script>
 </body>
 </html>

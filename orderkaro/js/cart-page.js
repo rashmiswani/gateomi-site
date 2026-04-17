@@ -8,6 +8,7 @@ import {
   saveCart,
   setLineQuantity,
   setSpecialInstructions,
+  setMenuItemLineQuantity,
   cartTotals,
   toOrderPayload,
   clearCart,
@@ -19,6 +20,178 @@ function $(sel, root = document) {
 }
 
 let availabilityById = new Map()
+/** Latest menu payload from `fetchMenu` — used for cart upsells / combos / pairings. */
+let lastMenuData = null
+
+function flattenMenuItems(menuData) {
+  const out = []
+  for (const cat of menuData?.categories || []) {
+    const categoryId = cat.id
+    const categoryName = cat.name || ""
+    for (const it of cat.items || []) {
+      out.push({
+        ...it,
+        categoryId,
+        categoryName,
+      })
+    }
+  }
+  return out
+}
+
+function isComboLikeItem(it) {
+  const t = `${it.name || ""} ${it.description || ""}`.toLowerCase()
+  return /\b(combo|thali|platter|bundle|brought together|meal deal|set menu|fixed|together|pair\s+with)\b/i.test(
+    t
+  )
+}
+
+function isPairingCategoryHint(it) {
+  return /beverage|drink|juice|wine|coffee|tea|dessert|sweet|bread|soup|starter|appetizer|side|salad|rice|naan/i.test(
+    `${it.categoryName || ""} ${it.name || ""}`
+  )
+}
+
+/**
+ * Suggest items not already in cart: combo-like names, cross-category “pairs”, then general upsell.
+ * All suggestions respect `isAvailable` only (same as menu).
+ */
+function buildCartSuggestionGroups(cart, menuData) {
+  const flat = flattenMenuItems(menuData)
+  const inCart = new Set(cart.lines.map((l) => String(l.menuItemId)))
+  const cartCategoryIds = new Set()
+  for (const line of cart.lines) {
+    const found = flat.find((x) => String(x.id) === String(line.menuItemId))
+    if (found) cartCategoryIds.add(found.categoryId)
+  }
+  const pool = flat.filter((it) => it.isAvailable && !inCart.has(String(it.id)))
+  const used = new Set()
+
+  const combos = []
+  for (const it of pool) {
+    if (combos.length >= 8) break
+    if (!isComboLikeItem(it)) continue
+    combos.push(it)
+    used.add(String(it.id))
+  }
+
+  const pairs = []
+  for (const it of pool) {
+    if (pairs.length >= 8) break
+    if (used.has(String(it.id))) continue
+    const cross =
+      cartCategoryIds.size > 0 ? !cartCategoryIds.has(it.categoryId) : false
+    const hint = isPairingCategoryHint(it)
+    if (cross || hint) {
+      pairs.push(it)
+      used.add(String(it.id))
+    }
+  }
+
+  const upsells = []
+  const rest = pool.filter((it) => !used.has(String(it.id)))
+  rest.sort((a, b) => Number(a.price) - Number(b.price))
+  for (const it of rest) {
+    if (upsells.length >= 8) break
+    upsells.push(it)
+    used.add(String(it.id))
+  }
+
+  return { combos, pairs, upsells }
+}
+
+function renderSuggestionCard(it) {
+  const photo = it.photoUrl
+    ? `<img src="${escapeHtml(it.photoUrl)}" alt="" class="cart-suggest-card__photo" loading="lazy" />`
+    : `<span class="material-symbols-outlined cart-suggest-card__photo-fallback">restaurant</span>`
+  return `<div class="cart-suggest-card">
+    <div class="cart-suggest-card__media">${photo}</div>
+    <div class="cart-suggest-card__body">
+      <h4 class="cart-suggest-card__name">${escapeHtml(it.name || "Item")}</h4>
+      <div class="cart-suggest-card__row">
+        <span class="cart-suggest-card__price">${formatMoney(Number(it.price))}</span>
+        <button type="button" class="cart-suggest-card__add" data-suggest-add data-id="${escapeHtml(
+          String(it.id)
+        )}" aria-label="Add ${escapeHtml(it.name || "item")}">
+          <span class="material-symbols-outlined">add</span>
+        </button>
+      </div>
+    </div>
+  </div>`
+}
+
+function bindSuggestionAdds(root) {
+  root.querySelectorAll("[data-suggest-add]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-id")
+      if (!id || !lastMenuData) return
+      const flat = flattenMenuItems(lastMenuData)
+      const it = flat.find((x) => String(x.id) === id)
+      if (!it || !it.isAvailable) return
+      const c = loadCart()
+      if (!c) return
+      setMenuItemLineQuantity(
+        c,
+        {
+          menuItemId: it.id,
+          name: it.name,
+          unitPrice: Number(it.price),
+          photoUrl: it.photoUrl || null,
+        },
+        getQtyForItem(c, id) + 1
+      )
+      void hydrateCartLineImages(loadCart() || c).then((updated) => {
+        render(updated || loadCart() || c)
+      })
+    })
+  })
+}
+
+function getQtyForItem(cart, menuItemId) {
+  const line = cart.lines.find((l) => String(l.menuItemId) === String(menuItemId))
+  return line ? line.quantity : 0
+}
+
+function renderSuggestionSections(cart) {
+  const mount = $("#cart-suggestions")
+  if (!mount) return
+  if (!cart.lines.length || !lastMenuData) {
+    mount.innerHTML = ""
+    mount.hidden = true
+    return
+  }
+  const { combos, pairs, upsells } = buildCartSuggestionGroups(cart, lastMenuData)
+  const blocks = []
+  if (combos.length) {
+    blocks.push(`<section class="cart-suggest-block" aria-label="Combos and bundles">
+      <h3 class="cart-suggest-block__label">Combos &amp; bundles</h3>
+      <p class="cart-suggest-block__hint">Meals and sets that go together</p>
+      <div class="cart-suggest-strip">${combos.map(renderSuggestionCard).join("")}</div>
+    </section>`)
+  }
+  if (pairs.length) {
+    blocks.push(`<section class="cart-suggest-block" aria-label="You might like">
+      <h3 class="cart-suggest-block__label">You might like</h3>
+      <p class="cart-suggest-block__hint">Drinks, sides &amp; more picked for your order</p>
+      <div class="cart-suggest-strip">${pairs.map(renderSuggestionCard).join("")}</div>
+    </section>`)
+  }
+  if (upsells.length) {
+    blocks.push(`<section class="cart-suggest-block" aria-label="Add to your order">
+      <h3 class="cart-suggest-block__label">Add to your order</h3>
+      <p class="cart-suggest-block__hint">Popular add-ons &amp; small plates</p>
+      <div class="cart-suggest-strip">${upsells.map(renderSuggestionCard).join("")}</div>
+    </section>`)
+  }
+  if (!blocks.length) {
+    mount.innerHTML = ""
+    mount.hidden = true
+    return
+  }
+  mount.innerHTML = blocks.join("")
+  mount.hidden = false
+  bindSuggestionAdds(mount)
+}
 
 function render(cart) {
   const mount = $("#cart-mount")
@@ -39,6 +212,8 @@ function render(cart) {
   addLinks.forEach((a) => {
     a.href = withTableQuery("menu.html")
   })
+  const orderLink = $("#bottom-order-link")
+  if (orderLink) orderLink.href = withTableQuery("track.html")
 
   if (!mount) return
   mount.innerHTML = ""
@@ -59,12 +234,15 @@ function render(cart) {
       btn.disabled = true
       btn.textContent = "Place order"
     }
+    renderSuggestionSections(cart)
     return
   }
 
   let unavailableCount = 0
   cart.lines.forEach((line, index) => {
-    const isUnavailable = availabilityById.get(String(line.menuItemId)) === false
+    const lineKey = String(line.menuItemId)
+    const hasAvailability = availabilityById.has(lineKey)
+    const isUnavailable = hasAvailability && availabilityById.get(lineKey) === false
     if (isUnavailable) unavailableCount += 1
     const row = document.createElement("div")
     row.className = `cart-row${isUnavailable ? " cart-row--unavailable" : ""}`
@@ -150,6 +328,8 @@ function render(cart) {
     btn.disabled = unavailableCount > 0
     btn.textContent = "Place order"
   }
+
+  renderSuggestionSections(cart)
 }
 
 function escapeHtml(s) {
@@ -162,16 +342,32 @@ function escapeHtml(s) {
 
 function getUnavailableLines(cart, menuData) {
   const items = (menuData?.categories || []).flatMap((cat) => cat.items || [])
-  const byId = new Map(items.map((it) => [String(it.id), Boolean(it.isAvailable)]))
-  return cart.lines.filter((line) => byId.get(String(line.menuItemId)) !== true)
+  const byId = new Map()
+  items.forEach((it) => {
+    if (typeof it?.isAvailable !== "boolean") return
+    byId.set(String(it.id), it.isAvailable)
+  })
+  return cart.lines.filter((line) => {
+    const key = String(line.menuItemId)
+    return byId.has(key) && byId.get(key) === false
+  })
 }
 
 async function hydrateCartLineImages(cart) {
-  if (!cart || !cart.lines.length) return cart
+  if (!cart || !cart.lines.length) {
+    lastMenuData = null
+    return cart
+  }
   const menuData = await fetchMenu(cart.restaurantSlug, cart.tableNumber)
+  lastMenuData = menuData
   const items = (menuData?.categories || []).flatMap((cat) => cat.items || [])
   const photoById = new Map(items.map((it) => [String(it.id), String(it.photoUrl || "")]))
-  availabilityById = new Map(items.map((it) => [String(it.id), Boolean(it.isAvailable)]))
+  const nextAvailability = new Map()
+  items.forEach((it) => {
+    if (typeof it?.isAvailable !== "boolean") return
+    nextAvailability.set(String(it.id), it.isAvailable)
+  })
+  availabilityById = nextAvailability
   let changed = false
   const gstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
   if (cart.isGstEnabled !== gstEnabled) {
@@ -239,7 +435,7 @@ async function placeOrder(cart) {
   }
 }
 
-function main() {
+async function main() {
   rememberCartPath()
   const { slug, tableNumber } = resolveTableContext()
   let cart = loadCart()
@@ -249,14 +445,14 @@ function main() {
     cart = ensureCart(slug, tableNumber, cart.restaurantName)
   }
 
-  render(cart)
-  hydrateCartLineImages(cart)
-    .then((updated) => {
-      if (updated) render(updated)
-    })
-    .catch(() => {
-      /* image hydration is best-effort */
-    })
+  try {
+    const updated = await hydrateCartLineImages(cart)
+    render(updated || cart)
+  } catch {
+    /* if menu fetch fails, clear availability map to avoid stale warnings */
+    availabilityById = new Map()
+    render(cart)
+  }
 
   const globalNote = $("#special-instructions")
   if (globalNote) {
@@ -275,6 +471,19 @@ function main() {
       if (c) placeOrder(c)
     })
   }
+
+  // iOS Safari can restore stale page state from BFCache; force a fresh availability render.
+  window.addEventListener("pageshow", async () => {
+    const c = loadCart()
+    if (!c) return
+    try {
+      const updated = await hydrateCartLineImages(c)
+      render(updated || c)
+    } catch {
+      availabilityById = new Map()
+      render(c)
+    }
+  })
 }
 
 main()

@@ -19,6 +19,38 @@ let menuHeaderResizeObserver = null
 let menuSearchText = ""
 let activeCategoryId = ""
 
+function openImageLightbox(src) {
+  const root = $("#menu-image-lightbox")
+  const img = $("#menu-image-lightbox-img")
+  if (!root || !img || !src) return
+  img.src = src
+  root.hidden = false
+  root.setAttribute("aria-hidden", "false")
+  document.body.style.overflow = "hidden"
+}
+
+function closeImageLightbox() {
+  const root = $("#menu-image-lightbox")
+  const img = $("#menu-image-lightbox-img")
+  if (!root || !img) return
+  root.hidden = true
+  root.setAttribute("aria-hidden", "true")
+  img.removeAttribute("src")
+  document.body.style.overflow = ""
+}
+
+function bindImageLightbox() {
+  const root = $("#menu-image-lightbox")
+  const closeBtn = $("#menu-image-lightbox-close")
+  const backdrop = root?.querySelector(".menu-image-lightbox__backdrop")
+  if (!root || !closeBtn || !backdrop) return
+  closeBtn.addEventListener("click", closeImageLightbox)
+  backdrop.addEventListener("click", closeImageLightbox)
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && root && !root.hidden) closeImageLightbox()
+  })
+}
+
 /** Match .app-shell--menu padding to actual fixed header height (avoids a gap when the estimate is too large). */
 function syncMenuHeaderHeight() {
   const el = document.querySelector(".sticky-menu-header")
@@ -81,6 +113,14 @@ function updateSticky(cart) {
   if (topTrackLink) {
     topTrackLink.href = withTableQuery("track.html")
   }
+}
+
+/** Category rail thumbnail: use category image when set, otherwise any item image in that category. */
+function categoryRailThumbUrl(cat) {
+  const direct = String(cat.photoUrl || "").trim()
+  if (direct) return direct
+  const withPhoto = (cat.items || []).find((it) => String(it.photoUrl || "").trim())
+  return withPhoto ? String(withPhoto.photoUrl).trim() : ""
 }
 
 function refreshFromCart() {
@@ -151,7 +191,7 @@ function renderMenu(data, cart) {
     tab.className = `category-tab category-rail__item${
       String(activeCategory.id) === String(cat.id) ? " category-tab--active" : ""
     }`
-    const thumb = cat.items?.find((it) => it.photoUrl)?.photoUrl || ""
+    const thumb = categoryRailThumbUrl(cat)
     tab.innerHTML = `<span class="category-rail__thumb">${
       thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : ""
     }</span><span class="category-rail__name">${escapeHtml(cat.name)}</span>`
@@ -164,7 +204,12 @@ function renderMenu(data, cart) {
 
   const heading = document.createElement("div")
   heading.className = "menu-feed-head"
-  heading.innerHTML = `<h2>Curated ${escapeHtml(activeCategory.name)}</h2><p>Small plates designed for sharing, featuring seasonal ingredients sourced from our local organic partners.</p>`
+  const categoryDesc = String(activeCategory.description || "").trim()
+  heading.innerHTML = `<h2>${escapeHtml(activeCategory.name)}</h2><p>${
+    categoryDesc
+      ? escapeHtml(categoryDesc)
+      : ""
+  }</p>`
   sections.appendChild(heading)
 
   const list = document.createElement("div")
@@ -181,8 +226,9 @@ function renderMenu(data, cart) {
       const img = document.createElement("img")
       img.src = it.photoUrl
       img.alt = ""
-      img.className = "menu-card__img-el"
+      img.className = "menu-card__img-el menu-card__img-el--tap"
       img.loading = "lazy"
+      img.addEventListener("click", () => openImageLightbox(it.photoUrl))
       imgWrap.appendChild(img)
     }
     const foodType = String(it.foodType || "").toLowerCase()
@@ -218,17 +264,18 @@ function renderMenu(data, cart) {
     const body = document.createElement("div")
     body.className = "menu-card__body"
     const desc = String(it.description || "")
-    const showMore = desc.length > 52
+    const effectiveDesc = it.isAvailable ? desc : "Currently Unavailable"
+    const showMore = it.isAvailable && effectiveDesc.length > 52
     body.innerHTML = `
       <div class="menu-card__head">
         <h2 class="menu-card__title">${escapeHtml(it.name)}</h2>
         <span class="menu-card__price">${formatMoney(it.price)}</span>
       </div>
-      <p class="menu-card__desc${showMore ? " is-collapsed" : ""}">${desc ? escapeHtml(desc) : ""}</p>
+      <p class="menu-card__desc${showMore ? " is-collapsed" : ""}">${effectiveDesc ? escapeHtml(effectiveDesc) : ""}</p>
       ${
         showMore
           ? `<button type="button" class="menu-card__more" data-more="0" data-full="${escapeHtml(
-              desc
+              effectiveDesc
             )}">View more</button>`
           : ""
       }
@@ -300,6 +347,7 @@ function escapeHtml(s) {
 async function main() {
   rememberMenuPath()
   setupMenuHeaderHeightSync()
+  bindImageLightbox()
 
   const loading = $("#orderkaro-loading")
   const loadingTabs = $("#orderkaro-loading-tabs")
