@@ -71,7 +71,7 @@ export function getQuantityForMenuItem(cart, menuItemId) {
 }
 
 /** Set quantity for menu item. qty 0 removes the line. */
-export function setMenuItemLineQuantity(cart, { menuItemId, name, unitPrice, photoUrl }, quantity) {
+export function setMenuItemLineQuantity(cart, { menuItemId, name, unitPrice, photoUrl, foodType }, quantity) {
   const q = Math.max(0, Math.floor(Number(quantity)))
   const idx = cart.lines.findIndex((l) => l.menuItemId === menuItemId)
   if (q === 0) {
@@ -79,6 +79,9 @@ export function setMenuItemLineQuantity(cart, { menuItemId, name, unitPrice, pho
   } else if (idx >= 0) {
     cart.lines[idx].quantity = q
     cart.lines[idx].photoUrl = photoUrl || cart.lines[idx].photoUrl || null
+    if (foodType != null && foodType !== "") {
+      cart.lines[idx].foodType = foodType
+    }
   } else {
     cart.lines.push({
       menuItemId,
@@ -86,6 +89,7 @@ export function setMenuItemLineQuantity(cart, { menuItemId, name, unitPrice, pho
       unitPrice: Number(unitPrice),
       quantity: q,
       photoUrl: photoUrl || null,
+      foodType: foodType || "VEG",
     })
   }
   saveCart(cart)

@@ -15,6 +15,7 @@ import {
   clearCart,
 } from "./cart-store.js"
 import { formatMoney } from "./format.js"
+import { itemDietPillHtml } from "./diet.js"
 
 function $(sel, root = document) {
   return root.querySelector(sel)
@@ -108,7 +109,10 @@ function renderSuggestionCard(it) {
   return `<div class="cart-suggest-card">
     <div class="cart-suggest-card__media">${photo}</div>
     <div class="cart-suggest-card__body">
-      <h4 class="cart-suggest-card__name">${escapeHtml(it.name || "Item")}</h4>
+      <div class="cart-suggest-card__title-row">
+        ${itemDietPillHtml(it.foodType)}
+        <h4 class="cart-suggest-card__name">${escapeHtml(it.name || "Item")}</h4>
+      </div>
       <div class="cart-suggest-card__row">
         <span class="cart-suggest-card__price">${formatMoney(Number(it.price))}</span>
         <button type="button" class="cart-suggest-card__add" data-suggest-add data-id="${escapeHtml(
@@ -138,6 +142,7 @@ function bindSuggestionAdds(root) {
           name: it.name,
           unitPrice: Number(it.price),
           photoUrl: it.photoUrl || null,
+          foodType: it.foodType,
         },
         getQtyForItem(c, id) + 1
       )
@@ -270,7 +275,10 @@ function render(cart) {
         <div class="cart-row__body${isUnavailable ? " cart-row__body--unavailable" : ""}">
           <div class="cart-row__top">
             <div>
-              <h2 class="cart-row__name"></h2>
+              <div class="cart-row__name-row">
+                <span class="cart-row__diet"></span>
+                <h2 class="cart-row__name"></h2>
+              </div>
               <p class="cart-row__line"></p>
             </div>
             <span class="menu-card__price line-total"></span>
@@ -294,6 +302,8 @@ function render(cart) {
         </div>
       </div>
     `
+    const dietWrap = row.querySelector(".cart-row__diet")
+    if (dietWrap) dietWrap.innerHTML = itemDietPillHtml(line.foodType)
     row.querySelector(".cart-row__name").textContent = line.name
     row.querySelector(".cart-row__line").textContent = isUnavailable
       ? "Currently unavailable"
@@ -371,6 +381,7 @@ async function hydrateCartLineImages(cart) {
   lastMenuData = menuData
   const items = (menuData?.categories || []).flatMap((cat) => cat.items || [])
   const photoById = new Map(items.map((it) => [String(it.id), String(it.photoUrl || "")]))
+  const foodTypeById = new Map(items.map((it) => [String(it.id), it.foodType]))
   const nextAvailability = new Map()
   items.forEach((it) => {
     if (typeof it?.isAvailable !== "boolean") return
@@ -384,11 +395,21 @@ async function hydrateCartLineImages(cart) {
     changed = true
   }
   cart.lines.forEach((line) => {
-    if (line.photoUrl) return
-    const photoUrl = photoById.get(String(line.menuItemId)) || ""
-    if (!photoUrl) return
-    line.photoUrl = photoUrl
-    changed = true
+    const id = String(line.menuItemId)
+    if (!line.photoUrl) {
+      const photoUrl = photoById.get(id) || ""
+      if (photoUrl) {
+        line.photoUrl = photoUrl
+        changed = true
+      }
+    }
+    if (line.foodType == null || line.foodType === "") {
+      const ft = foodTypeById.get(id)
+      if (ft != null && ft !== "") {
+        line.foodType = ft
+        changed = true
+      }
+    }
   })
   if (changed) saveCart(cart)
   return cart

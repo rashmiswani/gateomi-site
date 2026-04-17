@@ -289,7 +289,13 @@ function renderMenu(data, cart) {
       c = ensureCart(ctx.slug, ctx.tableNumber, menuData.restaurant.name)
       setMenuItemLineQuantity(
         c,
-        { menuItemId: it.id, name: it.name, unitPrice: it.price, photoUrl: it.photoUrl || null },
+        {
+          menuItemId: it.id,
+          name: it.name,
+          unitPrice: it.price,
+          photoUrl: it.photoUrl || null,
+          foodType: it.foodType,
+        },
         next
       )
       refreshFromCart()

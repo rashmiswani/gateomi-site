@@ -3,6 +3,7 @@ import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
 import { LAST_ORDER_ID_KEY, rememberSuccessPath } from "./config.js"
 import { appendDayOrderId } from "./order-day-history.js"
 import { fetchOrder } from "./api.js"
+import { itemDietPillHtml } from "./diet.js"
 
 function getOrderIdFromUrl() {
   try {
@@ -91,9 +92,9 @@ async function main() {
     items.forEach((line) => {
       const li = document.createElement("li")
       li.innerHTML = `
-        <div>
-          <span>${Number(line?.quantity || 0)}x</span>
-          <strong>${escapeHtml(String(line?.itemName || "Item"))}</strong>
+        <div class="success-line__main">
+          <span class="success-line__qty">${Number(line?.quantity || 0)}×</span>
+          <strong class="success-line__title">${itemDietPillHtml(line?.foodType)}${escapeHtml(String(line?.itemName || "Item"))}</strong>
         </div>
         <span>${formatMoney(Number(line?.unitPrice || 0) * Number(line?.quantity || 0))}</span>
       `

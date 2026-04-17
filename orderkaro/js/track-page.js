@@ -3,6 +3,7 @@ import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
 import { withTableQuery } from "./nav.js"
 import { fetchOrder, requestBill } from "./api.js"
 import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
+import { itemDietPillHtml } from "./diet.js"
 
 function getOrderId() {
   try {
@@ -93,7 +94,7 @@ function lineItemTemplate(line) {
       </div>
       <div class="track-card__line-content">
         <div class="track-card__line-head">
-          <p class="track-card__line-name">${escapeHtml(line?.itemName || "Item")}</p>
+          <p class="track-card__line-name">${itemDietPillHtml(line?.foodType)}<span class="track-card__line-title">${escapeHtml(line?.itemName || "Item")}</span></p>
           <p class="track-card__line-qty">x${qty}</p>
         </div>
         ${line?.note ? `<p class="track-card__line-note">${escapeHtml(line.note)}</p>` : ""}

@@ -716,6 +716,47 @@ body.menu-page {
   background: #ef4444;
 }
 
+/* Inline veg / non-veg badge (cart, track, success — reuses .menu-card__diet-dot) */
+.item-diet-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 800;
+  color: #475569;
+  line-height: 1;
+}
+
+.cart-row__name-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cart-row__diet {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.cart-suggest-card__title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cart-suggest-card__title-row .cart-suggest-card__name {
+  flex: 1;
+  min-width: 0;
+}
+
 .menu-card__qty-overlay {
   position: absolute;
   right: 8px;
@@ -2672,9 +2713,27 @@ body.menu-page {
   gap: 12px;
 }
 
-@media (max-width: 899px) {
+/* Tablets / large phones: keep 2 columns. Small phones: single column (see below). */
+@media (min-width: 481px) and (max-width: 899px) {
   .menu-list--editorial {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .menu-list.menu-list--editorial,
+  .menu-list--editorial {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px;
+  }
+
+  /* Shorter than 1:1 so each card uses less vertical space on narrow screens. */
+  .menu-card--editorial .menu-card__img {
+    aspect-ratio: 4 / 3;
+  }
+
+  .menu-card--editorial .menu-card__body {
+    padding: 8px 8px 10px;
   }
 }
 
@@ -3474,13 +3533,15 @@ body.success-status-page {
   align-items: center;
 }
 
-.success-status-items li > div {
+.success-line__main {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
+  min-width: 0;
+  flex: 1;
 }
 
-.success-status-items li > div > span {
+.success-line__qty {
   min-width: 30px;
   height: 30px;
   border-radius: 8px;
@@ -3490,10 +3551,15 @@ body.success-status-page {
   color: #154212;
   font-size: 0.8rem;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
-.success-status-items li > div > strong {
+.success-line__title {
   font-size: 0.94rem;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
 .success-status-items li > span {
@@ -3798,6 +3864,15 @@ body.success-status-page {
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--track-text);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.track-card__line-title {
+  min-width: 0;
 }
 
 .track-card__line-qty {
