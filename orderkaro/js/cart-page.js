@@ -1,13 +1,13 @@
 import { rememberCartPath, LAST_ORDER_ID_KEY } from "./config.js"
 import { appendDayOrderId } from "./order-day-history.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
-import { createOrder } from "./api.js"
+import { createOrder, fetchMenu } from "./api.js"
 import {
   loadCart,
   ensureCart,
   saveCart,
   setLineQuantity,
-  setLineNote,
+  setSpecialInstructions,
   cartTotals,
   toOrderPayload,
   clearCart,
@@ -18,24 +18,42 @@ function $(sel, root = document) {
   return root.querySelector(sel)
 }
 
+let availabilityById = new Map()
+
 function render(cart) {
   const mount = $("#cart-mount")
-  const meta = $(".page-header__meta")
-  const totalAmount = $(".total-row__amount")
-  const nameEl = $(".restaurant-name")
+  const topName = $(".cart-topbar__name")
+  const topTable = $(".cart-topbar__table")
+  const subtotalEl = $("#summary-subtotal")
+  const gstRow = $("#summary-gst-row")
+  const gstEl = $("#summary-gst")
+  const totalEl = $("#summary-total")
+  const summary = $("#cart-summary")
+  const globalNote = $("#special-instructions")
+  const unavailableBanner = $("#cart-unavailable-banner")
 
-  if (nameEl) nameEl.textContent = "Your order"
-  if (meta) meta.textContent = `${cart.restaurantName || "Restaurant"} · Table ${cart.tableNumber}`
+  if (topName) topName.textContent = cart.restaurantName || "Restaurant"
+  if (topTable) topTable.textContent = `Table ${cart.tableNumber}`
 
-  const addLink = $('a[href*="menu"]')
-  if (addLink) addLink.href = withTableQuery("menu.html")
+  const addLinks = [$("#top-add-link"), $("#bottom-menu-link")].filter(Boolean)
+  addLinks.forEach((a) => {
+    a.href = withTableQuery("menu.html")
+  })
 
   if (!mount) return
   mount.innerHTML = ""
+  if (globalNote) {
+    globalNote.value = cart.specialInstructions || ""
+  }
 
   if (cart.lines.length === 0) {
     mount.innerHTML = `<p class="cart-empty">Your cart is empty. <a class="text-link" href="${withTableQuery("menu.html")}">Browse menu</a></p>`
-    if (totalAmount) totalAmount.textContent = formatMoney(0)
+    if (summary) summary.hidden = true
+    if (subtotalEl) subtotalEl.textContent = formatMoney(0)
+    if (gstEl) gstEl.textContent = formatMoney(0)
+    if (gstRow) gstRow.hidden = true
+    if (totalEl) totalEl.textContent = formatMoney(0)
+    if (unavailableBanner) unavailableBanner.hidden = true
     const btn = $("#place-order-btn")
     if (btn) {
       btn.disabled = true
@@ -44,33 +62,57 @@ function render(cart) {
     return
   }
 
+  let unavailableCount = 0
   cart.lines.forEach((line, index) => {
+    const isUnavailable = availabilityById.get(String(line.menuItemId)) === false
+    if (isUnavailable) unavailableCount += 1
     const row = document.createElement("div")
-    row.className = "cart-row"
+    row.className = `cart-row${isUnavailable ? " cart-row--unavailable" : ""}`
     row.innerHTML = `
-      <div class="cart-row__top">
-        <div>
-          <h2 class="cart-row__name"></h2>
-          <p class="cart-row__line"></p>
+      <div class="cart-row__main">
+        <div class="cart-row__media">
+          ${isUnavailable ? '<span class="cart-row__sold-tag">Sold Out</span>' : ""}
+          ${
+            line.photoUrl
+              ? `<img src="${escapeHtml(line.photoUrl)}" alt="" class="cart-row__photo${
+                  isUnavailable ? " cart-row__photo--unavailable" : ""
+                }" loading="lazy" />`
+              : `<span class="material-symbols-outlined">restaurant</span>`
+          }
+        </div>
+        <div class="cart-row__body${isUnavailable ? " cart-row__body--unavailable" : ""}">
+          <div class="cart-row__top">
+            <div>
+              <h2 class="cart-row__name"></h2>
+              <p class="cart-row__line"></p>
+            </div>
+            <span class="menu-card__price line-total"></span>
+          </div>
+          <div class="qty-row">
+            <div class="qty-control" role="group" aria-label="Quantity">
+              <button type="button" class="qty-btn" data-act="dec" aria-label="Decrease" ${
+                isUnavailable ? "disabled" : ""
+              }>−</button>
+              <span class="qty-val"></span>
+              <button type="button" class="qty-btn" data-act="inc" aria-label="Increase" ${
+                isUnavailable ? "disabled" : ""
+              }>+</button>
+            </div>
+            <button type="button" class="cart-row__delete-btn${
+              isUnavailable ? " cart-row__delete-btn--danger" : ""
+            }" data-act="del" aria-label="Remove item">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
         </div>
       </div>
-      <div class="qty-row">
-        <div class="qty-control" role="group" aria-label="Quantity">
-          <button type="button" class="qty-btn" data-act="dec" aria-label="Decrease">−</button>
-          <span class="qty-val"></span>
-          <button type="button" class="qty-btn" data-act="inc" aria-label="Increase">+</button>
-        </div>
-        <span class="menu-card__price line-total"></span>
-      </div>
-      <label class="visually-hidden" for="note-${index}">Note</label>
-      <textarea id="note-${index}" class="note-field" rows="2" placeholder="Note for kitchen (optional)"></textarea>
     `
     row.querySelector(".cart-row__name").textContent = line.name
-    row.querySelector(".cart-row__line").textContent = `${formatMoney(line.unitPrice)} each`
+    row.querySelector(".cart-row__line").textContent = isUnavailable
+      ? "Currently unavailable"
+      : `${formatMoney(line.unitPrice)} each`
     row.querySelector(".qty-val").textContent = String(line.quantity)
     row.querySelector(".line-total").textContent = formatMoney(line.quantity * line.unitPrice)
-    const ta = row.querySelector("textarea")
-    ta.value = line.note || ""
 
     row.querySelector('[data-act="dec"]').addEventListener("click", () => {
       const c = loadCart()
@@ -84,21 +126,67 @@ function render(cart) {
       setLineQuantity(c, index, c.lines[index].quantity + 1)
       render(loadCart() || c)
     })
-    ta.addEventListener("change", () => {
+    row.querySelector('[data-act="del"]').addEventListener("click", () => {
       const c = loadCart()
-      if (c) setLineNote(c, index, ta.value)
+      if (!c || !c.lines[index]) return
+      setLineQuantity(c, index, 0)
+      render(loadCart() || c)
     })
-
     mount.appendChild(row)
   })
 
   const { total } = cartTotals(cart)
-  if (totalAmount) totalAmount.textContent = formatMoney(total)
+  const gstRate = cart.isGstEnabled ? 0.05 : 0
+  const gst = total * gstRate
+  const grandTotal = total + gst
+  if (summary) summary.hidden = false
+  if (unavailableBanner) unavailableBanner.hidden = unavailableCount === 0
+  if (subtotalEl) subtotalEl.textContent = formatMoney(total)
+  if (gstEl) gstEl.textContent = formatMoney(gst)
+  if (gstRow) gstRow.hidden = !cart.isGstEnabled
+  if (totalEl) totalEl.textContent = formatMoney(grandTotal)
   const btn = $("#place-order-btn")
   if (btn) {
-    btn.disabled = false
+    btn.disabled = unavailableCount > 0
     btn.textContent = "Place order"
   }
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
+function getUnavailableLines(cart, menuData) {
+  const items = (menuData?.categories || []).flatMap((cat) => cat.items || [])
+  const byId = new Map(items.map((it) => [String(it.id), Boolean(it.isAvailable)]))
+  return cart.lines.filter((line) => byId.get(String(line.menuItemId)) !== true)
+}
+
+async function hydrateCartLineImages(cart) {
+  if (!cart || !cart.lines.length) return cart
+  const menuData = await fetchMenu(cart.restaurantSlug, cart.tableNumber)
+  const items = (menuData?.categories || []).flatMap((cat) => cat.items || [])
+  const photoById = new Map(items.map((it) => [String(it.id), String(it.photoUrl || "")]))
+  availabilityById = new Map(items.map((it) => [String(it.id), Boolean(it.isAvailable)]))
+  let changed = false
+  const gstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
+  if (cart.isGstEnabled !== gstEnabled) {
+    cart.isGstEnabled = gstEnabled
+    changed = true
+  }
+  cart.lines.forEach((line) => {
+    if (line.photoUrl) return
+    const photoUrl = photoById.get(String(line.menuItemId)) || ""
+    if (!photoUrl) return
+    line.photoUrl = photoUrl
+    changed = true
+  })
+  if (changed) saveCart(cart)
+  return cart
 }
 
 async function placeOrder(cart) {
@@ -107,6 +195,20 @@ async function placeOrder(cart) {
   btn.disabled = true
   btn.textContent = "Placing…"
   try {
+    const latestMenu = await fetchMenu(cart.restaurantSlug, cart.tableNumber)
+    const unavailableLines = getUnavailableLines(cart, latestMenu)
+    if (unavailableLines.length) {
+      const names = unavailableLines
+        .map((l) => String(l.name || "Item"))
+        .filter(Boolean)
+      alert(
+        `Please remove unavailable item(s) from cart before placing order: ${names.join(", ")}`
+      )
+      btn.disabled = false
+      btn.textContent = "Place order"
+      return
+    }
+
     const payload = toOrderPayload(cart)
     const res = await createOrder(payload)
     clearCart()
@@ -148,6 +250,22 @@ function main() {
   }
 
   render(cart)
+  hydrateCartLineImages(cart)
+    .then((updated) => {
+      if (updated) render(updated)
+    })
+    .catch(() => {
+      /* image hydration is best-effort */
+    })
+
+  const globalNote = $("#special-instructions")
+  if (globalNote) {
+    globalNote.addEventListener("change", () => {
+      const c = loadCart()
+      if (!c) return
+      setSpecialInstructions(c, globalNote.value)
+    })
+  }
 
   const btn = $("#place-order-btn")
   if (btn) {

@@ -8,38 +8,88 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/app.css" />
 </head>
-<body>
-  <div class="app-shell app-shell--cart app-shell--column">
-    <div class="brand-bar">
-      <div class="brand-bar__inner">
-        <div class="brand-lockup">
-          <a href="index.html" class="orderkaro-logo-link">
-            <img src="images/orderkaro-logo.png" alt="OrderKaro" class="orderkaro-logo" />
-          </a>
-          <div class="restaurant-logo-slot" data-restaurant-logo-slot aria-label="Restaurant logo"></div>
+<body class="cart-page">
+  <header class="cart-topbar">
+    <div class="cart-topbar__inner">
+      <div class="cart-topbar__brand">
+        <div class="cart-topbar__icon">
+          <span class="material-symbols-outlined">restaurant</span>
         </div>
+        <span class="cart-topbar__name">Restaurant</span>
       </div>
+      <div class="cart-topbar__table">Table —</div>
     </div>
-    <header class="page-header">
-      <div class="page-header__row">
-        <div>
-          <h1 class="restaurant-name restaurant-name--sm">Your order</h1>
-          <p class="page-header__meta">…</p>
+  </header>
+
+  <div class="app-shell app-shell--cart app-shell--column">
+    <main class="cart-content">
+      <header class="cart-content__head">
+        <h1 class="cart-title">Your Order</h1>
+        <p class="cart-subtitle">Review your curated selection</p>
+      </header>
+
+      <div id="cart-unavailable-banner" class="cart-unavailable-banner" hidden>
+        <span class="material-symbols-outlined">error</span>
+        <p>Some items in your cart are unavailable. Please remove them to continue.</p>
+      </div>
+
+      <div class="cart-add-more-wrap">
+        <a href="menu.html" id="top-add-link" class="cart-add-more-btn">
+          <span class="material-symbols-outlined">add_circle</span>
+          <span>Add more items</span>
+        </a>
+      </div>
+
+      <div id="cart-mount" class="cart-list"></div>
+
+      <section class="cart-special">
+        <label for="special-instructions" class="cart-special__label">Special Instructions</label>
+        <div class="cart-special__box">
+          <textarea
+            id="special-instructions"
+            class="note-field note-field--global"
+            rows="3"
+            placeholder="Add any notes for the kitchen (allergies, preferences)..."
+          ></textarea>
         </div>
-        <a href="menu.html" class="text-link">Add items</a>
-      </div>
-    </header>
+      </section>
 
-    <div id="cart-mount" class="cart-list"></div>
+      <section class="cart-summary" id="cart-summary" hidden>
+        <div class="cart-summary__row">
+          <span>Subtotal</span>
+          <span id="summary-subtotal">₹0</span>
+        </div>
+        <div class="cart-summary__row" id="summary-gst-row" hidden>
+          <span>GST (5%)</span>
+          <span id="summary-gst">₹0</span>
+        </div>
+        <div class="cart-summary__total">
+          <span>Total</span>
+          <span id="summary-total">₹0</span>
+        </div>
+      </section>
+    </main>
+  </div>
 
-    <div class="cart-footer">
-      <div class="total-row">
-        <span class="total-row__label">Total</span>
-        <span class="total-row__amount">₹0</span>
-      </div>
-      <button type="button" class="btn btn--primary btn--block" id="place-order-btn">Place order</button>
+  <div class="cart-bottom-bar">
+    <div class="cart-bottom-bar__inner">
+      <button type="button" class="cart-place-btn" id="place-order-btn">
+        <span>Place Order</span>
+        <span class="material-symbols-outlined">arrow_forward</span>
+      </button>
+      <nav class="cart-bottom-nav" aria-label="Primary">
+        <a href="menu.html" id="bottom-menu-link" class="cart-bottom-nav__item">
+          <span class="material-symbols-outlined">menu_book</span>
+          <span>Menu</span>
+        </a>
+        <span class="cart-bottom-nav__item cart-bottom-nav__item--active">
+          <span class="material-symbols-outlined">shopping_bag</span>
+          <span>Order</span>
+        </span>
+      </nav>
     </div>
   </div>
   <script type="module" src="js/cart-page.js"></script>

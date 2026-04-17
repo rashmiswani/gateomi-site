@@ -8,37 +8,43 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/app.css" />
 </head>
 <body class="menu-page">
-  <div class="sticky-menu-header" role="banner">
-    <header class="menu-header-compact">
-      <div class="menu-header-compact__main">
+  <div class="sticky-menu-header menu-topbar" role="banner">
+    <header class="menu-topbar__row">
+      <div class="menu-topbar__left">
         <a href="index.html" class="orderkaro-logo-link">
           <img src="images/orderkaro-logo.png" alt="OrderKaro" class="orderkaro-logo orderkaro-logo--menu" />
         </a>
-        <div class="restaurant-logo-slot restaurant-logo-slot--compact" data-restaurant-logo-slot aria-label="Restaurant logo"></div>
-        <div class="menu-header-compact__title-wrap">
+        <div class="menu-topbar__title-wrap">
           <h1 class="restaurant-name">Loading…</h1>
         </div>
       </div>
-      <span class="table-badge">Table —</span>
+      <div class="menu-topbar__right">
+        <span class="table-badge">Table —</span>
+        <a href="cart.html" id="top-cart-link" class="menu-topbar__icon-btn" aria-label="Open cart">
+          <span class="material-symbols-outlined">shopping_bag</span>
+        </a>
+        <a href="track.html" id="top-track-link" class="table-badge table-badge--action" aria-label="Track your orders">
+          <span class="material-symbols-outlined">history</span>
+          <span>Track Orders</span>
+        </a>
+      </div>
     </header>
-
-    <div class="menu-loading-strip" id="orderkaro-loading-tabs" aria-live="polite">
-      <div class="skeleton skeleton--tabs"></div>
-    </div>
-
-    <nav class="category-strip" id="category-tabs" aria-label="Menu categories" hidden></nav>
-    <div class="menu-search-bar">
+    <div class="menu-topbar__search">
       <label for="menu-search-input" class="visually-hidden">Search menu items</label>
       <input
         id="menu-search-input"
         class="menu-search-input"
         type="search"
-        placeholder="Search dishes..."
+        placeholder="Search dishes"
         autocomplete="off"
       />
+    </div>
+    <div class="menu-loading-strip" id="orderkaro-loading-tabs" aria-live="polite">
+      <div class="skeleton skeleton--tabs"></div>
     </div>
   </div>
 
@@ -50,19 +56,21 @@
       <div class="skeleton skeleton--card"></div>
     </div>
 
-    <div id="menu-sections"></div>
+    <div class="menu-editorial-layout">
+      <aside id="category-tabs" class="menu-category-rail" aria-label="Menu categories" hidden></aside>
+      <section id="menu-sections" class="menu-editorial-feed"></section>
+    </div>
   </div>
 
   <div class="sticky-cart">
     <div class="sticky-cart__inner">
-      <div class="sticky-cart__info">
-        <span class="sticky-cart__count">0 items</span>
+      <a href="cart.html" id="view-cart-link" class="sticky-cart__cta">
+        <span class="sticky-cart__cta-left">
+          <span class="sticky-cart__bubble sticky-cart__count">0</span>
+          <span class="sticky-cart__cta-label">View Cart</span>
+        </span>
         <span class="sticky-cart__total">₹0</span>
-      </div>
-      <div class="sticky-cart__actions">
-        <a href="track.html" id="track-order-link" class="btn btn--sm btn--ghost">Track order</a>
-        <a href="cart.html" id="view-cart-link" class="btn btn--primary">View cart</a>
-      </div>
+      </a>
     </div>
   </div>
 

@@ -5,6 +5,8 @@ function emptyCart(slug, tableNumber, restaurantName) {
     restaurantSlug: slug,
     tableNumber,
     restaurantName: restaurantName || "",
+    isGstEnabled: false,
+    specialInstructions: "",
     lines: [],
   }
 }
@@ -47,33 +49,38 @@ export function ensureCart(slug, tableNumber, restaurantName) {
     c.restaurantName = restaurantName
     saveCart(c)
   }
+  if (typeof c.specialInstructions !== "string") {
+    c.specialInstructions = ""
+    saveCart(c)
+  }
+  if (typeof c.isGstEnabled !== "boolean") {
+    c.isGstEnabled = false
+    saveCart(c)
+  }
   return c
 }
 
 export function getQuantityForMenuItem(cart, menuItemId) {
-  const line = cart.lines.find(
-    (l) => l.menuItemId === menuItemId && (l.note || "") === ""
-  )
+  const line = cart.lines.find((l) => l.menuItemId === menuItemId)
   return line ? line.quantity : 0
 }
 
-/** Set quantity for a line without a note (same key as addLine). qty 0 removes the line. */
-export function setMenuItemLineQuantity(cart, { menuItemId, name, unitPrice }, quantity) {
+/** Set quantity for menu item. qty 0 removes the line. */
+export function setMenuItemLineQuantity(cart, { menuItemId, name, unitPrice, photoUrl }, quantity) {
   const q = Math.max(0, Math.floor(Number(quantity)))
-  const idx = cart.lines.findIndex(
-    (l) => l.menuItemId === menuItemId && (l.note || "") === ""
-  )
+  const idx = cart.lines.findIndex((l) => l.menuItemId === menuItemId)
   if (q === 0) {
     if (idx >= 0) cart.lines.splice(idx, 1)
   } else if (idx >= 0) {
     cart.lines[idx].quantity = q
+    cart.lines[idx].photoUrl = photoUrl || cart.lines[idx].photoUrl || null
   } else {
     cart.lines.push({
       menuItemId,
       name,
       unitPrice: Number(unitPrice),
       quantity: q,
-      note: "",
+      photoUrl: photoUrl || null,
     })
   }
   saveCart(cart)
@@ -81,9 +88,7 @@ export function setMenuItemLineQuantity(cart, { menuItemId, name, unitPrice }, q
 }
 
 export function addLine(cart, { menuItemId, name, unitPrice }) {
-  const line = cart.lines.find(
-    (l) => l.menuItemId === menuItemId && (l.note || "") === ""
-  )
+  const line = cart.lines.find((l) => l.menuItemId === menuItemId)
   if (line) {
     line.quantity += 1
   } else {
@@ -92,7 +97,7 @@ export function addLine(cart, { menuItemId, name, unitPrice }) {
       name,
       unitPrice: Number(unitPrice),
       quantity: 1,
-      note: "",
+      photoUrl: null,
     })
   }
   saveCart(cart)
@@ -111,9 +116,8 @@ export function setLineQuantity(cart, index, quantity) {
   return cart
 }
 
-export function setLineNote(cart, index, note) {
-  if (!cart.lines[index]) return cart
-  cart.lines[index].note = note == null ? "" : String(note).slice(0, 2000)
+export function setSpecialInstructions(cart, note) {
+  cart.specialInstructions = note == null ? "" : String(note).slice(0, 2000)
   saveCart(cart)
   return cart
 }
@@ -135,7 +139,8 @@ export function toOrderPayload(cart) {
     items: cart.lines.map((l) => ({
       menuItemId: l.menuItemId,
       quantity: l.quantity,
-      note: l.note && l.note.trim() ? l.note.trim() : null,
+      note: null,
     })),
+    specialInstructions: cart.specialInstructions && cart.specialInstructions.trim() ? cart.specialInstructions.trim() : null,
   }
 }

@@ -1,7 +1,6 @@
-import { LAST_ORDER_ID_KEY, rememberMenuPath } from "./config.js"
+import { rememberMenuPath } from "./config.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
 import { fetchMenu } from "./api.js"
-import { loadDayOrders } from "./order-day-history.js"
 import {
   ensureCart,
   cartTotals,
@@ -18,6 +17,7 @@ function $(sel, root = document) {
 let menuData = null
 let menuHeaderResizeObserver = null
 let menuSearchText = ""
+let activeCategoryId = ""
 
 /** Match .app-shell--menu padding to actual fixed header height (avoids a gap when the estimate is too large). */
 function syncMenuHeaderHeight() {
@@ -66,120 +66,30 @@ function updateSticky(cart) {
   const { count, total } = cartTotals(cart)
   const countEl = $(".sticky-cart__count")
   const totalEl = $(".sticky-cart__total")
-  const link = $("#view-cart-link") || $(".sticky-cart a.btn--primary")
-  if (countEl) countEl.textContent = count === 1 ? "1 item" : `${count} items`
+  const link = $("#view-cart-link")
+  const topCartLink = $("#top-cart-link")
+  const topTrackLink = $("#top-track-link")
+  if (countEl) countEl.textContent = String(count)
   if (totalEl) totalEl.textContent = formatMoney(total)
   if (link) {
     link.href = withTableQuery("cart.html")
     link.setAttribute("aria-disabled", count === 0 ? "true" : "false")
   }
-  const trackLink = $("#track-order-link")
-  if (trackLink) {
-    const ctx = resolveTableContext()
-    const recent = loadDayOrders(ctx.slug, ctx.tableNumber).orderIds
-    let orderId = recent.length ? recent[recent.length - 1] : ""
-    if (!orderId) {
-      try {
-        orderId = sessionStorage.getItem(LAST_ORDER_ID_KEY) || ""
-      } catch {
-        orderId = ""
-      }
-    }
-    const u = new URL(withTableQuery("track.html"), window.location.href)
-    if (orderId) u.searchParams.set("orderId", orderId)
-    trackLink.href = `${u.pathname}${u.search}`
+  if (topCartLink) {
+    topCartLink.href = withTableQuery("cart.html")
   }
-}
-
-function scrollToCategory(id) {
-  const el = document.getElementById(`cat-${id}`)
-  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+  if (topTrackLink) {
+    topTrackLink.href = withTableQuery("track.html")
+  }
 }
 
 function refreshFromCart() {
   if (!menuData) return
   const ctx = resolveTableContext()
   const c = ensureCart(ctx.slug, ctx.tableNumber, menuData.restaurant.name)
+  c.isGstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
   renderMenu(menuData, c)
   updateSticky(c)
-}
-
-/** Always show − / qty / + for available items (qty 0: − disabled, use + to add). */
-function buildMenuItemActions(it, cart) {
-  const wrap = document.createElement("div")
-  wrap.className = "menu-card__actions"
-
-  if (!it.isAvailable) {
-    const btn = document.createElement("button")
-    btn.type = "button"
-    btn.className = "btn btn--primary btn--sm"
-    btn.textContent = "Unavailable"
-    btn.disabled = true
-    wrap.appendChild(btn)
-    return wrap
-  }
-
-  const qty = getQuantityForMenuItem(cart, it.id)
-
-  const group = document.createElement("div")
-  group.className = "qty-control qty-control--menu"
-  group.setAttribute("role", "group")
-  group.setAttribute("aria-label", `Quantity for ${it.name}`)
-
-  const dec = document.createElement("button")
-  dec.type = "button"
-  dec.className = "qty-btn qty-btn--sm"
-  dec.setAttribute("aria-label", "Decrease quantity")
-  dec.textContent = "−"
-  dec.disabled = qty <= 0
-
-  const val = document.createElement("span")
-  val.className = "qty-val"
-  val.textContent = String(qty)
-
-  const inc = document.createElement("button")
-  inc.type = "button"
-  inc.className = "qty-btn qty-btn--sm"
-  inc.setAttribute("aria-label", "Increase quantity")
-  inc.textContent = "+"
-
-  const applyQty = (next) => {
-    const ctx = resolveTableContext()
-    if (!menuData) return
-    let c = loadCart()
-    c = ensureCart(ctx.slug, ctx.tableNumber, menuData.restaurant.name)
-    setMenuItemLineQuantity(
-      c,
-      { menuItemId: it.id, name: it.name, unitPrice: it.price },
-      next
-    )
-    refreshFromCart()
-  }
-
-  dec.addEventListener("click", () => {
-    const ctx = resolveTableContext()
-    if (!menuData) return
-    let c = loadCart()
-    c = ensureCart(ctx.slug, ctx.tableNumber, menuData.restaurant.name)
-    const current = getQuantityForMenuItem(c, it.id)
-    if (current <= 0) return
-    applyQty(current - 1)
-  })
-
-  inc.addEventListener("click", () => {
-    const ctx = resolveTableContext()
-    if (!menuData) return
-    let c = loadCart()
-    c = ensureCart(ctx.slug, ctx.tableNumber, menuData.restaurant.name)
-    const current = getQuantityForMenuItem(c, it.id)
-    applyQty(current + 1)
-  })
-
-  group.appendChild(dec)
-  group.appendChild(val)
-  group.appendChild(inc)
-  wrap.appendChild(group)
-  return wrap
 }
 
 function renderMenu(data, cart) {
@@ -229,62 +139,152 @@ function renderMenu(data, cart) {
     return
   }
 
-  filteredCategories.forEach((cat, i) => {
+  if (!activeCategoryId || !filteredCategories.some((cat) => String(cat.id) === String(activeCategoryId))) {
+    activeCategoryId = String(filteredCategories[0].id)
+  }
+  const activeCategory =
+    filteredCategories.find((cat) => String(cat.id) === String(activeCategoryId)) || filteredCategories[0]
+
+  filteredCategories.forEach((cat) => {
     const tab = document.createElement("button")
     tab.type = "button"
-    tab.className = `category-tab${i === 0 ? " category-tab--active" : ""}`
-    tab.textContent = cat.name
+    tab.className = `category-tab category-rail__item${
+      String(activeCategory.id) === String(cat.id) ? " category-tab--active" : ""
+    }`
+    const thumb = cat.items?.find((it) => it.photoUrl)?.photoUrl || ""
+    tab.innerHTML = `<span class="category-rail__thumb">${
+      thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : ""
+    }</span><span class="category-rail__name">${escapeHtml(cat.name)}</span>`
     tab.addEventListener("click", () => {
-      tabs.querySelectorAll(".category-tab").forEach((t) => t.classList.remove("category-tab--active"))
-      tab.classList.add("category-tab--active")
-      scrollToCategory(cat.id)
+      activeCategoryId = String(cat.id)
+      renderMenu(data, cart)
     })
     tabs.appendChild(tab)
-
-    const label = document.createElement("p")
-    label.className = "section-label"
-    label.id = `cat-${cat.id}`
-    label.textContent = cat.name
-    sections.appendChild(label)
-
-    const list = document.createElement("div")
-    list.className = "menu-list"
-
-    for (const it of cat.items || []) {
-      const card = document.createElement("article")
-      card.className = "menu-card"
-      if (!it.isAvailable) card.classList.add("menu-card--unavailable")
-
-      const imgWrap = document.createElement("div")
-      imgWrap.className = "menu-card__img"
-      if (it.photoUrl) {
-        const img = document.createElement("img")
-        img.src = it.photoUrl
-        img.alt = ""
-        img.className = "menu-card__img-el"
-        img.loading = "lazy"
-        imgWrap.appendChild(img)
-      }
-
-      const body = document.createElement("div")
-      body.className = "menu-card__body"
-      body.innerHTML = `
-        <h2 class="menu-card__title">${escapeHtml(it.name)}</h2>
-        <p class="menu-card__desc">${it.description ? escapeHtml(it.description) : ""}</p>
-        <div class="menu-card__row">
-          <span class="menu-card__price">${formatMoney(it.price)}</span>
-        </div>
-      `
-      const row = body.querySelector(".menu-card__row")
-      const actions = buildMenuItemActions(it, cart)
-      if (row) row.appendChild(actions)
-
-      card.appendChild(imgWrap)
-      card.appendChild(body)
-      list.appendChild(card)
-    }
-    sections.appendChild(list)
   })
+
+  const heading = document.createElement("div")
+  heading.className = "menu-feed-head"
+  heading.innerHTML = `<h2>Curated ${escapeHtml(activeCategory.name)}</h2><p>Small plates designed for sharing, featuring seasonal ingredients sourced from our local organic partners.</p>`
+  sections.appendChild(heading)
+
+  const list = document.createElement("div")
+  list.className = "menu-list menu-list--editorial"
+
+  for (const it of activeCategory.items || []) {
+    const card = document.createElement("article")
+    card.className = "menu-card menu-card--editorial"
+    if (!it.isAvailable) card.classList.add("menu-card--unavailable")
+
+    const imgWrap = document.createElement("div")
+    imgWrap.className = "menu-card__img"
+    if (it.photoUrl) {
+      const img = document.createElement("img")
+      img.src = it.photoUrl
+      img.alt = ""
+      img.className = "menu-card__img-el"
+      img.loading = "lazy"
+      imgWrap.appendChild(img)
+    }
+    const foodType = String(it.foodType || "").toLowerCase()
+    const isNonVeg = foodType.includes("non") || foodType.includes("egg")
+    const dietLabel = isNonVeg ? "Non-Veg" : "Veg"
+    const dietDotClass = isNonVeg ? "is-nonveg" : "is-veg"
+    const qty = getQuantityForMenuItem(cart, it.id)
+    const overlay = document.createElement("div")
+    overlay.className = "menu-card__image-overlay"
+    overlay.innerHTML = `
+      <div class="menu-card__diet-pill">
+        <span class="menu-card__diet-dot ${dietDotClass}"></span>
+        <span>${dietLabel}</span>
+      </div>
+      ${
+        it.isAvailable
+          ? `<div class="menu-card__qty-overlay">
+              <button type="button" class="menu-card__qty-btn menu-card__qty-btn--dec" aria-label="Decrease quantity">
+                <span class="material-symbols-outlined">remove</span>
+              </button>
+              <span class="menu-card__qty-val">${qty}</span>
+              <button type="button" class="menu-card__qty-btn menu-card__qty-btn--inc" aria-label="Increase quantity">
+                <span class="material-symbols-outlined">add</span>
+              </button>
+            </div>`
+          : `<div class="menu-card__sold-overlay">
+              <div class="menu-card__sold-pill">Sold Out</div>
+            </div>`
+      }
+    `
+    imgWrap.appendChild(overlay)
+
+    const body = document.createElement("div")
+    body.className = "menu-card__body"
+    const desc = String(it.description || "")
+    const showMore = desc.length > 52
+    body.innerHTML = `
+      <div class="menu-card__head">
+        <h2 class="menu-card__title">${escapeHtml(it.name)}</h2>
+        <span class="menu-card__price">${formatMoney(it.price)}</span>
+      </div>
+      <p class="menu-card__desc${showMore ? " is-collapsed" : ""}">${desc ? escapeHtml(desc) : ""}</p>
+      ${
+        showMore
+          ? `<button type="button" class="menu-card__more" data-more="0" data-full="${escapeHtml(
+              desc
+            )}">View more</button>`
+          : ""
+      }
+    `
+    const decBtn = overlay.querySelector(".menu-card__qty-btn--dec")
+    const incBtn = overlay.querySelector(".menu-card__qty-btn--inc")
+    const setQty = (next) => {
+      const ctx = resolveTableContext()
+      if (!menuData) return
+      let c = loadCart()
+      c = ensureCart(ctx.slug, ctx.tableNumber, menuData.restaurant.name)
+      setMenuItemLineQuantity(
+        c,
+        { menuItemId: it.id, name: it.name, unitPrice: it.price, photoUrl: it.photoUrl || null },
+        next
+      )
+      refreshFromCart()
+    }
+    if (decBtn) {
+      decBtn.disabled = !it.isAvailable || qty <= 0
+      decBtn.addEventListener("click", () => {
+        const current = getQuantityForMenuItem(loadCart(), it.id)
+        if (current <= 0) return
+        setQty(current - 1)
+      })
+    }
+    if (incBtn) {
+      incBtn.disabled = !it.isAvailable
+      incBtn.addEventListener("click", () => {
+        const current = getQuantityForMenuItem(loadCart(), it.id)
+        setQty(current + 1)
+      })
+    }
+    if (!it.isAvailable) body.classList.add("menu-card__body--unavailable")
+    body.querySelectorAll(".menu-card__more").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const p = body.querySelector(".menu-card__desc")
+        if (!p) return
+        const expanded = btn.getAttribute("data-more") === "1"
+        if (expanded) {
+          p.classList.add("is-collapsed")
+          btn.setAttribute("data-more", "0")
+          btn.textContent = "View more"
+        } else {
+          p.classList.remove("is-collapsed")
+          btn.setAttribute("data-more", "1")
+          btn.textContent = "View less"
+        }
+      })
+    })
+
+    card.appendChild(imgWrap)
+    card.appendChild(body)
+    list.appendChild(card)
+  }
+  sections.appendChild(list)
 
   requestAnimationFrame(() => syncMenuHeaderHeight())
 }
@@ -326,6 +326,7 @@ async function main() {
 
   menuData = data
   const cart = ensureCart(slug, tableNumber, data.restaurant.name)
+  cart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
   renderMenu(data, cart)
   updateSticky(cart)
   const searchInput = $("#menu-search-input")
@@ -334,6 +335,7 @@ async function main() {
     searchInput.addEventListener("input", () => {
       menuSearchText = String(searchInput.value || "")
       const latestCart = ensureCart(slug, tableNumber, data.restaurant.name)
+      latestCart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
       renderMenu(data, latestCart)
       updateSticky(latestCart)
     })
