@@ -542,7 +542,7 @@ body.menu-page {
 
 .menu-editorial-layout {
   display: grid;
-  grid-template-columns: 86px minmax(0, 1fr);
+  grid-template-columns: 100px minmax(0, 1fr);
   gap: 0;
   height: calc(100dvh - var(--menu-sticky-header-h) - 92px - var(--safe-bottom));
   min-height: 0;
@@ -551,7 +551,7 @@ body.menu-page {
 .menu-category-rail {
   background: #f3f3f3;
   border-right: 1px solid #ececec;
-  padding: 12px 7px 16px;
+  padding: 12px 9px 16px;
   overflow-y: auto;
   height: 100%;
   display: grid;
@@ -570,8 +570,8 @@ body.menu-page {
 }
 
 .category-rail__thumb {
-  width: 50px;
-  height: 50px;
+  width: 54px;
+  height: 54px;
   border-radius: 999px;
   overflow: hidden;
   border: 1px solid #d4d4d4;
@@ -1120,16 +1120,16 @@ body.menu-page {
   }
 
   .menu-editorial-layout {
-    grid-template-columns: 74px minmax(0, 1fr);
+    grid-template-columns: 86px minmax(0, 1fr);
   }
 
   .menu-category-rail {
-    padding: 10px 5px 14px;
+    padding: 10px 7px 14px;
   }
 
   .category-rail__thumb {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
   }
 
   .menu-editorial-feed {
@@ -2800,7 +2800,7 @@ body.cart-page {
 
 .app-shell--cart {
   padding-top: 72px;
-  padding-bottom: calc(170px + var(--safe-bottom));
+  padding-bottom: calc(200px + var(--safe-bottom));
 }
 
 .cart-content {
@@ -3180,6 +3180,46 @@ body.cart-page {
 
 .cart-bottom-bar__inner {
   padding: 12px 16px calc(12px + var(--safe-bottom));
+}
+
+.cart-customer-name {
+  margin-bottom: 12px;
+}
+
+.cart-customer-name[hidden] {
+  display: none !important;
+}
+
+.cart-customer-name__label {
+  display: block;
+  padding: 0 2px;
+  margin-bottom: 6px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.cart-customer-name__box {
+  border: 1px solid rgba(194, 201, 187, 0.35);
+  border-radius: 12px;
+  background: #f3f3f3;
+  padding: 10px 12px;
+}
+
+.cart-customer-name__input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  outline: none;
+}
+
+.cart-customer-name__input::placeholder {
+  color: #94a3b8;
 }
 
 .cart-place-btn {
@@ -3647,6 +3687,13 @@ body.success-status-page {
   font-size: 1.06rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.track-card__guest-name {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #57534e;
 }
 
 .track-card__status {

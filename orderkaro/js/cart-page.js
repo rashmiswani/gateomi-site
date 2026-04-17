@@ -8,6 +8,7 @@ import {
   saveCart,
   setLineQuantity,
   setSpecialInstructions,
+  setCustomerName,
   setMenuItemLineQuantity,
   cartTotals,
   toOrderPayload,
@@ -220,6 +221,14 @@ function render(cart) {
   if (globalNote) {
     globalNote.value = cart.specialInstructions || ""
   }
+  const customerNameEl = $("#customer-name")
+  const customerNameWrap = $("#cart-customer-name-wrap")
+  if (customerNameEl) {
+    customerNameEl.value = typeof cart.customerName === "string" ? cart.customerName : ""
+  }
+  if (customerNameWrap) {
+    customerNameWrap.hidden = cart.lines.length === 0
+  }
 
   if (cart.lines.length === 0) {
     mount.innerHTML = `<p class="cart-empty">Your cart is empty. <a class="text-link" href="${withTableQuery("menu.html")}">Browse menu</a></p>`
@@ -405,6 +414,12 @@ async function placeOrder(cart) {
       return
     }
 
+    const nameInput = $("#customer-name")
+    if (nameInput) {
+      setCustomerName(cart, nameInput.value)
+      cart = loadCart() || cart
+    }
+
     const payload = toOrderPayload(cart)
     const res = await createOrder(payload)
     clearCart()
@@ -461,6 +476,17 @@ async function main() {
       if (!c) return
       setSpecialInstructions(c, globalNote.value)
     })
+  }
+
+  const customerNameInput = $("#customer-name")
+  if (customerNameInput) {
+    const syncName = () => {
+      const c = loadCart()
+      if (!c) return
+      setCustomerName(c, customerNameInput.value)
+    }
+    customerNameInput.addEventListener("change", syncName)
+    customerNameInput.addEventListener("blur", syncName)
   }
 
   const btn = $("#place-order-btn")

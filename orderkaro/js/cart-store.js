@@ -7,6 +7,7 @@ function emptyCart(slug, tableNumber, restaurantName) {
     restaurantName: restaurantName || "",
     isGstEnabled: false,
     specialInstructions: "",
+    customerName: "",
     lines: [],
   }
 }
@@ -55,6 +56,10 @@ export function ensureCart(slug, tableNumber, restaurantName) {
   }
   if (typeof c.isGstEnabled !== "boolean") {
     c.isGstEnabled = false
+    saveCart(c)
+  }
+  if (typeof c.customerName !== "string") {
+    c.customerName = ""
     saveCart(c)
   }
   return c
@@ -122,6 +127,12 @@ export function setSpecialInstructions(cart, note) {
   return cart
 }
 
+export function setCustomerName(cart, name) {
+  cart.customerName = name == null ? "" : String(name).trim().slice(0, 120)
+  saveCart(cart)
+  return cart
+}
+
 export function cartTotals(cart) {
   let count = 0
   let total = 0
@@ -142,5 +153,6 @@ export function toOrderPayload(cart) {
       note: null,
     })),
     specialInstructions: cart.specialInstructions && cart.specialInstructions.trim() ? cart.specialInstructions.trim() : null,
+    customerName: cart.customerName && String(cart.customerName).trim() ? String(cart.customerName).trim().slice(0, 120) : null,
   }
 }

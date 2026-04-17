@@ -78,6 +78,19 @@
 
   <div class="cart-bottom-bar">
     <div class="cart-bottom-bar__inner">
+      <div class="cart-customer-name" id="cart-customer-name-wrap" hidden>
+        <label for="customer-name" class="cart-customer-name__label">Name (optional)</label>
+        <div class="cart-customer-name__box">
+          <input
+            type="text"
+            id="customer-name"
+            class="cart-customer-name__input"
+            maxlength="120"
+            placeholder="Who's this order for?"
+            autocomplete="name"
+          />
+        </div>
+      </div>
       <button type="button" class="cart-place-btn" id="place-order-btn">
         <span>Place Order</span>
         <span class="material-symbols-outlined">arrow_forward</span>

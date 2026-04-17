@@ -117,6 +117,11 @@ function createOrderCardElement(orderId, data, currentOrderId) {
         <div>
           <p class="track-card__id-label">Order ID</p>
           <h3 class="track-card__id-value">${escapeHtml(formatOrderId(data.shortId || orderId))}</h3>
+          ${
+            data.customerName
+              ? `<p class="track-card__guest-name">For ${escapeHtml(String(data.customerName))}</p>`
+              : ""
+          }
         </div>
         <div class="track-card__status ${meta.pillClass}">${escapeHtml(meta.label)}</div>
       </div>
@@ -142,7 +147,7 @@ function updateTrackCard(orderId, data) {
 async function renderOrderCards(slug, tableNumber, currentOrderId) {
   const listEl = document.getElementById("track-orders-list")
   const emptyEl = document.getElementById("track-orders-empty")
-  if (!listEl || !emptyEl) return
+  if (!listEl || !emptyEl) return { valid: [] }
 
   let ids = [...loadDayOrders(slug, tableNumber).orderIds]
   if (currentOrderId && !ids.includes(currentOrderId)) ids.push(currentOrderId)
@@ -150,7 +155,7 @@ async function renderOrderCards(slug, tableNumber, currentOrderId) {
   if (ids.length === 0) {
     emptyEl.hidden = false
     listEl.replaceChildren()
-    return
+    return { valid: [] }
   }
 
   const results = await Promise.all(
@@ -170,15 +175,24 @@ async function renderOrderCards(slug, tableNumber, currentOrderId) {
   listEl.replaceChildren()
   if (valid.length === 0) {
     emptyEl.hidden = false
-    return
+    return { valid: [] }
   }
   emptyEl.hidden = true
   valid.forEach(({ id, data }) => listEl.appendChild(createOrderCardElement(id, data, currentOrderId)))
+  return { valid }
 }
 
 function applyAskBillState(data) {
   const askBillBtn = document.getElementById("ask-bill-btn")
   if (!askBillBtn) return
+  if (data == null) {
+    askBillBtn.disabled = true
+    askBillBtn.innerHTML =
+      '<span class="material-symbols-outlined" aria-hidden="true">payments</span><span>Request Bill</span>'
+    askBillBtn.title = "No open order to request a bill for."
+    return
+  }
+  askBillBtn.removeAttribute("title")
   const alreadyRequested = Boolean(data.billRequestedAt)
   askBillBtn.disabled =
     alreadyRequested ||
@@ -221,8 +235,7 @@ function wireAskBill() {
       const base = latestOrder && typeof latestOrder === "object" ? latestOrder : { status: "ORDER_PLACED" }
       applyAskBillState({ ...base, billRequestedAt: data?.billRequestedAt || new Date().toISOString() })
     } catch (e) {
-      btn.disabled = false
-      btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">payments</span><span>Request Bill</span>'
+      applyAskBillState(latestOrder)
       const err = document.querySelector("#orderkaro-error")
       if (err) {
         err.hidden = false
@@ -287,7 +300,7 @@ async function main() {
     }
   }
 
-  await renderOrderCards(slug, tableNumber, orderId)
+  const { valid } = await renderOrderCards(slug, tableNumber, orderId)
 
   if (orderId && !hadUrl) {
     try {
@@ -306,7 +319,13 @@ async function main() {
       err.textContent =
         "Missing order link. Open track from your order confirmation, or place an order first."
     }
+    applyAskBillState(null)
     return
+  }
+
+  const tracked = valid.find((r) => r.id === orderId)
+  if (tracked) {
+    applyAskBillState(tracked.data)
   }
 
   void poll(orderId)
