@@ -552,7 +552,7 @@ body.menu-page {
   background: #f3f3f3;
   border-right: 1px solid #ececec;
   padding: 12px 9px 16px;
-  overflow-y: hidden;
+  overflow-y: auto;
   overflow-x: hidden;
   height: 100%;
   display: grid;
