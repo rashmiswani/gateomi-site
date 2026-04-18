@@ -548,6 +548,18 @@ body.menu-page {
   min-height: 0;
 }
 
+.menu-disclaimer {
+  margin: 8px 12px 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #efe2c5;
+  background: #fff8ea;
+  color: #8a5a14;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
 .menu-category-rail {
   background: #f3f3f3;
   border-right: 1px solid #ececec;
