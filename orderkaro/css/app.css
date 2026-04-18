@@ -552,7 +552,8 @@ body.menu-page {
   background: #f3f3f3;
   border-right: 1px solid #ececec;
   padding: 12px 9px 16px;
-  overflow-y: auto;
+  overflow-y: hidden;
+  overflow-x: hidden;
   height: 100%;
   display: grid;
   align-content: start;
@@ -592,6 +593,10 @@ body.menu-page {
   letter-spacing: 0.06em;
   color: #64748b;
   text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .category-rail__item.category-tab--active .category-rail__thumb {
