@@ -9,6 +9,7 @@ import {
   setLineQuantity,
   setSpecialInstructions,
   setCustomerName,
+  setCustomerMobile,
   setMenuItemLineQuantity,
   cartTotals,
   toOrderPayload,
@@ -17,6 +18,13 @@ import {
 import { formatMoney } from "./format.js"
 import { itemDietPillHtml } from "./diet.js"
 
+const SPECIAL_INSTRUCTION_SUGGESTIONS = [
+  "Mild spice level",
+  "No onion and garlic",
+  "Sauce on the side",
+  "Please avoid peanuts (allergy)",
+]
+
 function $(sel, root = document) {
   return root.querySelector(sel)
 }
@@ -24,6 +32,8 @@ function $(sel, root = document) {
 let availabilityById = new Map()
 /** Latest menu payload from `fetchMenu` — used for cart upsells / combos / pairings. */
 let lastMenuData = null
+let cartOrderAllowed = true
+let cartOrderBlockedReason = ""
 
 function flattenMenuItems(menuData) {
   const out = []
@@ -209,6 +219,7 @@ function render(cart) {
   const totalEl = $("#summary-total")
   const summary = $("#cart-summary")
   const globalNote = $("#special-instructions")
+  const suggestionWrap = $("#special-instructions-suggestions")
   const unavailableBanner = $("#cart-unavailable-banner")
 
   if (topName) topName.textContent = cart.restaurantName || "Restaurant"
@@ -226,10 +237,39 @@ function render(cart) {
   if (globalNote) {
     globalNote.value = cart.specialInstructions || ""
   }
+  if (suggestionWrap) {
+    const activeNote = String(cart.specialInstructions || "")
+    suggestionWrap.innerHTML = SPECIAL_INSTRUCTION_SUGGESTIONS.map((text) => {
+      const active = activeNote.toLowerCase().includes(text.toLowerCase())
+      return `<button type="button" class="cart-special-suggestion${active ? " is-active" : ""}" data-special-suggestion="${escapeHtml(text)}">${escapeHtml(text)}</button>`
+    }).join("")
+    suggestionWrap.querySelectorAll("[data-special-suggestion]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!globalNote) return
+        const picked = String(btn.getAttribute("data-special-suggestion") || "").trim()
+        if (!picked) return
+        const current = String(globalNote.value || "").trim()
+        const next = current
+          ? current.toLowerCase().includes(picked.toLowerCase())
+            ? current
+            : `${current}${current.endsWith(".") ? " " : ". "}${picked}`
+          : picked
+        globalNote.value = next
+        const c = loadCart()
+        if (!c) return
+        setSpecialInstructions(c, next)
+        render(loadCart() || c)
+      })
+    })
+  }
   const customerNameEl = $("#customer-name")
+  const customerMobileEl = $("#customer-mobile")
   const customerNameWrap = $("#cart-customer-name-wrap")
   if (customerNameEl) {
     customerNameEl.value = typeof cart.customerName === "string" ? cart.customerName : ""
+  }
+  if (customerMobileEl) {
+    customerMobileEl.value = typeof cart.customerMobile === "string" ? cart.customerMobile : ""
   }
   if (customerNameWrap) {
     customerNameWrap.hidden = cart.lines.length === 0
@@ -344,8 +384,8 @@ function render(cart) {
   if (totalEl) totalEl.textContent = formatMoney(grandTotal)
   const btn = $("#place-order-btn")
   if (btn) {
-    btn.disabled = unavailableCount > 0
-    btn.textContent = "Place order"
+    btn.disabled = unavailableCount > 0 || !cartOrderAllowed
+    btn.textContent = cartOrderAllowed ? "Place order" : "Ordering unavailable"
   }
 
   renderSuggestionSections(cart)
@@ -375,10 +415,16 @@ function getUnavailableLines(cart, menuData) {
 async function hydrateCartLineImages(cart) {
   if (!cart || !cart.lines.length) {
     lastMenuData = null
+    cartOrderAllowed = true
+    cartOrderBlockedReason = ""
     return cart
   }
   const menuData = await fetchMenu(cart.restaurantSlug, cart.tableNumber)
   lastMenuData = menuData
+  cartOrderAllowed = menuData?.restaurant?.isOpenNow !== false
+  cartOrderBlockedReason = cartOrderAllowed
+    ? ""
+    : "Restaurant is not accepting orders right now. Please try again during working hours."
   const items = (menuData?.categories || []).flatMap((cat) => cat.items || [])
   const photoById = new Map(items.map((it) => [String(it.id), String(it.photoUrl || "")]))
   const foodTypeById = new Map(items.map((it) => [String(it.id), it.foodType]))
@@ -418,10 +464,20 @@ async function hydrateCartLineImages(cart) {
 async function placeOrder(cart) {
   const btn = $("#place-order-btn")
   if (!btn || cart.lines.length === 0) return
+  if (!cartOrderAllowed) {
+    alert(cartOrderBlockedReason || "Restaurant is not accepting orders right now.")
+    return
+  }
   btn.disabled = true
   btn.textContent = "Placing…"
   try {
     const latestMenu = await fetchMenu(cart.restaurantSlug, cart.tableNumber)
+    if (latestMenu?.restaurant?.isOpenNow === false) {
+      alert("Restaurant is currently closed. Please place order during open hours.")
+      btn.disabled = false
+      btn.textContent = "Place order"
+      return
+    }
     const unavailableLines = getUnavailableLines(cart, latestMenu)
     if (unavailableLines.length) {
       const names = unavailableLines
@@ -436,8 +492,13 @@ async function placeOrder(cart) {
     }
 
     const nameInput = $("#customer-name")
+    const mobileInput = $("#customer-mobile")
     if (nameInput) {
       setCustomerName(cart, nameInput.value)
+      cart = loadCart() || cart
+    }
+    if (mobileInput) {
+      setCustomerMobile(cart, mobileInput.value)
       cart = loadCart() || cart
     }
 
@@ -484,19 +545,26 @@ async function main() {
   try {
     const updated = await hydrateCartLineImages(cart)
     render(updated || cart)
-  } catch {
+  } catch (e) {
     /* if menu fetch fails, clear availability map to avoid stale warnings */
     availabilityById = new Map()
+    cartOrderAllowed = false
+    cartOrderBlockedReason =
+      e instanceof Error && e.message
+        ? e.message
+        : "Restaurant is not accepting orders right now."
     render(cart)
   }
 
   const globalNote = $("#special-instructions")
   if (globalNote) {
-    globalNote.addEventListener("change", () => {
+    const syncSpecialInstructions = () => {
       const c = loadCart()
       if (!c) return
       setSpecialInstructions(c, globalNote.value)
-    })
+    }
+    globalNote.addEventListener("change", syncSpecialInstructions)
+    globalNote.addEventListener("input", syncSpecialInstructions)
   }
 
   const customerNameInput = $("#customer-name")
@@ -508,6 +576,17 @@ async function main() {
     }
     customerNameInput.addEventListener("change", syncName)
     customerNameInput.addEventListener("blur", syncName)
+  }
+  const customerMobileInput = $("#customer-mobile")
+  if (customerMobileInput) {
+    const syncMobile = () => {
+      const c = loadCart()
+      if (!c) return
+      setCustomerMobile(c, customerMobileInput.value)
+    }
+    customerMobileInput.addEventListener("change", syncMobile)
+    customerMobileInput.addEventListener("blur", syncMobile)
+    customerMobileInput.addEventListener("input", syncMobile)
   }
 
   const btn = $("#place-order-btn")
@@ -526,8 +605,13 @@ async function main() {
     try {
       const updated = await hydrateCartLineImages(c)
       render(updated || c)
-    } catch {
+    } catch (e) {
       availabilityById = new Map()
+      cartOrderAllowed = false
+      cartOrderBlockedReason =
+        e instanceof Error && e.message
+          ? e.message
+          : "Restaurant is not accepting orders right now."
       render(c)
     }
   })

@@ -49,6 +49,7 @@
 
       <section class="cart-special">
         <label for="special-instructions" class="cart-special__label">Special Instructions</label>
+        <div class="cart-special-suggestions" id="special-instructions-suggestions"></div>
         <div class="cart-special__box">
           <textarea
             id="special-instructions"
@@ -88,6 +89,18 @@
             maxlength="120"
             placeholder="Who's this order for?"
             autocomplete="name"
+          />
+        </div>
+        <label for="customer-mobile" class="cart-customer-name__label">Mobile number (optional)</label>
+        <div class="cart-customer-name__box">
+          <input
+            type="tel"
+            id="customer-mobile"
+            class="cart-customer-name__input"
+            maxlength="15"
+            placeholder="10-digit mobile number"
+            autocomplete="tel"
+            inputmode="numeric"
           />
         </div>
       </div>

@@ -18,6 +18,8 @@ let menuData = null
 let menuHeaderResizeObserver = null
 let menuSearchText = ""
 let activeCategoryId = ""
+const OPENING_SPLASH_DURATION_MS = 1000
+const DEFAULT_OPENING_SPLASH_IMAGE = "images/default-splash.png"
 
 function openImageLightbox(src) {
   const root = $("#menu-image-lightbox")
@@ -92,6 +94,57 @@ function showError(msg) {
 function hideError() {
   const b = $("#orderkaro-error")
   if (b) b.hidden = true
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function showOpeningSplash(imageUrl) {
+  const overlay = $("#menu-opening-splash")
+  const image = $("#menu-opening-splash-image")
+  const splashUrl = String(imageUrl || "").trim() || DEFAULT_OPENING_SPLASH_IMAGE
+  if (!overlay || !image || !splashUrl) return
+
+  image.src = splashUrl
+  overlay.hidden = false
+  overlay.setAttribute("aria-hidden", "false")
+  document.body.classList.add("menu-opening-splash-visible")
+
+  await wait(OPENING_SPLASH_DURATION_MS)
+
+  overlay.classList.add("is-hiding")
+  await wait(280)
+  overlay.hidden = true
+  overlay.setAttribute("aria-hidden", "true")
+  overlay.classList.remove("is-hiding")
+  document.body.classList.remove("menu-opening-splash-visible")
+}
+
+function showSingleScreenMessage(msg) {
+  const stickyCart = document.querySelector(".sticky-cart")
+  const loading = $("#orderkaro-loading")
+  const loadingTabs = $("#orderkaro-loading-tabs")
+  const disclaimer = $("#menu-image-disclaimer")
+  const errorBanner = $("#orderkaro-error")
+  const tabs = $("#category-tabs")
+  const sections = $("#menu-sections")
+  const shell = $(".app-shell")
+
+  if (stickyCart) stickyCart.hidden = true
+  if (loading) loading.hidden = true
+  if (loadingTabs) loadingTabs.hidden = true
+  if (disclaimer) disclaimer.hidden = true
+  if (errorBanner) errorBanner.hidden = true
+  if (tabs) {
+    tabs.hidden = true
+    tabs.innerHTML = ""
+  }
+  if (sections) {
+    sections.innerHTML = `<p class="cart-empty" style="padding:36px 20px; text-align:center;">${escapeHtml(msg)}</p>`
+  }
+  if (shell) shell.setAttribute("aria-busy", "false")
+  requestAnimationFrame(() => syncMenuHeaderHeight())
 }
 
 function updateSticky(cart) {
@@ -370,15 +423,16 @@ async function main() {
     data = await fetchMenu(slug, tableNumber)
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not load menu"
-    showError(msg)
-    if (loading) loading.hidden = true
-    if (loadingTabs) loadingTabs.hidden = true
-    if (shell) shell.setAttribute("aria-busy", "false")
-    requestAnimationFrame(() => syncMenuHeaderHeight())
+    showSingleScreenMessage(msg)
     return
   }
 
   menuData = data
+  await showOpeningSplash(data?.restaurant?.openingImageUrl)
+  if (data?.restaurant?.isOpenNow === false) {
+    showSingleScreenMessage("Restaurant is not accepting orders right now. Please try again during working hours.")
+    return
+  }
   const cart = ensureCart(slug, tableNumber, data.restaurant.name)
   cart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
   renderMenu(data, cart)

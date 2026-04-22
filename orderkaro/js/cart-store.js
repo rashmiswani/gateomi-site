@@ -8,6 +8,7 @@ function emptyCart(slug, tableNumber, restaurantName) {
     isGstEnabled: false,
     specialInstructions: "",
     customerName: "",
+    customerMobile: "",
     lines: [],
   }
 }
@@ -60,6 +61,10 @@ export function ensureCart(slug, tableNumber, restaurantName) {
   }
   if (typeof c.customerName !== "string") {
     c.customerName = ""
+    saveCart(c)
+  }
+  if (typeof c.customerMobile !== "string") {
+    c.customerMobile = ""
     saveCart(c)
   }
   return c
@@ -137,6 +142,12 @@ export function setCustomerName(cart, name) {
   return cart
 }
 
+export function setCustomerMobile(cart, mobile) {
+  cart.customerMobile = mobile == null ? "" : String(mobile).trim().slice(0, 32)
+  saveCart(cart)
+  return cart
+}
+
 export function cartTotals(cart) {
   let count = 0
   let total = 0
@@ -158,5 +169,9 @@ export function toOrderPayload(cart) {
     })),
     specialInstructions: cart.specialInstructions && cart.specialInstructions.trim() ? cart.specialInstructions.trim() : null,
     customerName: cart.customerName && String(cart.customerName).trim() ? String(cart.customerName).trim().slice(0, 120) : null,
+    customerMobile:
+      cart.customerMobile && String(cart.customerMobile).trim()
+        ? String(cart.customerMobile).trim().slice(0, 32)
+        : null,
   }
 }

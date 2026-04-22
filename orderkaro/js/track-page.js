@@ -1,7 +1,7 @@
 import { getTableContext, LAST_ORDER_ID_KEY, rememberTrackPath } from "./config.js"
 import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
 import { withTableQuery } from "./nav.js"
-import { fetchOrder, requestBill } from "./api.js"
+import { fetchOrder, requestBill, submitOrderFeedback } from "./api.js"
 import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
 import { itemDietPillHtml } from "./diet.js"
 
@@ -26,8 +26,82 @@ const LABELS = {
   CANCELLED: "Cancelled",
 }
 
+const BREAD_ITEM_HINTS = [
+  "roti",
+  "naan",
+  "bread",
+  "kulcha",
+  "paratha",
+  "chapati",
+  "phulka",
+  "roomali",
+]
+
+const FEEDBACK_RATING_LABELS = {
+  1: "Bad",
+  2: "Poor",
+  3: "Okay",
+  4: "Good",
+  5: "Excellent",
+}
+
 function statusPillText(status) {
   return LABELS[status] || status
+}
+
+function feedbackLabelForRating(rating) {
+  const n = Number(rating || 0)
+  if (!Number.isInteger(n) || n < 1 || n > 5) return ""
+  return FEEDBACK_RATING_LABELS[n] || ""
+}
+
+function orderHasBreadItems(order) {
+  const items = Array.isArray(order?.items) ? order.items : []
+  return items.some((line) => {
+    const name = String(line?.itemName || "").toLowerCase()
+    return BREAD_ITEM_HINTS.some((k) => name.includes(k))
+  })
+}
+
+function isActiveOrderStatus(status) {
+  const s = String(status || "").toUpperCase()
+  return s === "NEW" || s === "ORDER_PLACED" || s === "ACCEPTED" || s === "PREPARING" || s === "READY"
+}
+
+async function maybeShowBreadReorderBrowserNotice(order) {
+  if (!orderHasBreadItems(order) || !isActiveOrderStatus(order?.status)) return
+  if (typeof window === "undefined" || typeof Notification === "undefined") return
+  const orderKey = String(order?.id || order?.shortId || "")
+  if (!orderKey) return
+  const storageKey = `orderkaro_bread_notice_${orderKey}`
+  try {
+    if (sessionStorage.getItem(storageKey) === "1") return
+  } catch {
+    /* ignore */
+  }
+  const show = () => {
+    try {
+      new Notification("Need extra bread/roti/naan?", {
+        body: "Order now if needed, it can take 5-10 more minutes.",
+        tag: storageKey,
+      })
+      sessionStorage.setItem(storageKey, "1")
+    } catch {
+      /* ignore */
+    }
+  }
+  if (Notification.permission === "granted") {
+    show()
+    return
+  }
+  if (Notification.permission === "default") {
+    try {
+      const next = await Notification.requestPermission()
+      if (next === "granted") show()
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function escapeHtml(str) {
@@ -108,10 +182,25 @@ function createOrderCardElement(orderId, data, currentOrderId) {
   const total = orderTotal(data)
   const isCurrent = orderId === currentOrderId
   const items = Array.isArray(data.items) ? data.items : []
+  const feedbackAllowed =
+    data.status === "SERVED" || data.status === "PAID" || data.status === "COMPLETED"
+  const feedbackSubmitted = Boolean(data.feedbackSubmittedAt || Number(data.feedbackRating || 0) > 0)
 
   const card = document.createElement("article")
   card.className = `track-card${isCurrent ? " track-card--active" : ""}`
   card.dataset.trackOrderId = orderId
+  let countdownHtml = ""
+  if (isCurrent && data?.estimatedReadyAt) {
+    countdownHtml = `<div class="track-estimate-hero">
+      <span class="track-estimate-hero__label">Estimated Ready In</span>
+      <div class="track-estimate-hero__row">
+        <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+        <span data-estimate-countdown="${escapeHtml(String(data.estimatedReadyAt))}" data-estimate-status="${escapeHtml(
+          String(data.status || "")
+        )}">—</span>
+      </div>
+    </div>`
+  }
   card.innerHTML = `
     <div class="track-card__inner">
       <div class="track-card__head">
@@ -127,15 +216,73 @@ function createOrderCardElement(orderId, data, currentOrderId) {
         <div class="track-card__status ${meta.pillClass}">${escapeHtml(meta.label)}</div>
       </div>
       ${isCurrent ? `<div class="track-card__time-row"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span>${escapeHtml(formatTrackDateTime(data.createdAt || ""))}</span></div>` : ""}
+      ${countdownHtml}
       <div class="track-card__lines-list">${items.map((line) => lineItemTemplate(line)).join("")}</div>
       <div class="track-card__footer">
         <span class="track-card__footer-label">Order Total</span>
         <span class="track-card__footer-total">${escapeHtml(formatMoney(total))}</span>
       </div>
+      ${
+        feedbackAllowed
+          ? `<div class="track-feedback" data-feedback-order-id="${escapeHtml(orderId)}">
+              <h4 class="track-feedback__title">Share your feedback</h4>
+              ${
+                feedbackSubmitted
+                  ? `<p class="track-feedback__submitted">Thanks! You rated this order ${escapeHtml(String(data.feedbackRating || 0))}/5 (${escapeHtml(feedbackLabelForRating(data.feedbackRating) || "Rated")})${
+                      data.feedbackComment ? ` — "${escapeHtml(String(data.feedbackComment))}"` : ""
+                    }.</p>`
+                  : `<form class="track-feedback__form" data-feedback-form data-feedback-order-id="${escapeHtml(orderId)}">
+                      <label class="track-feedback__label">Rating</label>
+                      <div class="track-feedback-stars" role="radiogroup" aria-label="Rate this order">
+                        <input type="hidden" name="rating" value="" required />
+                        <button type="button" class="track-feedback-star" data-star="1" aria-label="1 star">★</button>
+                        <button type="button" class="track-feedback-star" data-star="2" aria-label="2 stars">★</button>
+                        <button type="button" class="track-feedback-star" data-star="3" aria-label="3 stars">★</button>
+                        <button type="button" class="track-feedback-star" data-star="4" aria-label="4 stars">★</button>
+                        <button type="button" class="track-feedback-star" data-star="5" aria-label="5 stars">★</button>
+                      </div>
+                      <p class="track-feedback__hint" data-feedback-hint>Tap a star to rate</p>
+                      <label class="track-feedback__label" for="feedback-comment-${escapeHtml(orderId)}">Comment (optional)</label>
+                      <textarea id="feedback-comment-${escapeHtml(orderId)}" name="comment" rows="2" maxlength="1000" placeholder="Tell us what we can improve"></textarea>
+                      <button type="submit" class="track-feedback__submit">Submit Feedback</button>
+                    </form>`
+              }
+            </div>`
+          : ""
+      }
       ${!isCurrent ? `<a class="track-card__jump-link" href="${trackHrefForOrder(orderId)}">View this order</a>` : ""}
     </div>
   `
   return card
+}
+
+function updateEstimateCountdowns() {
+  document.querySelectorAll("[data-estimate-countdown]").forEach((el) => {
+    const status = String(el.getAttribute("data-estimate-status") || "").toUpperCase()
+    if (status === "SERVED") {
+      el.textContent = "Served"
+      return
+    }
+    if (status === "PAID" || status === "COMPLETED" || status === "CANCELLED") {
+      el.textContent = "Closed"
+      return
+    }
+    const raw = el.getAttribute("data-estimate-countdown") || ""
+    const end = new Date(raw).getTime()
+    if (!Number.isFinite(end)) {
+      el.textContent = "—"
+      return
+    }
+    const leftMs = end - Date.now()
+    if (leftMs <= 0) {
+      el.textContent = "Any moment now"
+      return
+    }
+    const sec = Math.floor(leftMs / 1000)
+    const mm = Math.floor(sec / 60)
+    const ss = sec % 60
+    el.textContent = `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`
+  })
 }
 
 function updateTrackCard(orderId, data) {
@@ -188,6 +335,7 @@ function applyAskBillState(data) {
   if (!askBillBtn) return
   if (data == null) {
     askBillBtn.disabled = true
+    askBillBtn.removeAttribute("data-pay-url")
     askBillBtn.innerHTML =
       '<span class="material-symbols-outlined" aria-hidden="true">payments</span><span>Request Bill</span>'
     askBillBtn.title = "No open order to request a bill for."
@@ -195,26 +343,35 @@ function applyAskBillState(data) {
   }
   askBillBtn.removeAttribute("title")
   const alreadyRequested = Boolean(data.billRequestedAt)
+  const payUrl = String(data?.payment?.url || "")
+  const canPayNow = alreadyRequested && payUrl && data.status !== "PAID" && data.status !== "COMPLETED"
+  if (canPayNow) askBillBtn.setAttribute("data-pay-url", payUrl)
+  else askBillBtn.removeAttribute("data-pay-url")
   askBillBtn.disabled =
-    alreadyRequested ||
+    (!canPayNow && alreadyRequested) ||
     data.status === "CANCELLED" ||
     data.status === "PAID" ||
     data.status === "COMPLETED"
-  askBillBtn.innerHTML = alreadyRequested
-    ? '<span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Bill Requested</span>'
+  askBillBtn.innerHTML = canPayNow
+    ? '<span class="material-symbols-outlined" aria-hidden="true">currency_rupee</span><span>Pay Now</span>'
+    : alreadyRequested
+      ? '<span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Bill Requested</span>'
     : '<span class="material-symbols-outlined" aria-hidden="true">payments</span><span>Request Bill</span>'
 }
 
 let timer = null
 let latestOrder = null
 let currentOrderId = ""
+let feedbackSubmittingFor = ""
 
 async function poll(orderId) {
   try {
     const data = await fetchOrder(orderId)
+    await maybeShowBreadReorderBrowserNotice(data)
     latestOrder = data
     applyAskBillState(data)
     updateTrackCard(orderId, data)
+    updateEstimateCountdowns()
   } catch (e) {
     const err = document.querySelector("#orderkaro-error")
     if (err) {
@@ -229,12 +386,21 @@ function wireAskBill() {
   if (!btn) return
   btn.addEventListener("click", async () => {
     if (!currentOrderId) return
+    const payUrl = String(btn.getAttribute("data-pay-url") || "")
+    if (payUrl) {
+      window.location.href = payUrl
+      return
+    }
     btn.disabled = true
     btn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span><span>Requesting...</span>'
     try {
       const data = await requestBill(currentOrderId)
       const base = latestOrder && typeof latestOrder === "object" ? latestOrder : { status: "ORDER_PLACED" }
-      applyAskBillState({ ...base, billRequestedAt: data?.billRequestedAt || new Date().toISOString() })
+      applyAskBillState({
+        ...base,
+        billRequestedAt: data?.billRequestedAt || new Date().toISOString(),
+        payment: data?.payment || base?.payment || null,
+      })
     } catch (e) {
       applyAskBillState(latestOrder)
       const err = document.querySelector("#orderkaro-error")
@@ -246,10 +412,106 @@ function wireAskBill() {
   })
 }
 
+function wireFeedbackSubmit() {
+  const list = document.getElementById("track-orders-list")
+  if (!list) return
+  list.addEventListener("mouseover", (ev) => {
+    const target = ev.target
+    if (!(target instanceof Element)) return
+    const starBtn = target.closest(".track-feedback-star")
+    if (!(starBtn instanceof HTMLButtonElement)) return
+    const form = starBtn.closest("form[data-feedback-form]")
+    if (!(form instanceof HTMLFormElement)) return
+    const rating = Number(starBtn.getAttribute("data-star") || 0)
+    const hint = form.querySelector("[data-feedback-hint]")
+    if (hint instanceof HTMLElement && rating >= 1 && rating <= 5) {
+      hint.textContent = `${rating} star${rating > 1 ? "s" : ""} - ${feedbackLabelForRating(rating)}`
+    }
+  })
+  list.addEventListener("mouseout", (ev) => {
+    const target = ev.target
+    if (!(target instanceof Element)) return
+    const starBtn = target.closest(".track-feedback-star")
+    if (!(starBtn instanceof HTMLButtonElement)) return
+    const form = starBtn.closest("form[data-feedback-form]")
+    if (!(form instanceof HTMLFormElement)) return
+    const ratingInput = form.querySelector('input[name="rating"]')
+    const selected = Number(
+      ratingInput instanceof HTMLInputElement ? ratingInput.value : "0"
+    )
+    const hint = form.querySelector("[data-feedback-hint]")
+    if (!(hint instanceof HTMLElement)) return
+    if (selected >= 1 && selected <= 5) {
+      hint.textContent = `${selected} star${selected > 1 ? "s" : ""} - ${feedbackLabelForRating(selected)}`
+    } else {
+      hint.textContent = "Tap a star to rate"
+    }
+  })
+  list.addEventListener("click", (ev) => {
+    const target = ev.target
+    if (!(target instanceof Element)) return
+    const starBtn = target.closest(".track-feedback-star")
+    if (!(starBtn instanceof HTMLButtonElement)) return
+    const form = starBtn.closest("form[data-feedback-form]")
+    if (!(form instanceof HTMLFormElement)) return
+    const selected = Number(starBtn.getAttribute("data-star") || 0)
+    if (!Number.isInteger(selected) || selected < 1 || selected > 5) return
+    const ratingInput = form.querySelector('input[name="rating"]')
+    if (ratingInput instanceof HTMLInputElement) ratingInput.value = String(selected)
+    const hint = form.querySelector("[data-feedback-hint]")
+    if (hint instanceof HTMLElement) {
+      hint.textContent = `${selected} star${selected > 1 ? "s" : ""} - ${feedbackLabelForRating(selected)}`
+    }
+    form.querySelectorAll(".track-feedback-star").forEach((btn) => {
+      if (!(btn instanceof HTMLElement)) return
+      const value = Number(btn.getAttribute("data-star") || 0)
+      if (value <= selected) btn.classList.add("is-active")
+      else btn.classList.remove("is-active")
+    })
+  })
+  list.addEventListener("submit", async (ev) => {
+    const target = ev.target
+    if (!(target instanceof HTMLFormElement) || !target.matches("[data-feedback-form]")) return
+    ev.preventDefault()
+    const orderId = String(target.getAttribute("data-feedback-order-id") || "")
+    if (!orderId || feedbackSubmittingFor === orderId) return
+    const fd = new FormData(target)
+    const rating = Number(fd.get("rating") || 0)
+    const comment = String(fd.get("comment") || "").trim()
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent = "Please select a rating between 1 and 5."
+      }
+      return
+    }
+    const submitBtn = target.querySelector("button[type='submit']")
+    if (submitBtn) submitBtn.disabled = true
+    feedbackSubmittingFor = orderId
+    try {
+      await submitOrderFeedback(orderId, { rating, comment: comment || null })
+      const fresh = await fetchOrder(orderId)
+      if (orderId === currentOrderId) latestOrder = fresh
+      updateTrackCard(orderId, fresh)
+    } catch (e) {
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent = e instanceof Error ? e.message : "Could not submit feedback"
+      }
+      if (submitBtn) submitBtn.disabled = false
+    } finally {
+      feedbackSubmittingFor = ""
+    }
+  })
+}
+
 async function main() {
   rememberTrackPath()
   setHeaderContext()
   wireAskBill()
+  wireFeedbackSubmit()
 
   const { slug, tableNumber } = getTableContext()
   const errBanner = document.querySelector("#orderkaro-error")
@@ -331,6 +593,7 @@ async function main() {
 
   void poll(orderId)
   timer = window.setInterval(() => void poll(orderId), 5000)
+  window.setInterval(updateEstimateCountdowns, 1000)
 }
 
 void main()
