@@ -19,7 +19,7 @@ let menuHeaderResizeObserver = null
 let menuSearchText = ""
 let activeCategoryId = ""
 const OPENING_SPLASH_DURATION_MS = 1000
-const DEFAULT_OPENING_SPLASH_IMAGE = "images/default-splash.png"
+const OPENING_SPLASH_FADE_MS = 420
 
 function openImageLightbox(src) {
   const root = $("#menu-image-lightbox")
@@ -100,21 +100,18 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function showOpeningSplash(imageUrl) {
+async function showOpeningSplash(readyPromise = Promise.resolve()) {
   const overlay = $("#menu-opening-splash")
-  const image = $("#menu-opening-splash-image")
-  const splashUrl = String(imageUrl || "").trim() || DEFAULT_OPENING_SPLASH_IMAGE
-  if (!overlay || !image || !splashUrl) return
+  if (!overlay) return
 
-  image.src = splashUrl
   overlay.hidden = false
   overlay.setAttribute("aria-hidden", "false")
   document.body.classList.add("menu-opening-splash-visible")
 
-  await wait(OPENING_SPLASH_DURATION_MS)
+  await Promise.all([wait(OPENING_SPLASH_DURATION_MS), readyPromise])
 
   overlay.classList.add("is-hiding")
-  await wait(280)
+  await wait(OPENING_SPLASH_FADE_MS)
   overlay.hidden = true
   overlay.setAttribute("aria-hidden", "true")
   overlay.classList.remove("is-hiding")
@@ -135,7 +132,10 @@ function showSingleScreenMessage(msg) {
   if (loading) loading.hidden = true
   if (loadingTabs) loadingTabs.hidden = true
   if (disclaimer) disclaimer.hidden = true
-  if (errorBanner) errorBanner.hidden = true
+  if (errorBanner) {
+    errorBanner.hidden = false
+    errorBanner.textContent = msg
+  }
   if (tabs) {
     tabs.hidden = true
     tabs.innerHTML = ""
@@ -157,14 +157,14 @@ function updateSticky(cart) {
   if (countEl) countEl.textContent = String(count)
   if (totalEl) totalEl.textContent = formatMoney(total)
   if (link) {
-    link.href = withTableQuery("cart.html")
+    link.href = withTableQuery("cart")
     link.setAttribute("aria-disabled", count === 0 ? "true" : "false")
   }
   if (topCartLink) {
-    topCartLink.href = withTableQuery("cart.html")
+    topCartLink.href = withTableQuery("cart")
   }
   if (topTrackLink) {
-    topTrackLink.href = withTableQuery("track.html")
+    topTrackLink.href = withTableQuery("track")
   }
 }
 
@@ -181,6 +181,7 @@ function refreshFromCart() {
   const ctx = resolveTableContext()
   const c = ensureCart(ctx.slug, ctx.tableNumber, menuData.restaurant.name)
   c.isGstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
+  c.isGstInclusive = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
   renderMenu(menuData, c)
   updateSticky(c)
 }
@@ -196,6 +197,8 @@ function renderMenu(data, cart) {
   const tabs = $("#category-tabs")
   const sections = $("#menu-sections")
   if (!tabs || !sections) return
+
+  sections.classList.remove("menu-feed--enter")
 
   tabs.innerHTML = ""
   sections.innerHTML = ""
@@ -391,6 +394,9 @@ function renderMenu(data, cart) {
     list.appendChild(card)
   }
   sections.appendChild(list)
+  requestAnimationFrame(() => {
+    sections.classList.add("menu-feed--enter")
+  })
 
   requestAnimationFrame(() => syncMenuHeaderHeight())
 }
@@ -414,13 +420,16 @@ async function main() {
   const { slug, tableNumber } = resolveTableContext()
 
   hideError()
-  if (loading) loading.hidden = false
-  if (loadingTabs) loadingTabs.hidden = false
+  if (loading) loading.hidden = true
+  if (loadingTabs) loadingTabs.hidden = true
   if (shell) shell.setAttribute("aria-busy", "true")
+
+  const menuFetchPromise = fetchMenu(slug, tableNumber)
+  await showOpeningSplash(menuFetchPromise.then(() => undefined, () => undefined))
 
   let data
   try {
-    data = await fetchMenu(slug, tableNumber)
+    data = await menuFetchPromise
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not load menu"
     showSingleScreenMessage(msg)
@@ -428,13 +437,13 @@ async function main() {
   }
 
   menuData = data
-  await showOpeningSplash(data?.restaurant?.openingImageUrl)
   if (data?.restaurant?.isOpenNow === false) {
-    showSingleScreenMessage("Restaurant is not accepting orders right now. Please try again during working hours.")
+    showSingleScreenMessage("Restaurant is unavailable to take orders at the moment. Please try again later.")
     return
   }
   const cart = ensureCart(slug, tableNumber, data.restaurant.name)
   cart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
+  cart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
   renderMenu(data, cart)
   updateSticky(cart)
   const searchInput = $("#menu-search-input")
@@ -444,13 +453,12 @@ async function main() {
       menuSearchText = String(searchInput.value || "")
       const latestCart = ensureCart(slug, tableNumber, data.restaurant.name)
       latestCart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
+      latestCart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
       renderMenu(data, latestCart)
       updateSticky(latestCart)
     })
   }
 
-  if (loading) loading.hidden = true
-  if (loadingTabs) loadingTabs.hidden = true
   if (shell) shell.setAttribute("aria-busy", "false")
   requestAnimationFrame(() => syncMenuHeaderHeight())
 }

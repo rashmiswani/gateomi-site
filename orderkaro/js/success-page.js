@@ -163,14 +163,14 @@ async function main() {
 
   const track = document.querySelector("#success-track-link")
   if (track) {
-    const u = new URL(withTableQuery("track.html"), window.location.href)
+    const u = new URL(withTableQuery("track"), window.location.href)
     if (id) u.searchParams.set("orderId", id)
     track.href = u.pathname + u.search
   }
 
   const orderAgain = document.querySelector("#success-order-again-link")
   const closeLink = document.querySelector("#success-close-link")
-  const menuHref = withTableQuery("menu.html")
+  const menuHref = withTableQuery("menu")
   if (orderAgain) orderAgain.href = menuHref
   if (closeLink) closeLink.href = menuHref
 

@@ -37,7 +37,7 @@
       </div>
 
       <div class="cart-add-more-wrap">
-        <a href="menu.html" id="top-add-link" class="cart-add-more-btn">
+        <a href="menu" id="top-add-link" class="cart-add-more-btn">
           <span class="material-symbols-outlined">add_circle</span>
           <span>Add more items</span>
         </a>
@@ -62,15 +62,15 @@
 
       <section class="cart-summary" id="cart-summary" hidden>
         <div class="cart-summary__row">
-          <span>Subtotal</span>
+          <span id="summary-subtotal-label">Subtotal</span>
           <span id="summary-subtotal">₹0</span>
         </div>
         <div class="cart-summary__row" id="summary-gst-row" hidden>
-          <span>GST (5%)</span>
+          <span id="summary-gst-label">GST (5%)</span>
           <span id="summary-gst">₹0</span>
         </div>
         <div class="cart-summary__total">
-          <span>Total</span>
+          <span id="summary-total-label">Total</span>
           <span id="summary-total">₹0</span>
         </div>
       </section>
@@ -109,11 +109,11 @@
         <span class="material-symbols-outlined">arrow_forward</span>
       </button>
       <nav class="cart-bottom-nav" aria-label="Primary">
-        <a href="menu.html" id="bottom-menu-link" class="cart-bottom-nav__item">
+        <a href="menu" id="bottom-menu-link" class="cart-bottom-nav__item">
           <span class="material-symbols-outlined">menu_book</span>
           <span>Menu</span>
         </a>
-        <a href="track.html" id="bottom-order-link" class="cart-bottom-nav__item cart-bottom-nav__item--active">
+        <a href="track" id="bottom-order-link" class="cart-bottom-nav__item cart-bottom-nav__item--active">
           <span class="material-symbols-outlined">shopping_bag</span>
           <span>Order</span>
         </a>

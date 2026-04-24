@@ -6,6 +6,7 @@ function emptyCart(slug, tableNumber, restaurantName) {
     tableNumber,
     restaurantName: restaurantName || "",
     isGstEnabled: false,
+    isGstInclusive: false,
     specialInstructions: "",
     customerName: "",
     customerMobile: "",
@@ -57,6 +58,10 @@ export function ensureCart(slug, tableNumber, restaurantName) {
   }
   if (typeof c.isGstEnabled !== "boolean") {
     c.isGstEnabled = false
+    saveCart(c)
+  }
+  if (typeof c.isGstInclusive !== "boolean") {
+    c.isGstInclusive = false
     saveCart(c)
   }
   if (typeof c.customerName !== "string") {

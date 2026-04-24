@@ -29,6 +29,18 @@ function $(sel, root = document) {
   return root.querySelector(sel)
 }
 
+function roundMoney(v) {
+  return Math.round((Number(v) || 0) * 100) / 100
+}
+
+function syncCartBottomOffset() {
+  const bar = document.querySelector(".cart-bottom-bar")
+  const shell = document.querySelector(".app-shell--cart")
+  if (!bar || !shell) return
+  const h = Math.ceil(bar.getBoundingClientRect().height)
+  shell.style.setProperty("--cart-bottom-h", `${h}px`)
+}
+
 let availabilityById = new Map()
 /** Latest menu payload from `fetchMenu` — used for cart upsells / combos / pairings. */
 let lastMenuData = null
@@ -214,8 +226,11 @@ function render(cart) {
   const topName = $(".cart-topbar__name")
   const topTable = $(".cart-topbar__table")
   const subtotalEl = $("#summary-subtotal")
+  const subtotalLabelEl = $("#summary-subtotal-label")
   const gstRow = $("#summary-gst-row")
+  const gstLabelEl = $("#summary-gst-label")
   const gstEl = $("#summary-gst")
+  const totalLabelEl = $("#summary-total-label")
   const totalEl = $("#summary-total")
   const summary = $("#cart-summary")
   const globalNote = $("#special-instructions")
@@ -227,10 +242,10 @@ function render(cart) {
 
   const addLinks = [$("#top-add-link"), $("#bottom-menu-link")].filter(Boolean)
   addLinks.forEach((a) => {
-    a.href = withTableQuery("menu.html")
+    a.href = withTableQuery("menu")
   })
   const orderLink = $("#bottom-order-link")
-  if (orderLink) orderLink.href = withTableQuery("track.html")
+  if (orderLink) orderLink.href = withTableQuery("track")
 
   if (!mount) return
   mount.innerHTML = ""
@@ -276,11 +291,14 @@ function render(cart) {
   }
 
   if (cart.lines.length === 0) {
-    mount.innerHTML = `<p class="cart-empty">Your cart is empty. <a class="text-link" href="${withTableQuery("menu.html")}">Browse menu</a></p>`
+    mount.innerHTML = `<p class="cart-empty">Your cart is empty. <a class="text-link" href="${withTableQuery("menu")}">Browse menu</a></p>`
     if (summary) summary.hidden = true
     if (subtotalEl) subtotalEl.textContent = formatMoney(0)
+    if (subtotalLabelEl) subtotalLabelEl.textContent = "Subtotal"
     if (gstEl) gstEl.textContent = formatMoney(0)
+    if (gstLabelEl) gstLabelEl.textContent = "GST (5%)"
     if (gstRow) gstRow.hidden = true
+    if (totalLabelEl) totalLabelEl.textContent = "Total"
     if (totalEl) totalEl.textContent = formatMoney(0)
     if (unavailableBanner) unavailableBanner.hidden = true
     const btn = $("#place-order-btn")
@@ -289,6 +307,7 @@ function render(cart) {
       btn.textContent = "Place order"
     }
     renderSuggestionSections(cart)
+    requestAnimationFrame(syncCartBottomOffset)
     return
   }
 
@@ -374,13 +393,24 @@ function render(cart) {
 
   const { total } = cartTotals(cart)
   const gstRate = cart.isGstEnabled ? 0.05 : 0
-  const gst = total * gstRate
-  const grandTotal = total + gst
+  const gstInclusive = cart.isGstEnabled && cart.isGstInclusive
+  const taxableSubtotal = roundMoney(gstInclusive ? total / (1 + gstRate) : total)
+  const grandTotal = gstInclusive ? roundMoney(total) : roundMoney(taxableSubtotal + taxableSubtotal * gstRate)
+  const gst = roundMoney(gstInclusive ? grandTotal - taxableSubtotal : grandTotal - taxableSubtotal)
   if (summary) summary.hidden = false
   if (unavailableBanner) unavailableBanner.hidden = unavailableCount === 0
-  if (subtotalEl) subtotalEl.textContent = formatMoney(total)
+  if (subtotalLabelEl) subtotalLabelEl.textContent = gstInclusive ? "Subtotal (excl. GST)" : "Subtotal"
+  if (subtotalEl) subtotalEl.textContent = formatMoney(taxableSubtotal)
+  if (gstLabelEl) {
+    gstLabelEl.textContent = cart.isGstEnabled
+      ? gstInclusive
+        ? "GST (5% included)"
+        : "GST (5%)"
+      : "GST (off)"
+  }
   if (gstEl) gstEl.textContent = formatMoney(gst)
-  if (gstRow) gstRow.hidden = !cart.isGstEnabled
+  if (gstRow) gstRow.hidden = false
+  if (totalLabelEl) totalLabelEl.textContent = cart.isGstEnabled ? "Total (Subtotal + GST)" : "Total"
   if (totalEl) totalEl.textContent = formatMoney(grandTotal)
   const btn = $("#place-order-btn")
   if (btn) {
@@ -389,6 +419,7 @@ function render(cart) {
   }
 
   renderSuggestionSections(cart)
+  requestAnimationFrame(syncCartBottomOffset)
 }
 
 function escapeHtml(s) {
@@ -436,8 +467,13 @@ async function hydrateCartLineImages(cart) {
   availabilityById = nextAvailability
   let changed = false
   const gstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
+  const gstInclusive = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
   if (cart.isGstEnabled !== gstEnabled) {
     cart.isGstEnabled = gstEnabled
+    changed = true
+  }
+  if (cart.isGstInclusive !== gstInclusive) {
+    cart.isGstInclusive = gstInclusive
     changed = true
   }
   cart.lines.forEach((line) => {
@@ -516,7 +552,7 @@ async function placeOrder(cart) {
       const { slug, tableNumber } = resolveTableContext()
       appendDayOrderId(slug, tableNumber, id)
     }
-    const base = withTableQuery("success.html")
+    const base = withTableQuery("success")
     const sep = base.includes("?") ? "&" : "?"
     let qs = id ? `${sep}orderId=${encodeURIComponent(id)}` : ""
     if (shortId) {
@@ -615,6 +651,8 @@ async function main() {
       render(c)
     }
   })
+  window.addEventListener("resize", syncCartBottomOffset)
+  requestAnimationFrame(syncCartBottomOffset)
 }
 
 main()

@@ -153,7 +153,7 @@ function setHeaderContext() {
 }
 
 function trackHrefForOrder(orderId) {
-  const u = new URL(withTableQuery("track.html"), window.location.href)
+  const u = new URL(withTableQuery("track"), window.location.href)
   u.searchParams.set("orderId", orderId)
   return `${u.pathname}${u.search}${u.hash}`
 }
@@ -388,6 +388,29 @@ function wireAskBill() {
     if (!currentOrderId) return
     const payUrl = String(btn.getAttribute("data-pay-url") || "")
     if (payUrl) {
+      const isUpiIntent = /^upi:\/\//i.test(payUrl)
+      if (isUpiIntent) {
+        const shouldOpen = window.confirm(
+          "Open payment app now?\n\nTap Cancel to copy payment link and pay using app of your choice."
+        )
+        if (!shouldOpen) {
+          try {
+            await navigator.clipboard.writeText(payUrl)
+            const err = document.querySelector("#orderkaro-error")
+            if (err) {
+              err.hidden = false
+              err.textContent = "Payment link copied. Open your preferred UPI app and paste the link."
+            }
+          } catch {
+            const err = document.querySelector("#orderkaro-error")
+            if (err) {
+              err.hidden = false
+              err.textContent = "Could not copy payment link. Please try again."
+            }
+          }
+          return
+        }
+      }
       window.location.href = payUrl
       return
     }
@@ -518,11 +541,11 @@ async function main() {
   if (errBanner) errBanner.hidden = true
 
   const menuLink = document.getElementById("track-menu-link")
-  if (menuLink) menuLink.href = withTableQuery("menu.html")
+  if (menuLink) menuLink.href = withTableQuery("menu")
   const selfLink = document.getElementById("track-self-link")
-  if (selfLink) selfLink.href = withTableQuery("track.html")
+  if (selfLink) selfLink.href = withTableQuery("track")
   const emptyMenu = document.getElementById("track-empty-menu-link")
-  if (emptyMenu) emptyMenu.href = withTableQuery("menu.html")
+  if (emptyMenu) emptyMenu.href = withTableQuery("menu")
 
   const fromUrl = getOrderId()
   const hadUrl = !!fromUrl

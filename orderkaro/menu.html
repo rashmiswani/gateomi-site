@@ -24,10 +24,10 @@
       </div>
       <div class="menu-topbar__right">
         <span class="table-badge">Table —</span>
-        <a href="cart.html" id="top-cart-link" class="menu-topbar__icon-btn" aria-label="Open cart">
+        <a href="cart" id="top-cart-link" class="menu-topbar__icon-btn" aria-label="Open cart">
           <span class="material-symbols-outlined">shopping_bag</span>
         </a>
-        <a href="track.html" id="top-track-link" class="table-badge table-badge--action" aria-label="Track your orders">
+        <a href="track" id="top-track-link" class="table-badge table-badge--action" aria-label="Track your orders">
           <span class="material-symbols-outlined">history</span>
           <span>Track Orders</span>
         </a>
@@ -56,7 +56,7 @@
       <div class="skeleton skeleton--card"></div>
     </div>
 
-    <p class="menu-disclaimer" id="menu-image-disclaimer">
+    <p class="menu-disclaimer" id="menu-image-disclaimer" hidden>
       Image shown is for reference only. Actual dish may vary.
     </p>
 
@@ -68,7 +68,7 @@
 
   <div class="sticky-cart">
     <div class="sticky-cart__inner">
-      <a href="cart.html" id="view-cart-link" class="sticky-cart__cta">
+      <a href="cart" id="view-cart-link" class="sticky-cart__cta">
         <span class="sticky-cart__cta-left">
           <span class="sticky-cart__bubble sticky-cart__count">0</span>
           <span class="sticky-cart__cta-label">View Cart</span>
@@ -89,7 +89,10 @@
   </div>
 
   <div id="menu-opening-splash" class="menu-opening-splash" hidden aria-hidden="true">
-    <img id="menu-opening-splash-image" class="menu-opening-splash__image" alt="Restaurant opening banner" />
+    <div class="menu-opening-splash__content" aria-hidden="true">
+      <h1 class="menu-opening-splash__title">Qrave</h1>
+      <p class="menu-opening-splash__tagline">Elevated Dining, Simplified.</p>
+    </div>
   </div>
 
   <script type="module" src="js/menu-page.js"></script>

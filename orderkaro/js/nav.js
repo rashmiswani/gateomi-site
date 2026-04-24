@@ -43,19 +43,19 @@ export function resolveTableContext() {
 export function withTableQuery(href) {
   const { slug, tableNumber } = resolveTableContext()
   let target = href
-  if (href === "menu.html") {
+  if (href === "menu.html" || href === "menu") {
     const stored = sessionStorage.getItem(MENU_PATH_KEY)
     if (stored) target = stored
   }
-  if (href === "cart.html") {
+  if (href === "cart.html" || href === "cart") {
     const stored = sessionStorage.getItem(CART_PATH_KEY)
     if (stored) target = stored
   }
-  if (href === "success.html") {
+  if (href === "success.html" || href === "success") {
     const stored = sessionStorage.getItem(SUCCESS_PATH_KEY)
     if (stored) target = stored
   }
-  if (href === "track.html") {
+  if (href === "track.html" || href === "track") {
     const stored = sessionStorage.getItem(TRACK_PATH_KEY)
     if (stored) target = stored
   }
