@@ -16,7 +16,7 @@ import {
   clearCart,
 } from "./cart-store.js"
 import { formatMoney } from "./format.js"
-import { itemDietPillHtml } from "./diet.js"
+import { isNonVegFoodType, itemDietPillHtml } from "./diet.js"
 
 const SPECIAL_INSTRUCTION_SUGGESTIONS = [
   "Mild spice level",
@@ -65,15 +65,256 @@ function flattenMenuItems(menuData) {
 
 function isComboLikeItem(it) {
   const t = `${it.name || ""} ${it.description || ""}`.toLowerCase()
-  return /\b(combo|thali|platter|bundle|brought together|meal deal|set menu|fixed|together|pair\s+with)\b/i.test(
+  return /\b(combo|thali|platter|bundle|meal deal|set menu|family pack|value meal)\b/i.test(t)
+}
+
+function isGreatCombinationItem(it) {
+  const t = `${it.name || ""} ${it.description || ""}`.toLowerCase()
+  return /\b(bought together|best with|pair with|great combination|recommended|must try|signature|chef special)\b/i.test(
     t
   )
+}
+
+function isBestSellerItem(it) {
+  const t = `${it.name || ""} ${it.description || ""}`.toLowerCase()
+  const isRestaurantSpecial = Boolean(it.isRestaurantSpecial || it.is_restaurant_special)
+  const pop =
+    Number(it.popularityScore) || Number(it.popularity_score) || Number(it.orderCount) || Number(it.order_count) || 0
+  return isRestaurantSpecial || /\b(best seller|bestseller|popular|top seller|house special)\b/i.test(t) || pop >= 50
 }
 
 function isPairingCategoryHint(it) {
   return /beverage|drink|juice|wine|coffee|tea|dessert|sweet|bread|soup|starter|appetizer|side|salad|rice|naan/i.test(
     `${it.categoryName || ""} ${it.name || ""}`
   )
+}
+
+function itemSearchText(it) {
+  return `${it.name || ""} ${it.description || ""} ${it.categoryName || ""}`.toLowerCase()
+}
+
+function normalizedBucketOf(it) {
+  return String(it.normalizedBucket || it.normalized_bucket || "").toUpperCase().trim()
+}
+
+function upsellCategoryOf(it) {
+  return String(it.upsellCategory || it.upsell_category || "").toUpperCase().trim()
+}
+
+/**
+ * Universal upsell taxonomy:
+ * keep one shared keyword bank so recommendations stay consistent
+ * even when restaurants use different category naming.
+ */
+const UNIVERSAL_UPSELL_KEYWORDS = {
+  beverage: [
+    "beverage",
+    "drink",
+    "juice",
+    "shake",
+    "lassi",
+    "tea",
+    "coffee",
+    "soda",
+    "cola",
+    "coke",
+    "pepsi",
+    "fanta",
+    "sprite",
+    "thumbs up",
+    "thums up",
+    "mocktail",
+    "smoothie",
+    "water",
+    "buttermilk",
+    "cold drink",
+    "mojito",
+    "lemonade",
+  ],
+  dessert: [
+    "dessert",
+    "sweet",
+    "ice cream",
+    "gulab",
+    "halwa",
+    "brownie",
+    "cake",
+    "kheer",
+    "pastry",
+    "mousse",
+    "rabdi",
+  ],
+  main: [
+    "curry",
+    "biryani",
+    "rice",
+    "noodle",
+    "pizza",
+    "burger",
+    "pasta",
+    "thali",
+    "main course",
+    "meal",
+    "combo",
+    "plate",
+    "gravy",
+    "paneer",
+    "dal",
+    "korma",
+    "masala",
+    "chicken curry",
+    "mutton",
+    "fish curry",
+  ],
+  snack: [
+    "starter",
+    "appetizer",
+    "snack",
+    "chaat",
+    "fries",
+    "roll",
+    "sandwich",
+    "momos",
+    "pakoda",
+    "tikka",
+    "finger food",
+    "samosa",
+    "kachori",
+    "spring roll",
+    "manchurian",
+    "chilli paneer",
+    "chilli chicken",
+  ],
+  side: [
+    "side",
+    "bread",
+    "naan",
+    "roti",
+    "salad",
+    "raita",
+    "dip",
+    "chutney",
+    "pickle",
+    "papad",
+    "extra chutney",
+    "extra sauce",
+    "extra mayo",
+  ],
+}
+
+function hasUniversalKeyword(text, bucket) {
+  const words = UNIVERSAL_UPSELL_KEYWORDS[bucket] || []
+  return words.some((w) => text.includes(w))
+}
+
+function isBeverageItem(it) {
+  if (normalizedBucketOf(it) === "BEVERAGE") return true
+  return hasUniversalKeyword(itemSearchText(it), "beverage")
+}
+
+function isDessertItem(it) {
+  if (normalizedBucketOf(it) === "DESSERT") return true
+  return hasUniversalKeyword(itemSearchText(it), "dessert")
+}
+
+function isMainCourseLike(it) {
+  const b = normalizedBucketOf(it)
+  if (b === "MAIN" || b === "COMBO") return true
+  return hasUniversalKeyword(itemSearchText(it), "main")
+}
+
+function isSnackLike(it) {
+  if (normalizedBucketOf(it) === "SNACK_STARTER") return true
+  return hasUniversalKeyword(itemSearchText(it), "snack")
+}
+
+function isSideLike(it) {
+  const b = normalizedBucketOf(it)
+  if (b === "SIDE_ACCOMPANIMENT" || b === "BREAD" || b === "RICE" || b === "ADD_ON") return true
+  return hasUniversalKeyword(itemSearchText(it), "side")
+}
+
+function buildCartProfile(cartItems) {
+  return {
+    hasMain: cartItems.some(isMainCourseLike),
+    hasSnack: cartItems.some(isSnackLike),
+    hasSide: cartItems.some(isSideLike),
+    hasBeverage: cartItems.some(isBeverageItem),
+    hasDessert: cartItems.some(isDessertItem),
+  }
+}
+
+function detectCuisineFromText(text) {
+  const t = String(text || "").toLowerCase()
+  if (/(paneer|naan|roti|dal|biryani|tandoori|lassi|chaat|rajma|korma|masala)/.test(t)) return "indian"
+  if (/(hakka|manchurian|chowmein|noodle|schezwan|dimsum|momo)/.test(t)) return "indo_chinese"
+  if (/(pizza|pasta|lasagna|risotto|garlic bread|alfredo)/.test(t)) return "italian"
+  if (/(burger|fries|wrap|hot dog|sandwich|steak)/.test(t)) return "continental"
+  return "unknown"
+}
+
+function scoreParts(it, cartProfile, cartCategoryIds, cuisineSignal) {
+  const text = itemSearchText(it)
+  const price = Number(it.price) || 0
+  const upsellTag = upsellCategoryOf(it)
+
+  // 1) Rule match: strongest weight
+  let ruleMatch = 0
+  if (!cartProfile.hasBeverage && upsellTag === "DRINK_PAIRING") ruleMatch += 1.2
+  if (!cartProfile.hasDessert && upsellTag === "DESSERT_FOLLOWUP") ruleMatch += 1
+  if (cartProfile.hasMain && !cartProfile.hasSide && upsellTag === "SIDE_PAIRING") ruleMatch += 1
+  if (cartProfile.hasMain && upsellTag === "COMBO_UPGRADE") ruleMatch += 0.6
+  if (isBeverageItem(it) && (cartProfile.hasMain || cartProfile.hasSnack) && !cartProfile.hasBeverage) ruleMatch += 1
+  if (isDessertItem(it) && cartProfile.hasMain && !cartProfile.hasDessert) ruleMatch += 0.8
+  if (isSideLike(it) && cartProfile.hasMain) ruleMatch += 0.5
+  if (cartCategoryIds.size > 0 && !cartCategoryIds.has(it.categoryId)) ruleMatch += 0.3
+
+  // Missing category detection: MAIN present + no BEVERAGE => strongly boost drink pairing
+  if (cartProfile.hasMain && !cartProfile.hasBeverage && isBeverageItem(it)) ruleMatch += 0.7
+
+  // 2) Keyword confidence
+  let keywordMatch = 0
+  if (upsellTag === "DRINK_PAIRING" || upsellTag === "DESSERT_FOLLOWUP" || upsellTag === "SIDE_PAIRING") {
+    keywordMatch += 0.6
+  }
+  if (isPairingCategoryHint(it)) keywordMatch += 0.6
+  if (isBeverageItem(it)) keywordMatch += 0.4
+  if (isDessertItem(it)) keywordMatch += 0.3
+  if (isSideLike(it)) keywordMatch += 0.2
+  if (/combo|meal|thali|platter|set/.test(text)) keywordMatch += 0.4
+
+  // 3) Cuisine match (Indian menus name-heavy)
+  const itemCuisine = detectCuisineFromText(text)
+  let cuisineMatch = 0
+  if (cuisineSignal !== "unknown" && itemCuisine === cuisineSignal) cuisineMatch = 1
+  else if (itemCuisine === "unknown") cuisineMatch = 0.2
+
+  // 4) Popularity score (if backend supplies; fallback neutral)
+  const popularityRaw =
+    Number(it.popularityScore) || Number(it.popularity_score) || Number(it.orderCount) || Number(it.order_count) || 0
+  const popularityScore = Math.max(0, Math.min(1, popularityRaw > 0 ? popularityRaw / 100 : 0))
+
+  // 5) Margin boost (if provided; else 0)
+  const marginRaw = Number(it.marginBoost) || Number(it.margin_boost) || 0
+  const marginBoost = Math.max(0, Math.min(1, marginRaw))
+
+  // 6) Upsell priority (manual override from backend; else 0)
+  const upsellPriorityRaw = Number(it.upsellPriority) || Number(it.upsell_priority) || 0
+  const upsellPriority = Math.max(0, Math.min(1, upsellPriorityRaw / 10))
+
+  // Price sanity small bonus for impulse adds
+  const impulse = price > 0 && price <= 250 ? 0.15 : 0
+
+  const score =
+    ruleMatch * 50 +
+    keywordMatch * 40 +
+    cuisineMatch * 20 +
+    popularityScore * 10 +
+    marginBoost * 10 +
+    upsellPriority * 5 +
+    impulse * 10
+
+  return { score, ruleMatch, keywordMatch, cuisineMatch }
 }
 
 /**
@@ -83,42 +324,108 @@ function isPairingCategoryHint(it) {
 function buildCartSuggestionGroups(cart, menuData) {
   const flat = flattenMenuItems(menuData)
   const inCart = new Set(cart.lines.map((l) => String(l.menuItemId)))
+  const byId = new Map(flat.map((it) => [String(it.id), it]))
   const cartCategoryIds = new Set()
+  const cartItems = []
   for (const line of cart.lines) {
-    const found = flat.find((x) => String(x.id) === String(line.menuItemId))
-    if (found) cartCategoryIds.add(found.categoryId)
+    const found = byId.get(String(line.menuItemId))
+    if (!found) continue
+    cartCategoryIds.add(found.categoryId)
+    cartItems.push(found)
   }
-  const pool = flat.filter((it) => it.isAvailable && !inCart.has(String(it.id)))
+  const cartProfile = buildCartProfile(cartItems)
+  const hasNonVegInCart = cartItems.some((it) => isNonVegFoodType(it.foodType))
+  const hasVegInCart = cartItems.some((it) => !isNonVegFoodType(it.foodType))
+  const preferVegOnlySuggestions = hasVegInCart && !hasNonVegInCart
+  const cuisineSignal = detectCuisineFromText(
+    cartItems.map((it) => itemSearchText(it)).join(" ") ||
+      `${menuData?.restaurant?.name || ""} ${menuData?.restaurant?.slug || ""}`
+  )
+  const pool = flat.filter((it) => {
+    if (!it.isAvailable || inCart.has(String(it.id))) return false
+    // If cart is currently veg-only, keep recommendations veg-only as well.
+    if (preferVegOnlySuggestions && isNonVegFoodType(it.foodType)) return false
+    return true
+  })
   const used = new Set()
 
   const combos = []
-  for (const it of pool) {
-    if (combos.length >= 8) break
-    if (!isComboLikeItem(it)) continue
-    combos.push(it)
-    used.add(String(it.id))
+  const comboCandidates = pool
+    .filter((it) => isComboLikeItem(it))
+    .map((it) => ({ it, ...scoreParts(it, cartProfile, cartCategoryIds, cuisineSignal) }))
+    .sort((a, b) => b.score - a.score || Number(a.it.price) - Number(b.it.price))
+  for (const cand of comboCandidates) {
+    if (combos.length >= 4) break
+    combos.push(cand.it)
+    used.add(String(cand.it.id))
   }
 
   const pairs = []
-  for (const it of pool) {
-    if (pairs.length >= 8) break
-    if (used.has(String(it.id))) continue
-    const cross =
-      cartCategoryIds.size > 0 ? !cartCategoryIds.has(it.categoryId) : false
-    const hint = isPairingCategoryHint(it)
-    if (cross || hint) {
-      pairs.push(it)
-      used.add(String(it.id))
-    }
+  const preferBeverageFirst = !cartProfile.hasBeverage
+  const pairCandidates = pool
+    .filter((it) => !used.has(String(it.id)))
+    .filter((it) => {
+      const tag = upsellCategoryOf(it)
+      return (
+        tag === "DRINK_PAIRING" ||
+        tag === "DESSERT_FOLLOWUP" ||
+        tag === "SIDE_PAIRING" ||
+        isBeverageItem(it) ||
+        isSideLike(it) ||
+        isDessertItem(it)
+      )
+    })
+    .map((it) => ({ it, ...scoreParts(it, cartProfile, cartCategoryIds, cuisineSignal) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => {
+      if (preferBeverageFirst) {
+        const aIsBeverage = isBeverageItem(a.it)
+        const bIsBeverage = isBeverageItem(b.it)
+        if (aIsBeverage !== bIsBeverage) return aIsBeverage ? -1 : 1
+      }
+      return b.score - a.score || Number(a.it.price) - Number(b.it.price)
+    })
+
+  const priorityBuckets = []
+  if (!cartProfile.hasBeverage)
+    priorityBuckets.push((it) => upsellCategoryOf(it) === "DRINK_PAIRING" || isBeverageItem(it))
+  if (!cartProfile.hasDessert)
+    priorityBuckets.push((it) => upsellCategoryOf(it) === "DESSERT_FOLLOWUP" || isDessertItem(it))
+  if (cartProfile.hasMain && !cartProfile.hasSide)
+    priorityBuckets.push((it) => upsellCategoryOf(it) === "SIDE_PAIRING" || isSideLike(it))
+
+  for (const pickFromBucket of priorityBuckets) {
+    if (pairs.length >= 5) break
+    const top = pairCandidates.find((x) => !used.has(String(x.it.id)) && pickFromBucket(x.it))
+    if (!top) continue
+    pairs.push(top.it)
+    used.add(String(top.it.id))
+  }
+
+  const pairCandidatesOrdered = pairCandidates.filter((x) => !used.has(String(x.it.id)))
+  for (const cand of pairCandidatesOrdered) {
+    if (pairs.length >= 5) break
+    pairs.push(cand.it)
+    used.add(String(cand.it.id))
   }
 
   const upsells = []
   const rest = pool.filter((it) => !used.has(String(it.id)))
-  rest.sort((a, b) => Number(a.price) - Number(b.price))
-  for (const it of rest) {
-    if (upsells.length >= 8) break
-    upsells.push(it)
-    used.add(String(it.id))
+  const restRanked = rest
+    .map((it) => ({ it, ...scoreParts(it, cartProfile, cartCategoryIds, cuisineSignal) }))
+    .sort((a, b) => {
+      const aCombo = isComboLikeItem(a.it) || isGreatCombinationItem(a.it)
+      const bCombo = isComboLikeItem(b.it) || isGreatCombinationItem(b.it)
+      if (aCombo !== bCombo) return aCombo ? -1 : 1
+      const aBest = isBestSellerItem(a.it)
+      const bBest = isBestSellerItem(b.it)
+      if (aBest !== bBest) return aBest ? -1 : 1
+      return b.score - a.score || Number(a.it.price) - Number(b.it.price)
+    })
+  for (const cand of restRanked) {
+    if (upsells.length >= 4) break
+    upsells.push(cand.it)
+    used.add(String(cand.it.id))
   }
 
   return { combos, pairs, upsells }
@@ -190,18 +497,18 @@ function renderSuggestionSections(cart) {
   }
   const { combos, pairs, upsells } = buildCartSuggestionGroups(cart, lastMenuData)
   const blocks = []
-  if (combos.length) {
-    blocks.push(`<section class="cart-suggest-block" aria-label="Combos and bundles">
-      <h3 class="cart-suggest-block__label">Combos &amp; bundles</h3>
-      <p class="cart-suggest-block__hint">Meals and sets that go together</p>
-      <div class="cart-suggest-strip">${combos.map(renderSuggestionCard).join("")}</div>
-    </section>`)
-  }
   if (pairs.length) {
     blocks.push(`<section class="cart-suggest-block" aria-label="You might like">
       <h3 class="cart-suggest-block__label">You might like</h3>
       <p class="cart-suggest-block__hint">Drinks, sides &amp; more picked for your order</p>
       <div class="cart-suggest-strip">${pairs.map(renderSuggestionCard).join("")}</div>
+    </section>`)
+  }
+  if (combos.length) {
+    blocks.push(`<section class="cart-suggest-block" aria-label="Combos and bundles">
+      <h3 class="cart-suggest-block__label">Combos &amp; bundles</h3>
+      <p class="cart-suggest-block__hint">Meals and sets that go together</p>
+      <div class="cart-suggest-strip">${combos.map(renderSuggestionCard).join("")}</div>
     </section>`)
   }
   if (upsells.length) {
@@ -211,6 +518,8 @@ function renderSuggestionSections(cart) {
       <div class="cart-suggest-strip">${upsells.map(renderSuggestionCard).join("")}</div>
     </section>`)
   }
+  // Keep experience focused: only 2-3 sections, prioritize pairing relevance.
+  if (blocks.length > 3) blocks.length = 3
   if (!blocks.length) {
     mount.innerHTML = ""
     mount.hidden = true

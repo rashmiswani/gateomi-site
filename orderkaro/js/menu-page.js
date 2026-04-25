@@ -17,6 +17,7 @@ function $(sel, root = document) {
 let menuData = null
 let menuHeaderResizeObserver = null
 let menuSearchText = ""
+let menuVegOnly = false
 let activeCategoryId = ""
 const OPENING_SPLASH_DURATION_MS = 1000
 const OPENING_SPLASH_FADE_MS = 420
@@ -186,92 +187,22 @@ function refreshFromCart() {
   updateSticky(c)
 }
 
-function renderMenu(data, cart) {
-  const { restaurant, tableNumber, categories } = data
-  const nameEl = $(".restaurant-name")
-  if (nameEl) nameEl.textContent = restaurant.name
-  const badge = $(".table-badge")
-  if (badge) badge.textContent = `Table ${tableNumber}`
-  setLogo(restaurant.logoUrl || null)
+function isNonVegFoodType(foodType) {
+  const value = String(foodType || "").toLowerCase()
+  return value.includes("non") || value.includes("egg")
+}
 
-  const tabs = $("#category-tabs")
-  const sections = $("#menu-sections")
-  if (!tabs || !sections) return
-
-  sections.classList.remove("menu-feed--enter")
-
-  tabs.innerHTML = ""
-  sections.innerHTML = ""
-  const q = menuSearchText.trim().toLowerCase()
-  const filteredCategories = categories
-    .map((cat) => {
-      const items = (cat.items || []).filter((it) => {
-        if (!q) return true
-        const hay = `${it.name || ""} ${it.description || ""}`.toLowerCase()
-        return hay.includes(q)
-      })
-      return { ...cat, items }
-    })
-    .filter((cat) => cat.items.length > 0)
-  tabs.hidden = filteredCategories.length === 0
-
-  if (categories.length === 0) {
-    const p = document.createElement("p")
-    p.className = "cart-empty"
-    p.style.padding = "24px 20px"
-    p.textContent = "No menu published yet for this table."
-    sections.appendChild(p)
-    requestAnimationFrame(() => syncMenuHeaderHeight())
-    return
-  }
-
-  if (filteredCategories.length === 0) {
-    const p = document.createElement("p")
-    p.className = "cart-empty"
-    p.style.padding = "24px 20px"
-    p.textContent = "No matching dishes found."
-    sections.appendChild(p)
-    requestAnimationFrame(() => syncMenuHeaderHeight())
-    return
-  }
-
-  if (!activeCategoryId || !filteredCategories.some((cat) => String(cat.id) === String(activeCategoryId))) {
-    activeCategoryId = String(filteredCategories[0].id)
-  }
-  const activeCategory =
-    filteredCategories.find((cat) => String(cat.id) === String(activeCategoryId)) || filteredCategories[0]
-
-  filteredCategories.forEach((cat) => {
-    const tab = document.createElement("button")
-    tab.type = "button"
-    tab.className = `category-tab category-rail__item${
-      String(activeCategory.id) === String(cat.id) ? " category-tab--active" : ""
-    }`
-    const thumb = categoryRailThumbUrl(cat)
-    tab.innerHTML = `<span class="category-rail__thumb">${
-      thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : ""
-    }</span><span class="category-rail__name">${escapeHtml(cat.name)}</span>`
-    tab.addEventListener("click", () => {
-      activeCategoryId = String(cat.id)
-      renderMenu(data, cart)
-    })
-    tabs.appendChild(tab)
-  })
-
+function renderCategorySection(sectionRoot, cat, cart) {
   const heading = document.createElement("div")
   heading.className = "menu-feed-head"
-  const categoryDesc = String(activeCategory.description || "").trim()
-  heading.innerHTML = `<h2>${escapeHtml(activeCategory.name)}</h2><p>${
-    categoryDesc
-      ? escapeHtml(categoryDesc)
-      : ""
-  }</p>`
-  sections.appendChild(heading)
+  const categoryDesc = String(cat.description || "").trim()
+  heading.innerHTML = `<h2>${escapeHtml(cat.name)}</h2><p>${categoryDesc ? escapeHtml(categoryDesc) : ""}</p>`
+  sectionRoot.appendChild(heading)
 
   const list = document.createElement("div")
   list.className = "menu-list menu-list--editorial"
 
-  for (const it of activeCategory.items || []) {
+  for (const it of cat.items || []) {
     const card = document.createElement("article")
     card.className = "menu-card menu-card--editorial"
     if (!it.isAvailable) card.classList.add("menu-card--unavailable")
@@ -287,8 +218,7 @@ function renderMenu(data, cart) {
       img.addEventListener("click", () => openImageLightbox(it.photoUrl))
       imgWrap.appendChild(img)
     }
-    const foodType = String(it.foodType || "").toLowerCase()
-    const isNonVeg = foodType.includes("non") || foodType.includes("egg")
+    const isNonVeg = isNonVegFoodType(it.foodType)
     const dietLabel = isNonVeg ? "Non-Veg" : "Veg"
     const dietDotClass = isNonVeg ? "is-nonveg" : "is-veg"
     const qty = getQuantityForMenuItem(cart, it.id)
@@ -393,7 +323,83 @@ function renderMenu(data, cart) {
     card.appendChild(body)
     list.appendChild(card)
   }
-  sections.appendChild(list)
+  sectionRoot.appendChild(list)
+}
+
+function renderMenu(data, cart) {
+  const { restaurant, tableNumber, categories } = data
+  const nameEl = $(".restaurant-name")
+  if (nameEl) nameEl.textContent = restaurant.name
+  const badge = $(".table-badge")
+  if (badge) badge.textContent = `Table ${tableNumber}`
+  setLogo(restaurant.logoUrl || null)
+
+  const tabs = $("#category-tabs")
+  const sections = $("#menu-sections")
+  if (!tabs || !sections) return
+
+  sections.classList.remove("menu-feed--enter")
+
+  tabs.innerHTML = ""
+  sections.innerHTML = ""
+  const q = menuSearchText.trim().toLowerCase()
+  const filteredCategories = categories
+    .map((cat) => {
+      const items = (cat.items || []).filter((it) => {
+        if (menuVegOnly && isNonVegFoodType(it.foodType)) return false
+        if (!q) return true
+        const hay = `${it.name || ""} ${it.description || ""}`.toLowerCase()
+        return hay.includes(q)
+      })
+      return { ...cat, items }
+    })
+    .filter((cat) => cat.items.length > 0)
+  tabs.hidden = filteredCategories.length === 0
+
+  if (categories.length === 0) {
+    const p = document.createElement("p")
+    p.className = "cart-empty"
+    p.style.padding = "24px 20px"
+    p.textContent = "No menu published yet for this table."
+    sections.appendChild(p)
+    requestAnimationFrame(() => syncMenuHeaderHeight())
+    return
+  }
+
+  if (filteredCategories.length === 0) {
+    const p = document.createElement("p")
+    p.className = "cart-empty"
+    p.style.padding = "24px 20px"
+    p.textContent = menuVegOnly ? "No matching veg dishes found." : "No matching dishes found."
+    sections.appendChild(p)
+    requestAnimationFrame(() => syncMenuHeaderHeight())
+    return
+  }
+
+  if (!activeCategoryId || !filteredCategories.some((cat) => String(cat.id) === String(activeCategoryId))) {
+    activeCategoryId = String(filteredCategories[0].id)
+  }
+  const activeCategory =
+    filteredCategories.find((cat) => String(cat.id) === String(activeCategoryId)) || filteredCategories[0]
+
+  filteredCategories.forEach((cat) => {
+    const tab = document.createElement("button")
+    tab.type = "button"
+    tab.className = `category-tab category-rail__item${
+      String(activeCategory.id) === String(cat.id) ? " category-tab--active" : ""
+    }`
+    const thumb = categoryRailThumbUrl(cat)
+    tab.innerHTML = `<span class="category-rail__thumb">${
+      thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : ""
+    }</span><span class="category-rail__name">${escapeHtml(cat.name)}</span>`
+    tab.addEventListener("click", () => {
+      activeCategoryId = String(cat.id)
+      renderMenu(data, cart)
+    })
+    tabs.appendChild(tab)
+  })
+
+  renderCategorySection(sections, activeCategory, cart)
   requestAnimationFrame(() => {
     sections.classList.add("menu-feed--enter")
   })
@@ -451,6 +457,18 @@ async function main() {
     searchInput.value = menuSearchText
     searchInput.addEventListener("input", () => {
       menuSearchText = String(searchInput.value || "")
+      const latestCart = ensureCart(slug, tableNumber, data.restaurant.name)
+      latestCart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
+      latestCart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
+      renderMenu(data, latestCart)
+      updateSticky(latestCart)
+    })
+  }
+  const vegToggle = $("#menu-veg-only-toggle")
+  if (vegToggle) {
+    vegToggle.checked = menuVegOnly
+    vegToggle.addEventListener("change", () => {
+      menuVegOnly = Boolean(vegToggle.checked)
       const latestCart = ensureCart(slug, tableNumber, data.restaurant.name)
       latestCart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
       latestCart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
