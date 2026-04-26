@@ -112,6 +112,23 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
 }
 
+function sanitizeUpiPayUrl(rawUrl) {
+  const input = String(rawUrl || "").trim()
+  if (!/^upi:\/\//i.test(input)) return input
+  try {
+    const url = new URL(input)
+    const rawTr = String(url.searchParams.get("tr") || "")
+    const safeTr = rawTr
+      .replace(/[^a-zA-Z0-9.-]/g, "")
+      .slice(0, 35)
+    if (safeTr) url.searchParams.set("tr", safeTr)
+    else url.searchParams.delete("tr")
+    return url.toString()
+  } catch {
+    return input
+  }
+}
+
 function orderTotal(data) {
   if (!data.items?.length) return 0
   return data.items.reduce((sum, l) => sum + Number(l.quantity || 0) * Number(l.unitPrice || 0), 0)
@@ -386,7 +403,7 @@ function wireAskBill() {
   if (!btn) return
   btn.addEventListener("click", async () => {
     if (!currentOrderId) return
-    const payUrl = String(btn.getAttribute("data-pay-url") || "")
+    const payUrl = sanitizeUpiPayUrl(String(btn.getAttribute("data-pay-url") || ""))
     if (payUrl) {
       const isUpiIntent = /^upi:\/\//i.test(payUrl)
       if (isUpiIntent) {
