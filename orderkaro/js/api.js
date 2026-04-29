@@ -12,9 +12,12 @@ async function parseJson(res) {
 }
 
 /** GET /api/public/... — returns `data` or throws with message. */
-export async function fetchMenu(slug, tableNumber) {
+export async function fetchMenu(slug, tableNumber, serviceType = "DINE_IN") {
   const base = getApiBase()
-  const url = `${base}/api/public/restaurants/${encodeURIComponent(slug)}/menu?tableNumber=${encodeURIComponent(String(tableNumber))}`
+  const sp = new URLSearchParams()
+  if (serviceType === "DELIVERY") sp.set("serviceType", "DELIVERY")
+  else sp.set("tableNumber", String(tableNumber))
+  const url = `${base}/api/public/restaurants/${encodeURIComponent(slug)}/menu?${sp.toString()}`
   const res = await fetch(url, { headers: { Accept: "application/json" } })
   const { body, ok } = await parseJson(res)
   if (!ok) {
@@ -76,6 +79,20 @@ export async function submitOrderFeedback(orderId, payload) {
   const { body, ok } = await parseJson(res)
   if (!ok) {
     const msg = body && body.error ? body.error : `Could not submit feedback (${res.status})`
+    throw new Error(msg)
+  }
+  return body.data
+}
+
+export async function requestOrderCancel(orderId) {
+  const base = getApiBase()
+  const res = await fetch(`${base}/api/public/orders/${encodeURIComponent(orderId)}/cancel-request`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  })
+  const { body, ok } = await parseJson(res)
+  if (!ok) {
+    const msg = body && body.error ? body.error : `Could not request cancellation (${res.status})`
     throw new Error(msg)
   }
   return body.data

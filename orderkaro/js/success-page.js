@@ -1,6 +1,11 @@
 import { withTableQuery, resolveTableContext } from "./nav.js"
 import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
-import { LAST_ORDER_ID_KEY, rememberSuccessPath } from "./config.js"
+import {
+  applyRememberedThemeColor,
+  LAST_ORDER_ID_KEY,
+  rememberSuccessPath,
+  rememberThemeColor,
+} from "./config.js"
 import { appendDayOrderId } from "./order-day-history.js"
 import { fetchOrder } from "./api.js"
 import { itemDietPillHtml } from "./diet.js"
@@ -124,6 +129,7 @@ function mountEstimateCountdown(container, estimatedReadyAt, status) {
 }
 
 async function main() {
+  applyRememberedThemeColor()
   rememberSuccessPath()
 
   const fromUrl = getOrderIdFromUrl()
@@ -180,6 +186,7 @@ async function main() {
   if (!id || !list) return
   try {
     const order = await fetchOrder(id)
+    rememberThemeColor(order?.restaurantThemeColor)
     await maybeShowBreadReorderBrowserNotice(order)
     mountEstimateCountdown(document.querySelector(".success-status-ref"), order?.estimatedReadyAt, order?.status)
     const items = Array.isArray(order?.items) ? order.items : []

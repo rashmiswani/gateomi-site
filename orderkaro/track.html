@@ -44,6 +44,10 @@
   </main>
 
   <div class="track-bill-cta-wrap">
+    <button type="button" class="track-bill-cta track-bill-cta--secondary" id="cancel-order-btn" disabled>
+      <span class="material-symbols-outlined" aria-hidden="true">cancel</span>
+      <span>Request Cancel</span>
+    </button>
     <button type="button" class="track-bill-cta" id="ask-bill-btn" disabled>
       <span class="material-symbols-outlined" aria-hidden="true">payments</span>
       <span>Request Bill</span>
@@ -60,6 +64,18 @@
       <span>My Orders</span>
     </a>
   </nav>
+
+  <div id="track-confirm-modal" class="track-confirm-modal" hidden aria-hidden="true">
+    <button type="button" class="track-confirm-modal__backdrop" data-confirm-close aria-label="Close"></button>
+    <div class="track-confirm-modal__panel" role="dialog" aria-modal="true" aria-labelledby="track-confirm-title">
+      <h3 id="track-confirm-title" class="track-confirm-modal__title">Confirm action</h3>
+      <p id="track-confirm-message" class="track-confirm-modal__message"></p>
+      <div class="track-confirm-modal__actions">
+        <button type="button" id="track-confirm-cancel" class="track-confirm-modal__btn track-confirm-modal__btn--ghost">Cancel</button>
+        <button type="button" id="track-confirm-yes" class="track-confirm-modal__btn track-confirm-modal__btn--primary">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="js/track-page.js"></script>
 </body>

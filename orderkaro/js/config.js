@@ -20,6 +20,7 @@ export function getApiBase() {
 
 export const DEFAULT_SLUG = "demo-bistro"
 export const DEFAULT_TABLE = 1
+export const DEFAULT_SERVICE_TYPE = "DINE_IN"
 
 export const MENU_PATH_KEY = "orderkaro_menu_path_v1"
 export const CART_PATH_KEY = "orderkaro_cart_path_v1"
@@ -27,6 +28,100 @@ export const SUCCESS_PATH_KEY = "orderkaro_success_path_v1"
 export const TRACK_PATH_KEY = "orderkaro_track_path_v1"
 /** Set when an order is placed; used if the success URL drops ?orderId= (pretty URLs / redirects). */
 export const LAST_ORDER_ID_KEY = "orderkaro_last_order_id_v1"
+export const THEME_COLOR_KEY = "orderkaro_theme_color_v1"
+
+function normalizeThemeColor(input) {
+  const v = String(input || "").trim()
+  return /^#([0-9a-fA-F]{6})$/.test(v) ? v.toUpperCase() : ""
+}
+
+function hexToRgb(hex) {
+  const safe = normalizeThemeColor(hex)
+  if (!safe) return null
+  const h = safe.slice(1)
+  return {
+    r: Number.parseInt(h.slice(0, 2), 16),
+    g: Number.parseInt(h.slice(2, 4), 16),
+    b: Number.parseInt(h.slice(4, 6), 16),
+  }
+}
+
+function clampByte(n) {
+  return Math.max(0, Math.min(255, Math.round(n)))
+}
+
+function darkenHex(hex, ratio) {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return ""
+  const k = 1 - Math.max(0, Math.min(1, Number(ratio || 0)))
+  const toHex = (n) => clampByte(n).toString(16).padStart(2, "0").toUpperCase()
+  return `#${toHex(rgb.r * k)}${toHex(rgb.g * k)}${toHex(rgb.b * k)}`
+}
+
+function alphaColor(hex, alpha) {
+  const rgb = hexToRgb(hex)
+  const a = Math.max(0, Math.min(1, Number(alpha || 0)))
+  if (!rgb) return ""
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${a})`
+}
+
+function clearThemeVars() {
+  if (typeof document === "undefined") return
+  const root = document.documentElement
+  root.style.removeProperty("--primary")
+  root.style.removeProperty("--primary-pressed")
+  root.style.removeProperty("--primary-soft")
+  root.style.removeProperty("--track-primary")
+  root.style.removeProperty("--track-primary-mid")
+  root.style.removeProperty("--track-primary-soft")
+}
+
+function setThemeVars(color) {
+  if (typeof document === "undefined") return
+  const root = document.documentElement
+  root.style.setProperty("--primary", color)
+  root.style.setProperty("--primary-pressed", darkenHex(color, 0.16) || color)
+  root.style.setProperty("--primary-soft", alphaColor(color, 0.12) || "rgba(0,0,0,0.08)")
+  root.style.setProperty("--track-primary", darkenHex(color, 0.42) || color)
+  root.style.setProperty("--track-primary-mid", darkenHex(color, 0.26) || color)
+  root.style.setProperty("--track-primary-soft", darkenHex(color, 0.26) || color)
+}
+
+export function rememberThemeColor(color) {
+  const safe = normalizeThemeColor(color)
+  if (!safe) {
+    try {
+      sessionStorage.removeItem(THEME_COLOR_KEY)
+    } catch {
+      /* ignore */
+    }
+    clearThemeVars()
+    return ""
+  }
+  try {
+    sessionStorage.setItem(THEME_COLOR_KEY, safe)
+  } catch {
+    /* ignore */
+  }
+  setThemeVars(safe)
+  return safe
+}
+
+export function applyRememberedThemeColor() {
+  try {
+    const saved = sessionStorage.getItem(THEME_COLOR_KEY) || ""
+    const safe = normalizeThemeColor(saved)
+    if (!safe) {
+      clearThemeVars()
+      return ""
+    }
+    setThemeVars(safe)
+    return safe
+  } catch {
+    clearThemeVars()
+    return ""
+  }
+}
 
 export function rememberMenuPath() {
   try {
@@ -65,13 +160,17 @@ export function getTableContext() {
   try {
     const u = new URL(window.location.href)
     const slug = u.searchParams.get("slug") || DEFAULT_SLUG
+    const serviceRaw = String(u.searchParams.get("service") || "").toUpperCase()
+    const serviceType = serviceRaw === "DELIVERY" ? "DELIVERY" : DEFAULT_SERVICE_TYPE
     const t = u.searchParams.get("table")
     const tableNumber = t ? Number.parseInt(t, 10) : DEFAULT_TABLE
+    const normalizedTable = Number.isFinite(tableNumber) && tableNumber > 0 ? tableNumber : DEFAULT_TABLE
     return {
       slug,
-      tableNumber: Number.isFinite(tableNumber) && tableNumber > 0 ? tableNumber : DEFAULT_TABLE,
+      serviceType,
+      tableNumber: serviceType === "DELIVERY" ? null : normalizedTable,
     }
   } catch {
-    return { slug: DEFAULT_SLUG, tableNumber: DEFAULT_TABLE }
+    return { slug: DEFAULT_SLUG, serviceType: DEFAULT_SERVICE_TYPE, tableNumber: DEFAULT_TABLE }
   }
 }

@@ -4,6 +4,8 @@ function emptyCart(slug, tableNumber, restaurantName) {
   return {
     restaurantSlug: slug,
     tableNumber,
+    serviceType: "DINE_IN",
+    deliveryAddress: "",
     restaurantName: restaurantName || "",
     isGstEnabled: false,
     isGstInclusive: false,
@@ -35,16 +37,19 @@ export function clearCart() {
 }
 
 /** Ensure cart matches slug/table; reset if restaurant context changed. */
-export function ensureCart(slug, tableNumber, restaurantName) {
+export function ensureCart(slug, tableNumber, restaurantName, serviceType = "DINE_IN") {
   const slugNorm = String(slug || "").trim()
-  const tableNorm = Number(tableNumber)
+  const serviceNorm = String(serviceType || "").toUpperCase() === "DELIVERY" ? "DELIVERY" : "DINE_IN"
+  const tableNorm = serviceNorm === "DELIVERY" ? null : Number(tableNumber)
   let c = loadCart()
   if (
     !c ||
     String(c.restaurantSlug || "").trim() !== slugNorm ||
-    Number(c.tableNumber) !== tableNorm
+    Number(c.tableNumber) !== Number(tableNorm) ||
+    String(c.serviceType || "DINE_IN").toUpperCase() !== serviceNorm
   ) {
     c = emptyCart(slugNorm, tableNorm, restaurantName)
+    c.serviceType = serviceNorm
     saveCart(c)
     return c
   }
@@ -70,6 +75,14 @@ export function ensureCart(slug, tableNumber, restaurantName) {
   }
   if (typeof c.customerMobile !== "string") {
     c.customerMobile = ""
+    saveCart(c)
+  }
+  if (typeof c.serviceType !== "string") {
+    c.serviceType = serviceNorm
+    saveCart(c)
+  }
+  if (typeof c.deliveryAddress !== "string") {
+    c.deliveryAddress = ""
     saveCart(c)
   }
   return c
@@ -153,6 +166,12 @@ export function setCustomerMobile(cart, mobile) {
   return cart
 }
 
+export function setDeliveryAddress(cart, address) {
+  cart.deliveryAddress = address == null ? "" : String(address).trim().slice(0, 500)
+  saveCart(cart)
+  return cart
+}
+
 export function cartTotals(cart) {
   let count = 0
   let total = 0
@@ -164,9 +183,15 @@ export function cartTotals(cart) {
 }
 
 export function toOrderPayload(cart) {
+  const orderType = String(cart.serviceType || "").toUpperCase() === "DELIVERY" ? "DELIVERY" : "DINE_IN"
   return {
     restaurantSlug: cart.restaurantSlug,
-    tableNumber: cart.tableNumber,
+    orderType,
+    tableNumber: orderType === "DINE_IN" ? cart.tableNumber : null,
+    deliveryAddress:
+      orderType === "DELIVERY" && cart.deliveryAddress && String(cart.deliveryAddress).trim()
+        ? String(cart.deliveryAddress).trim().slice(0, 500)
+        : null,
     items: cart.lines.map((l) => ({
       menuItemId: l.menuItemId,
       quantity: l.quantity,

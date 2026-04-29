@@ -43,7 +43,7 @@
         autocomplete="off"
       />
       <label class="menu-filter-toggle" for="menu-veg-only-toggle">
-        <span class="menu-filter-toggle__label">Veg only</span>
+        <span class="menu-filter-toggle__label">Pure Veg</span>
         <span class="menu-filter-toggle__switch">
           <input id="menu-veg-only-toggle" type="checkbox" />
           <span class="menu-filter-toggle__slider" aria-hidden="true"></span>
@@ -99,6 +99,19 @@
     <div class="menu-opening-splash__content" aria-hidden="true">
       <h1 class="menu-opening-splash__title">Qrave</h1>
       <p class="menu-opening-splash__tagline">Elevated Dining, Simplified.</p>
+    </div>
+  </div>
+
+  <div id="menu-category-gallery" class="menu-category-gallery" hidden aria-hidden="true">
+    <button type="button" class="menu-category-gallery__backdrop" data-category-gallery-close aria-label="Close categories"></button>
+    <div class="menu-category-gallery__panel" role="dialog" aria-modal="true" aria-labelledby="menu-category-gallery-title">
+      <div class="menu-category-gallery__head">
+        <h3 id="menu-category-gallery-title">Browse Categories</h3>
+        <button type="button" class="menu-category-gallery__close" data-category-gallery-close aria-label="Close categories">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div id="menu-category-gallery-grid" class="menu-category-gallery__grid"></div>
     </div>
   </div>
 

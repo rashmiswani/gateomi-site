@@ -1,7 +1,13 @@
-import { getTableContext, LAST_ORDER_ID_KEY, rememberTrackPath } from "./config.js"
+import {
+  applyRememberedThemeColor,
+  getTableContext,
+  LAST_ORDER_ID_KEY,
+  rememberThemeColor,
+  rememberTrackPath,
+} from "./config.js"
 import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
 import { withTableQuery } from "./nav.js"
-import { fetchOrder, requestBill, submitOrderFeedback } from "./api.js"
+import { fetchOrder, requestBill, requestOrderCancel, submitOrderFeedback } from "./api.js"
 import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
 import { itemDietPillHtml } from "./diet.js"
 
@@ -44,6 +50,8 @@ const FEEDBACK_RATING_LABELS = {
   4: "Good",
   5: "Excellent",
 }
+
+let confirmResolve = null
 
 function statusPillText(status) {
   return LABELS[status] || status
@@ -110,6 +118,57 @@ function escapeHtml(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
+}
+
+function closeCustomConfirm(result) {
+  const modal = document.getElementById("track-confirm-modal")
+  if (modal) {
+    modal.hidden = true
+    modal.setAttribute("aria-hidden", "true")
+  }
+  const resolver = confirmResolve
+  confirmResolve = null
+  if (typeof resolver === "function") resolver(Boolean(result))
+}
+
+function askCustomConfirm({
+  title,
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+}) {
+  const modal = document.getElementById("track-confirm-modal")
+  const titleEl = document.getElementById("track-confirm-title")
+  const messageEl = document.getElementById("track-confirm-message")
+  const yesBtn = document.getElementById("track-confirm-yes")
+  const cancelBtn = document.getElementById("track-confirm-cancel")
+  if (!modal || !titleEl || !messageEl || !yesBtn || !cancelBtn) {
+    return Promise.resolve(window.confirm(message || title || "Are you sure?"))
+  }
+  titleEl.textContent = String(title || "Confirm action")
+  messageEl.textContent = String(message || "")
+  yesBtn.textContent = String(confirmText || "Confirm")
+  cancelBtn.textContent = String(cancelText || "Cancel")
+  modal.hidden = false
+  modal.setAttribute("aria-hidden", "false")
+  return new Promise((resolve) => {
+    confirmResolve = resolve
+  })
+}
+
+function wireCustomConfirm() {
+  const modal = document.getElementById("track-confirm-modal")
+  const yesBtn = document.getElementById("track-confirm-yes")
+  const cancelBtn = document.getElementById("track-confirm-cancel")
+  if (!modal || !yesBtn || !cancelBtn) return
+  modal.querySelectorAll("[data-confirm-close]").forEach((el) => {
+    el.addEventListener("click", () => closeCustomConfirm(false))
+  })
+  yesBtn.addEventListener("click", () => closeCustomConfirm(true))
+  cancelBtn.addEventListener("click", () => closeCustomConfirm(false))
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !modal.hidden) closeCustomConfirm(false)
+  })
 }
 
 function sanitizeUpiPayUrl(rawUrl) {
@@ -327,6 +386,7 @@ async function renderOrderCards(slug, tableNumber, currentOrderId) {
     ids.map(async (id) => {
       try {
         const data = await fetchOrder(id)
+        rememberThemeColor(data?.restaurantThemeColor)
         return { id, data }
       } catch {
         return { id, data: null }
@@ -376,6 +436,36 @@ function applyAskBillState(data) {
     : '<span class="material-symbols-outlined" aria-hidden="true">payments</span><span>Request Bill</span>'
 }
 
+function canCustomerRequestCancel(status) {
+  const s = String(status || "").toUpperCase()
+  return s === "NEW" || s === "ORDER_PLACED" || s === "ACCEPTED"
+}
+
+function applyCancelOrderState(data) {
+  const cancelBtn = document.getElementById("cancel-order-btn")
+  if (!cancelBtn) return
+  if (data == null) {
+    cancelBtn.disabled = true
+    cancelBtn.title = "No order selected."
+    cancelBtn.innerHTML =
+      '<span class="material-symbols-outlined" aria-hidden="true">cancel</span><span>Request Cancel</span>'
+    return
+  }
+  const alreadyRequested = Boolean(data?.cancellationRequestedAt)
+  const canCancel = canCustomerRequestCancel(data.status)
+  cancelBtn.disabled = alreadyRequested || !canCancel
+  cancelBtn.title = alreadyRequested
+    ? "Cancellation already requested."
+    : canCancel
+    ? ""
+    : "Cancellation request is allowed only right after placing the order."
+  cancelBtn.innerHTML = alreadyRequested
+    ? '<span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Cancel Requested</span>'
+    : canCancel
+    ? '<span class="material-symbols-outlined" aria-hidden="true">cancel</span><span>Request Cancel</span>'
+    : '<span class="material-symbols-outlined" aria-hidden="true">cancel</span><span>Cancel Unavailable</span>'
+}
+
 let timer = null
 let latestOrder = null
 let currentOrderId = ""
@@ -384,9 +474,11 @@ let feedbackSubmittingFor = ""
 async function poll(orderId) {
   try {
     const data = await fetchOrder(orderId)
+    rememberThemeColor(data?.restaurantThemeColor)
     await maybeShowBreadReorderBrowserNotice(data)
     latestOrder = data
     applyAskBillState(data)
+    applyCancelOrderState(data)
     updateTrackCard(orderId, data)
     updateEstimateCountdowns()
   } catch (e) {
@@ -398,6 +490,47 @@ async function poll(orderId) {
   }
 }
 
+function wireCancelOrder() {
+  const btn = document.getElementById("cancel-order-btn")
+  if (!btn) return
+  btn.addEventListener("click", async () => {
+    if (!currentOrderId || !latestOrder) return
+    if (!canCustomerRequestCancel(latestOrder.status) || latestOrder.cancellationRequestedAt) return
+    const ok = await askCustomConfirm({
+      title: "Request Cancellation",
+      message: "Send cancellation request for this order now?",
+      confirmText: "Request Cancel",
+      cancelText: "Keep Order",
+    })
+    if (!ok) return
+    btn.disabled = true
+    btn.innerHTML =
+      '<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span><span>Requesting...</span>'
+    try {
+      const data = await requestOrderCancel(currentOrderId)
+      latestOrder = {
+        ...(latestOrder || {}),
+        cancellationRequestedAt: data?.cancellationRequestedAt || new Date().toISOString(),
+      }
+      applyCancelOrderState(latestOrder)
+      applyAskBillState(latestOrder)
+      updateTrackCard(currentOrderId, latestOrder)
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent = "Cancellation requested successfully."
+      }
+    } catch (e) {
+      applyCancelOrderState(latestOrder)
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent = e instanceof Error ? e.message : "Could not request cancellation"
+      }
+    }
+  })
+}
+
 function wireAskBill() {
   const btn = document.getElementById("ask-bill-btn")
   if (!btn) return
@@ -407,9 +540,12 @@ function wireAskBill() {
     if (payUrl) {
       const isUpiIntent = /^upi:\/\//i.test(payUrl)
       if (isUpiIntent) {
-        const shouldOpen = window.confirm(
-          "Open payment app now?\n\nTap Cancel to copy payment link and pay using app of your choice."
-        )
+        const shouldOpen = await askCustomConfirm({
+          title: "Open Payment App",
+          message: "Open payment app now? Tap cancel to copy payment link and pay using app of your choice.",
+          confirmText: "Open App",
+          cancelText: "Copy Link",
+        })
         if (!shouldOpen) {
           try {
             await navigator.clipboard.writeText(payUrl)
@@ -548,10 +684,13 @@ function wireFeedbackSubmit() {
 }
 
 async function main() {
+  applyRememberedThemeColor()
   rememberTrackPath()
   setHeaderContext()
   wireAskBill()
+  wireCancelOrder()
   wireFeedbackSubmit()
+  wireCustomConfirm()
 
   const { slug, tableNumber } = getTableContext()
   const errBanner = document.querySelector("#orderkaro-error")
@@ -623,12 +762,14 @@ async function main() {
         "Missing order link. Open track from your order confirmation, or place an order first."
     }
     applyAskBillState(null)
+    applyCancelOrderState(null)
     return
   }
 
   const tracked = valid.find((r) => r.id === orderId)
   if (tracked) {
     applyAskBillState(tracked.data)
+    applyCancelOrderState(tracked.data)
   }
 
   void poll(orderId)

@@ -1,4 +1,4 @@
-import { rememberMenuPath } from "./config.js"
+import { applyRememberedThemeColor, rememberMenuPath, rememberThemeColor } from "./config.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
 import { fetchMenu } from "./api.js"
 import {
@@ -18,6 +18,7 @@ let menuData = null
 let menuHeaderResizeObserver = null
 let menuSearchText = ""
 let menuVegOnly = false
+let menuVegOnlyLocked = false
 let activeCategoryId = ""
 const OPENING_SPLASH_DURATION_MS = 1000
 const OPENING_SPLASH_FADE_MS = 420
@@ -52,6 +53,75 @@ function bindImageLightbox() {
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && root && !root.hidden) closeImageLightbox()
   })
+}
+
+function openCategoryGallery() {
+  const root = $("#menu-category-gallery")
+  if (!root || !menuData) return
+  const grid = $("#menu-category-gallery-grid")
+  if (!grid) return
+  const categories = Array.isArray(menuData?.categories) ? menuData.categories : []
+  grid.innerHTML = categories
+    .map((cat) => {
+      const thumb = categoryRailThumbUrl(cat)
+      return `<button type="button" class="menu-category-gallery__item" data-category-jump="${escapeHtml(
+        String(cat.id)
+      )}">
+        <span class="menu-category-gallery__thumb">${
+          thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : '<span class="material-symbols-outlined">restaurant_menu</span>'
+        }</span>
+        <span class="menu-category-gallery__name">${escapeHtml(String(cat.name || "Category"))}</span>
+      </button>`
+    })
+    .join("")
+  grid.querySelectorAll("[data-category-jump]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const nextId = String(btn.getAttribute("data-category-jump") || "")
+      if (!nextId || !menuData) return
+      activeCategoryId = nextId
+      const ctx = resolveTableContext()
+      const latestCart = ensureCart(
+        ctx.slug,
+        ctx.tableNumber,
+        menuData.restaurant.name,
+        ctx.serviceType || menuData?.serviceType || "DINE_IN"
+      )
+      latestCart.isGstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
+      latestCart.isGstInclusive = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
+      closeCategoryGallery()
+      renderMenu(menuData, latestCart)
+      updateSticky(latestCart)
+    })
+  })
+  root.hidden = false
+  root.setAttribute("aria-hidden", "false")
+  document.body.style.overflow = "hidden"
+}
+
+function closeCategoryGallery() {
+  const root = $("#menu-category-gallery")
+  if (!root) return
+  root.hidden = true
+  root.setAttribute("aria-hidden", "true")
+  document.body.style.overflow = ""
+}
+
+function bindCategoryGallery() {
+  const root = $("#menu-category-gallery")
+  if (!root) return
+  root.querySelectorAll("[data-category-gallery-close]").forEach((el) => {
+    el.addEventListener("click", closeCategoryGallery)
+  })
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !root.hidden) closeCategoryGallery()
+  })
+  const logoLink = document.querySelector(".orderkaro-logo-link")
+  if (logoLink) {
+    logoLink.addEventListener("click", (ev) => {
+      ev.preventDefault()
+      openCategoryGallery()
+    })
+  }
 }
 
 /** Match .app-shell--menu padding to actual fixed header height (avoids a gap when the estimate is too large). */
@@ -180,7 +250,12 @@ function categoryRailThumbUrl(cat) {
 function refreshFromCart() {
   if (!menuData) return
   const ctx = resolveTableContext()
-  const c = ensureCart(ctx.slug, ctx.tableNumber, menuData.restaurant.name)
+  const c = ensureCart(
+    ctx.slug,
+    ctx.tableNumber,
+    menuData.restaurant.name,
+    ctx.serviceType || menuData?.serviceType || "DINE_IN"
+  )
   c.isGstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
   c.isGstInclusive = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
   renderMenu(menuData, c)
@@ -190,6 +265,20 @@ function refreshFromCart() {
 function isNonVegFoodType(foodType) {
   const value = String(foodType || "").toLowerCase()
   return value.includes("non") || value.includes("egg")
+}
+
+function isEnabledFlag(value) {
+  return value === true || value === 1 || value === "1" || String(value || "").toLowerCase() === "true"
+}
+
+function syncVegToggleUi() {
+  const vegToggle = $("#menu-veg-only-toggle")
+  if (!vegToggle) return
+  vegToggle.checked = Boolean(menuVegOnly)
+  vegToggle.disabled = Boolean(menuVegOnlyLocked)
+  vegToggle.title = menuVegOnlyLocked
+    ? "This restaurant serves pure veg only."
+    : ""
 }
 
 function renderCategorySection(sectionRoot, cat, cart) {
@@ -272,7 +361,12 @@ function renderCategorySection(sectionRoot, cat, cart) {
       const ctx = resolveTableContext()
       if (!menuData) return
       let c = loadCart()
-      c = ensureCart(ctx.slug, ctx.tableNumber, menuData.restaurant.name)
+      c = ensureCart(
+        ctx.slug,
+        ctx.tableNumber,
+        menuData.restaurant.name,
+        ctx.serviceType || menuData?.serviceType || "DINE_IN"
+      )
       setMenuItemLineQuantity(
         c,
         {
@@ -327,11 +421,13 @@ function renderCategorySection(sectionRoot, cat, cart) {
 }
 
 function renderMenu(data, cart) {
+  if (menuVegOnlyLocked) menuVegOnly = true
   const { restaurant, tableNumber, categories } = data
+  const isDelivery = String(data?.serviceType || "").toUpperCase() === "DELIVERY"
   const nameEl = $(".restaurant-name")
   if (nameEl) nameEl.textContent = restaurant.name
   const badge = $(".table-badge")
-  if (badge) badge.textContent = `Table ${tableNumber}`
+  if (badge) badge.textContent = isDelivery ? "Delivery" : `Table ${tableNumber}`
   setLogo(restaurant.logoUrl || null)
 
   const tabs = $("#category-tabs")
@@ -416,21 +512,23 @@ function escapeHtml(s) {
 }
 
 async function main() {
+  applyRememberedThemeColor()
   rememberMenuPath()
   setupMenuHeaderHeightSync()
   bindImageLightbox()
+  bindCategoryGallery()
 
   const loading = $("#orderkaro-loading")
   const loadingTabs = $("#orderkaro-loading-tabs")
   const shell = $(".app-shell")
-  const { slug, tableNumber } = resolveTableContext()
+  const { slug, tableNumber, serviceType } = resolveTableContext()
 
   hideError()
   if (loading) loading.hidden = true
   if (loadingTabs) loadingTabs.hidden = true
   if (shell) shell.setAttribute("aria-busy", "true")
 
-  const menuFetchPromise = fetchMenu(slug, tableNumber)
+  const menuFetchPromise = fetchMenu(slug, tableNumber, serviceType)
   await showOpeningSplash(menuFetchPromise.then(() => undefined, () => undefined))
 
   let data
@@ -443,11 +541,15 @@ async function main() {
   }
 
   menuData = data
+  rememberThemeColor(data?.restaurant?.themeColor)
+  menuVegOnlyLocked = isEnabledFlag(data?.restaurant?.pureVegOnly)
+  menuVegOnly = menuVegOnlyLocked ? true : menuVegOnly
+  syncVegToggleUi()
   if (data?.restaurant?.isOpenNow === false) {
     showSingleScreenMessage("Restaurant is unavailable to take orders at the moment. Please try again later.")
     return
   }
-  const cart = ensureCart(slug, tableNumber, data.restaurant.name)
+  const cart = ensureCart(slug, tableNumber, data.restaurant.name, serviceType)
   cart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
   cart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
   renderMenu(data, cart)
@@ -457,7 +559,7 @@ async function main() {
     searchInput.value = menuSearchText
     searchInput.addEventListener("input", () => {
       menuSearchText = String(searchInput.value || "")
-      const latestCart = ensureCart(slug, tableNumber, data.restaurant.name)
+      const latestCart = ensureCart(slug, tableNumber, data.restaurant.name, serviceType)
       latestCart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
       latestCart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
       renderMenu(data, latestCart)
@@ -466,14 +568,19 @@ async function main() {
   }
   const vegToggle = $("#menu-veg-only-toggle")
   if (vegToggle) {
-    vegToggle.checked = menuVegOnly
+    syncVegToggleUi()
     vegToggle.addEventListener("change", () => {
+      if (menuVegOnlyLocked) {
+        syncVegToggleUi()
+        return
+      }
       menuVegOnly = Boolean(vegToggle.checked)
-      const latestCart = ensureCart(slug, tableNumber, data.restaurant.name)
+      const latestCart = ensureCart(slug, tableNumber, data.restaurant.name, serviceType)
       latestCart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
       latestCart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
       renderMenu(data, latestCart)
       updateSticky(latestCart)
+      syncVegToggleUi()
     })
   }
 

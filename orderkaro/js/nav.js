@@ -20,6 +20,7 @@ export function resolveTableContext() {
   }
   const hasSlug = u.searchParams.has("slug")
   const hasTable = u.searchParams.has("table")
+  const hasService = u.searchParams.has("service")
   const base = getTableContext()
   const cart = loadCart()
   if (!cart) return base
@@ -28,20 +29,27 @@ export function resolveTableContext() {
     ? base.slug
     : String(cart.restaurantSlug || base.slug).trim() || base.slug
 
+  const serviceType = hasService
+    ? base.serviceType
+    : String(cart.serviceType || base.serviceType || "DINE_IN").toUpperCase() === "DELIVERY"
+      ? "DELIVERY"
+      : "DINE_IN"
   let tableNumber = base.tableNumber
-  if (hasTable) {
+  if (serviceType === "DELIVERY") {
+    tableNumber = null
+  } else if (hasTable) {
     tableNumber = base.tableNumber
   } else {
     const tn = Number(cart.tableNumber)
     if (Number.isFinite(tn) && tn > 0) tableNumber = tn
   }
 
-  return { slug, tableNumber }
+  return { slug, tableNumber, serviceType }
 }
 
 /** Append slug & table to a path; reuse pretty paths like `/orderkaro/menu` when seen before. */
 export function withTableQuery(href) {
-  const { slug, tableNumber } = resolveTableContext()
+  const { slug, tableNumber, serviceType } = resolveTableContext()
   let target = href
   if (href === "menu.html" || href === "menu") {
     const stored = sessionStorage.getItem(MENU_PATH_KEY)
@@ -61,7 +69,13 @@ export function withTableQuery(href) {
   }
   const u = new URL(target, window.location.href)
   u.searchParams.set("slug", slug)
-  u.searchParams.set("table", String(tableNumber))
+  if (serviceType === "DELIVERY") {
+    u.searchParams.delete("table")
+    u.searchParams.set("service", "delivery")
+  } else {
+    u.searchParams.set("table", String(tableNumber))
+    u.searchParams.delete("service")
+  }
   const api = new URL(window.location.href).searchParams.get("api")
   if (api) u.searchParams.set("api", api)
   return u.pathname + u.search + u.hash

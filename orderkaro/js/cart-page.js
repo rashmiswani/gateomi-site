@@ -1,4 +1,9 @@
-import { rememberCartPath, LAST_ORDER_ID_KEY } from "./config.js"
+import {
+  applyRememberedThemeColor,
+  LAST_ORDER_ID_KEY,
+  rememberCartPath,
+  rememberThemeColor,
+} from "./config.js"
 import { appendDayOrderId } from "./order-day-history.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
 import { createOrder, fetchMenu } from "./api.js"
@@ -10,6 +15,7 @@ import {
   setSpecialInstructions,
   setCustomerName,
   setCustomerMobile,
+  setDeliveryAddress,
   setMenuItemLineQuantity,
   cartTotals,
   toOrderPayload,
@@ -545,9 +551,12 @@ function render(cart) {
   const globalNote = $("#special-instructions")
   const suggestionWrap = $("#special-instructions-suggestions")
   const unavailableBanner = $("#cart-unavailable-banner")
+  const deliveryAddressWrap = $("#cart-delivery-address-wrap")
+  const deliveryAddressEl = $("#delivery-address")
+  const isDelivery = String(cart.serviceType || "").toUpperCase() === "DELIVERY"
 
   if (topName) topName.textContent = cart.restaurantName || "Restaurant"
-  if (topTable) topTable.textContent = `Table ${cart.tableNumber}`
+  if (topTable) topTable.textContent = isDelivery ? "Delivery" : `Table ${cart.tableNumber}`
 
   const addLinks = [$("#top-add-link"), $("#bottom-menu-link")].filter(Boolean)
   addLinks.forEach((a) => {
@@ -597,6 +606,12 @@ function render(cart) {
   }
   if (customerNameWrap) {
     customerNameWrap.hidden = cart.lines.length === 0
+  }
+  if (deliveryAddressWrap) {
+    deliveryAddressWrap.hidden = cart.lines.length === 0 || !isDelivery
+  }
+  if (deliveryAddressEl) {
+    deliveryAddressEl.value = typeof cart.deliveryAddress === "string" ? cart.deliveryAddress : ""
   }
 
   if (cart.lines.length === 0) {
@@ -759,7 +774,8 @@ async function hydrateCartLineImages(cart) {
     cartOrderBlockedReason = ""
     return cart
   }
-  const menuData = await fetchMenu(cart.restaurantSlug, cart.tableNumber)
+  const menuData = await fetchMenu(cart.restaurantSlug, cart.tableNumber, cart.serviceType || "DINE_IN")
+  rememberThemeColor(menuData?.restaurant?.themeColor)
   lastMenuData = menuData
   cartOrderAllowed = menuData?.restaurant?.isOpenNow !== false
   cartOrderBlockedReason = cartOrderAllowed
@@ -816,7 +832,7 @@ async function placeOrder(cart) {
   btn.disabled = true
   btn.textContent = "Placing…"
   try {
-    const latestMenu = await fetchMenu(cart.restaurantSlug, cart.tableNumber)
+    const latestMenu = await fetchMenu(cart.restaurantSlug, cart.tableNumber, cart.serviceType || "DINE_IN")
     if (latestMenu?.restaurant?.isOpenNow === false) {
       alert("Restaurant is currently closed. Please place order during open hours.")
       btn.disabled = false
@@ -846,6 +862,17 @@ async function placeOrder(cart) {
       setCustomerMobile(cart, mobileInput.value)
       cart = loadCart() || cart
     }
+    const deliveryAddressInput = $("#delivery-address")
+    if (deliveryAddressInput) {
+      setDeliveryAddress(cart, deliveryAddressInput.value)
+      cart = loadCart() || cart
+    }
+    if (String(cart.serviceType || "").toUpperCase() === "DELIVERY" && !String(cart.deliveryAddress || "").trim()) {
+      alert("Delivery address is required.")
+      btn.disabled = false
+      btn.textContent = "Place order"
+      return
+    }
 
     const payload = toOrderPayload(cart)
     const res = await createOrder(payload)
@@ -859,7 +886,7 @@ async function placeOrder(cart) {
         /* ignore */
       }
       const { slug, tableNumber } = resolveTableContext()
-      appendDayOrderId(slug, tableNumber, id)
+      appendDayOrderId(slug, tableNumber || 0, id)
     }
     const base = withTableQuery("success")
     const sep = base.includes("?") ? "&" : "?"
@@ -878,13 +905,14 @@ async function placeOrder(cart) {
 }
 
 async function main() {
+  applyRememberedThemeColor()
   rememberCartPath()
-  const { slug, tableNumber } = resolveTableContext()
+  const { slug, tableNumber, serviceType } = resolveTableContext()
   let cart = loadCart()
   if (!cart) {
-    cart = ensureCart(slug, tableNumber, "")
+    cart = ensureCart(slug, tableNumber, "", serviceType)
   } else {
-    cart = ensureCart(slug, tableNumber, cart.restaurantName)
+    cart = ensureCart(slug, tableNumber, cart.restaurantName, serviceType)
   }
 
   try {
@@ -932,6 +960,17 @@ async function main() {
     customerMobileInput.addEventListener("change", syncMobile)
     customerMobileInput.addEventListener("blur", syncMobile)
     customerMobileInput.addEventListener("input", syncMobile)
+  }
+  const deliveryAddressInput = $("#delivery-address")
+  if (deliveryAddressInput) {
+    const syncAddress = () => {
+      const c = loadCart()
+      if (!c) return
+      setDeliveryAddress(c, deliveryAddressInput.value)
+    }
+    deliveryAddressInput.addEventListener("change", syncAddress)
+    deliveryAddressInput.addEventListener("blur", syncAddress)
+    deliveryAddressInput.addEventListener("input", syncAddress)
   }
 
   const btn = $("#place-order-btn")
