@@ -7,7 +7,7 @@ import {
   rememberThemeColor,
 } from "./config.js"
 import { appendDayOrderId } from "./order-day-history.js"
-import { fetchOrder } from "./api.js"
+import { fetchOrder, requestBill, requestOrderCancel } from "./api.js"
 import { itemDietPillHtml } from "./diet.js"
 
 function getOrderIdFromUrl() {
@@ -15,6 +15,8 @@ function getOrderIdFromUrl() {
     const u = new URL(window.location.href)
     return u.searchParams.get("orderId") || ""
   } catch {
+    applySuccessBillState(null)
+    applySuccessCancelState(null)
     return ""
   }
 }
@@ -86,6 +88,189 @@ async function maybeShowBreadReorderBrowserNotice(order) {
       /* ignore */
     }
   }
+}
+
+
+function showActionFeedback(message, tone = "info") {
+  const el = document.querySelector("#success-action-feedback")
+  if (!el) return
+  el.hidden = false
+  el.textContent = String(message || "")
+  el.setAttribute("data-tone", tone)
+}
+
+function clearActionFeedback() {
+  const el = document.querySelector("#success-action-feedback")
+  if (!el) return
+  el.hidden = true
+  el.textContent = ""
+  el.removeAttribute("data-tone")
+}
+
+function canCustomerRequestCancel(status) {
+  const s = String(status || "").toUpperCase()
+  return s === "NEW" || s === "ORDER_PLACED" || s === "ACCEPTED"
+}
+
+function applySuccessBillState(order) {
+  const btn = document.getElementById("success-ask-bill-btn")
+  if (!(btn instanceof HTMLButtonElement)) return
+  if (!order) {
+    btn.disabled = true
+    btn.removeAttribute("data-pay-url")
+    return
+  }
+  const alreadyRequested = Boolean(order.billRequestedAt)
+  const payUrl = String(order?.payment?.url || "")
+  const canPayNow = alreadyRequested && payUrl && order.status !== "PAID" && order.status !== "COMPLETED"
+  if (canPayNow) btn.setAttribute("data-pay-url", payUrl)
+  else btn.removeAttribute("data-pay-url")
+  btn.disabled =
+    (!canPayNow && alreadyRequested) ||
+    order.status === "CANCELLED" ||
+    order.status === "PAID" ||
+    order.status === "COMPLETED"
+  btn.innerHTML = canPayNow
+    ? '<span class="material-symbols-outlined" aria-hidden="true">currency_rupee</span><span>Pay Now</span>'
+    : alreadyRequested
+      ? '<span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Bill Requested</span>'
+      : '<span class="material-symbols-outlined" aria-hidden="true">payments</span><span>Request Bill</span>'
+}
+
+function applySuccessCancelState(order) {
+  const btn = document.getElementById("success-cancel-order-btn")
+  if (!(btn instanceof HTMLButtonElement)) return
+  if (!order) {
+    btn.disabled = true
+    return
+  }
+  const alreadyRequested = Boolean(order?.cancellationRequestedAt)
+  const canCancel = canCustomerRequestCancel(order.status)
+  btn.disabled = alreadyRequested || !canCancel
+  btn.innerHTML = alreadyRequested
+    ? '<span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Cancel Requested</span>'
+    : canCancel
+      ? '<span class="material-symbols-outlined" aria-hidden="true">cancel</span><span>Request Cancel</span>'
+      : '<span class="material-symbols-outlined" aria-hidden="true">cancel</span><span>Cancel Unavailable</span>'
+}
+
+function sanitizeUpiPayUrl(url) {
+  const raw = String(url || "").trim()
+  if (!raw) return ""
+  return /^upi:\/\//i.test(raw) || /^https?:\/\//i.test(raw) ? raw : ""
+}
+
+function wireSuccessActions(getOrderId, getLatestOrder, setLatestOrder) {
+  const billBtn = document.getElementById("success-ask-bill-btn")
+  const cancelBtn = document.getElementById("success-cancel-order-btn")
+  if (billBtn instanceof HTMLButtonElement) {
+    billBtn.addEventListener("click", async () => {
+      const currentOrderId = getOrderId()
+      const latestOrder = getLatestOrder()
+      if (!currentOrderId || !latestOrder) return
+      clearActionFeedback()
+      const payUrl = sanitizeUpiPayUrl(String(billBtn.getAttribute("data-pay-url") || ""))
+      if (payUrl) {
+        window.location.href = payUrl
+        return
+      }
+      billBtn.disabled = true
+      try {
+        const data = await requestBill(currentOrderId)
+        const nextOrder = {
+          ...latestOrder,
+          billRequestedAt: data?.billRequestedAt || new Date().toISOString(),
+          payment: data?.payment || latestOrder?.payment || null,
+        }
+        setLatestOrder(nextOrder)
+        applySuccessBillState(nextOrder)
+        applySuccessCancelState(nextOrder)
+        showActionFeedback("Bill requested successfully.", "success")
+      } catch (e) {
+        applySuccessBillState(latestOrder)
+        showActionFeedback(e instanceof Error ? e.message : "Could not request bill", "error")
+      }
+    })
+  }
+  if (cancelBtn instanceof HTMLButtonElement) {
+    cancelBtn.addEventListener("click", async () => {
+      const currentOrderId = getOrderId()
+      const latestOrder = getLatestOrder()
+      if (!currentOrderId || !latestOrder) return
+      if (!canCustomerRequestCancel(latestOrder.status) || latestOrder.cancellationRequestedAt) return
+      clearActionFeedback()
+      const ok = await askCustomConfirm({
+        title: "Request Cancellation",
+        message: "Send cancellation request for this order now?",
+        confirmText: "Request Cancel",
+        cancelText: "Keep Order",
+      })
+      if (!ok) return
+      cancelBtn.disabled = true
+      try {
+        const data = await requestOrderCancel(currentOrderId)
+        const nextOrder = {
+          ...latestOrder,
+          cancellationRequestedAt: data?.cancellationRequestedAt || new Date().toISOString(),
+        }
+        setLatestOrder(nextOrder)
+        applySuccessCancelState(nextOrder)
+        applySuccessBillState(nextOrder)
+        showActionFeedback("Cancellation requested successfully.", "success")
+      } catch (e) {
+        applySuccessCancelState(latestOrder)
+        showActionFeedback(e instanceof Error ? e.message : "Could not request cancellation", "error")
+      }
+    })
+  }
+}
+
+let confirmResolve = null
+
+function closeCustomConfirm(result) {
+  const modal = document.getElementById("track-confirm-modal")
+  if (modal) {
+    modal.hidden = true
+    modal.setAttribute("aria-hidden", "true")
+  }
+  const resolver = confirmResolve
+  confirmResolve = null
+  if (typeof resolver === "function") resolver(Boolean(result))
+}
+
+function askCustomConfirm({
+  title,
+  message,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+}) {
+  const modal = document.getElementById("track-confirm-modal")
+  const titleEl = document.getElementById("track-confirm-title")
+  const msgEl = document.getElementById("track-confirm-message")
+  const yesBtn = document.getElementById("track-confirm-yes")
+  const cancelBtn = document.getElementById("track-confirm-cancel")
+  if (!modal || !titleEl || !msgEl || !yesBtn || !cancelBtn) {
+    return Promise.resolve(window.confirm(message || title || "Confirm action?"))
+  }
+  titleEl.textContent = title || "Confirm action"
+  msgEl.textContent = message || ""
+  yesBtn.textContent = confirmText
+  cancelBtn.textContent = cancelText
+  modal.hidden = false
+  modal.setAttribute("aria-hidden", "false")
+  return new Promise((resolve) => {
+    confirmResolve = resolve
+  })
+}
+
+function bindCustomConfirmModal() {
+  const modal = document.getElementById("track-confirm-modal")
+  if (!modal) return
+  modal.querySelectorAll("[data-confirm-close]").forEach((el) => {
+    el.addEventListener("click", () => closeCustomConfirm(false))
+  })
+  document.getElementById("track-confirm-cancel")?.addEventListener("click", () => closeCustomConfirm(false))
+  document.getElementById("track-confirm-yes")?.addEventListener("click", () => closeCustomConfirm(true))
 }
 
 function paymentInfoHtml(payment) {
@@ -193,8 +378,12 @@ function mountEstimateCountdown(container, estimatedReadyAt, status) {
   window.addEventListener("beforeunload", () => window.clearInterval(timer), { once: true })
 }
 
+let latestOrder = null
+let currentOrderId = ""
+
 async function main() {
   applyRememberedThemeColor()
+  bindCustomConfirmModal()
   rememberSuccessPath()
 
   const fromUrl = getOrderIdFromUrl()
@@ -248,9 +437,14 @@ async function main() {
   const totalEl = document.querySelector("#success-total")
   const orderedAtEl = document.querySelector("#success-ordered-at")
   const list = document.querySelector("#success-items-list")
+  currentOrderId = id
+  wireSuccessActions(() => currentOrderId, () => latestOrder, (next) => { latestOrder = next })
   if (!id || !list) return
   try {
     const order = await fetchOrder(id)
+    latestOrder = order
+    applySuccessBillState(order)
+    applySuccessCancelState(order)
     rememberThemeColor(order?.restaurantThemeColor)
     await maybeShowBreadReorderBrowserNotice(order)
     mountEstimateCountdown(document.querySelector(".success-status-ref"), order?.estimatedReadyAt, order?.status)

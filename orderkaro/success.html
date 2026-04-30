@@ -60,7 +60,32 @@
       <a href="track" id="success-track-link" class="success-status-btn success-status-btn--primary">Track Order Status</a>
       <a href="menu" id="success-order-again-link" class="success-status-btn success-status-btn--secondary">Menu</a>
     </section>
+
+    <section class="success-status-actions success-status-actions--secondary" aria-label="Order actions">
+      <button type="button" id="success-ask-bill-btn" class="success-status-btn success-status-btn--secondary" disabled>
+        <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+        <span>Request Bill</span>
+      </button>
+      <button type="button" id="success-cancel-order-btn" class="success-status-btn success-status-btn--secondary" disabled>
+        <span class="material-symbols-outlined" aria-hidden="true">cancel</span>
+        <span>Request Cancel</span>
+      </button>
+    </section>
+
+    <p id="success-action-feedback" class="success-status-feedback" hidden></p>
   </main>
+  <div id="track-confirm-modal" class="track-confirm-modal" hidden aria-hidden="true">
+    <button type="button" class="track-confirm-modal__backdrop" data-confirm-close aria-label="Close"></button>
+    <div class="track-confirm-modal__panel" role="dialog" aria-modal="true" aria-labelledby="track-confirm-title">
+      <h3 id="track-confirm-title" class="track-confirm-modal__title">Confirm action</h3>
+      <p id="track-confirm-message" class="track-confirm-modal__message"></p>
+      <div class="track-confirm-modal__actions">
+        <button type="button" id="track-confirm-cancel" class="track-confirm-modal__btn track-confirm-modal__btn--ghost">Cancel</button>
+        <button type="button" id="track-confirm-yes" class="track-confirm-modal__btn track-confirm-modal__btn--primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="js/success-page.js"></script>
 </body>
 </html>
