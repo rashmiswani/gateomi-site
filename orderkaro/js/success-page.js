@@ -7,7 +7,7 @@ import {
   rememberThemeColor,
 } from "./config.js"
 import { appendDayOrderId } from "./order-day-history.js"
-import { fetchOrder, requestBill, requestOrderCancel } from "./api.js"
+import { fetchOrder, requestBill, requestOrderCancel, requestWaiterCall } from "./api.js"
 import { itemDietPillHtml } from "./diet.js"
 
 function getOrderIdFromUrl() {
@@ -17,6 +17,7 @@ function getOrderIdFromUrl() {
   } catch {
     applySuccessBillState(null)
     applySuccessCancelState(null)
+    applySuccessWaiterState(null)
     return ""
   }
 }
@@ -107,6 +108,27 @@ function clearActionFeedback() {
   el.removeAttribute("data-tone")
 }
 
+function isWaiterCallActive(state) {
+  return Boolean(state?.waiterCallActive || (state?.waiterCallRequestedAt && !state?.waiterCallResolvedAt))
+}
+
+function applySuccessWaiterState(order) {
+  const btn = document.getElementById("success-call-waiter-btn")
+  if (!(btn instanceof HTMLButtonElement)) return
+  const ctx = resolveTableContext()
+  const isDineIn = String(ctx.serviceType || "DINE_IN").toUpperCase() === "DINE_IN"
+  btn.hidden = !isDineIn
+  if (!isDineIn || !order) {
+    btn.disabled = true
+    return
+  }
+  const active = isWaiterCallActive(order?.tableService)
+  btn.disabled = active
+  btn.innerHTML = active
+    ? '<span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Waiter Called</span>'
+    : '<span class="material-symbols-outlined" aria-hidden="true">notifications_active</span><span>Call Waiter</span>'
+}
+
 function canCustomerRequestCancel(status) {
   const s = String(status || "").toUpperCase()
   return s === "NEW" || s === "ORDER_PLACED" || s === "ACCEPTED"
@@ -162,6 +184,7 @@ function sanitizeUpiPayUrl(url) {
 
 function wireSuccessActions(getOrderId, getLatestOrder, setLatestOrder) {
   const billBtn = document.getElementById("success-ask-bill-btn")
+  const waiterBtn = document.getElementById("success-call-waiter-btn")
   const cancelBtn = document.getElementById("success-cancel-order-btn")
   if (billBtn instanceof HTMLButtonElement) {
     billBtn.addEventListener("click", async () => {
@@ -185,10 +208,31 @@ function wireSuccessActions(getOrderId, getLatestOrder, setLatestOrder) {
         setLatestOrder(nextOrder)
         applySuccessBillState(nextOrder)
         applySuccessCancelState(nextOrder)
+        applySuccessWaiterState(nextOrder)
         showActionFeedback("Bill requested successfully.", "success")
       } catch (e) {
         applySuccessBillState(latestOrder)
+        applySuccessWaiterState(latestOrder)
         showActionFeedback(e instanceof Error ? e.message : "Could not request bill", "error")
+      }
+    })
+  }
+  if (waiterBtn instanceof HTMLButtonElement) {
+    waiterBtn.addEventListener("click", async () => {
+      const ctx = resolveTableContext()
+      const latestOrder = getLatestOrder()
+      if (!latestOrder || String(ctx.serviceType || "DINE_IN").toUpperCase() !== "DINE_IN") return
+      clearActionFeedback()
+      waiterBtn.disabled = true
+      try {
+        const data = await requestWaiterCall(ctx.slug, ctx.tableNumber)
+        const nextOrder = { ...latestOrder, tableService: data }
+        setLatestOrder(nextOrder)
+        applySuccessWaiterState(nextOrder)
+        showActionFeedback("Waiter has been notified.", "success")
+      } catch (e) {
+        applySuccessWaiterState(latestOrder)
+        showActionFeedback(e instanceof Error ? e.message : "Could not call waiter", "error")
       }
     })
   }
@@ -216,9 +260,11 @@ function wireSuccessActions(getOrderId, getLatestOrder, setLatestOrder) {
         setLatestOrder(nextOrder)
         applySuccessCancelState(nextOrder)
         applySuccessBillState(nextOrder)
+        applySuccessWaiterState(nextOrder)
         showActionFeedback("Cancellation requested successfully.", "success")
       } catch (e) {
         applySuccessCancelState(latestOrder)
+        applySuccessWaiterState(latestOrder)
         showActionFeedback(e instanceof Error ? e.message : "Could not request cancellation", "error")
       }
     })
@@ -445,6 +491,7 @@ async function main() {
     latestOrder = order
     applySuccessBillState(order)
     applySuccessCancelState(order)
+    applySuccessWaiterState(order)
     rememberThemeColor(order?.restaurantThemeColor)
     await maybeShowBreadReorderBrowserNotice(order)
     mountEstimateCountdown(document.querySelector(".success-status-ref"), order?.estimatedReadyAt, order?.status)

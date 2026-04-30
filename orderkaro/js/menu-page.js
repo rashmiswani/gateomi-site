@@ -1,6 +1,6 @@
 import { applyRememberedThemeColor, rememberMenuPath, rememberThemeColor } from "./config.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
-import { fetchMenu } from "./api.js"
+import { fetchMenu, requestWaiterCall } from "./api.js"
 import {
   ensureCart,
   cartTotals,
@@ -24,9 +24,64 @@ let menuSearchText = ""
 let menuVegOnly = false
 let menuVegOnlyLocked = false
 let activeCategoryId = ""
+let waiterCallState = null
 const selectedPortionsByItemId = new Map()
 const OPENING_SPLASH_DURATION_MS = 1000
 const OPENING_SPLASH_FADE_MS = 420
+
+
+function isWaiterCallActive(state) {
+  return Boolean(state?.waiterCallActive || (state?.waiterCallRequestedAt && !state?.waiterCallResolvedAt))
+}
+
+function getMenuWaiterButton() {
+  return document.getElementById("menu-footer-waiter-btn")
+}
+
+function applyMenuWaiterButtonState() {
+  const btn = getMenuWaiterButton()
+  if (!(btn instanceof HTMLButtonElement)) return
+  const ctx = resolveTableContext()
+  const isDineIn = String(ctx.serviceType || menuData?.serviceType || "DINE_IN").toUpperCase() === "DINE_IN"
+  btn.hidden = !isDineIn
+  if (!isDineIn) return
+  const active = isWaiterCallActive(waiterCallState)
+  btn.disabled = active
+  btn.title = active ? "Waiter already requested for this table" : "Call waiter to your table"
+  btn.setAttribute("aria-label", active ? "Waiter already requested for this table" : "Call waiter to your table")
+  btn.innerHTML = active
+    ? '<span class="material-symbols-outlined">check_circle</span><span>Waiter On The Way</span>'
+    : '<span class="material-symbols-outlined">room_service</span><span>Call Waiter</span>'
+}
+
+function wireMenuWaiterButton() {
+  const btn = getMenuWaiterButton()
+  if (!(btn instanceof HTMLButtonElement) || btn.dataset.bound === "1") return
+  btn.dataset.bound = "1"
+  btn.addEventListener("click", async () => {
+    if (!menuData) return
+    const ctx = resolveTableContext()
+    if (String(ctx.serviceType || menuData?.serviceType || "DINE_IN").toUpperCase() !== "DINE_IN") return
+    btn.disabled = true
+    try {
+      const data = await requestWaiterCall(ctx.slug, ctx.tableNumber)
+      waiterCallState = data
+      applyMenuWaiterButtonState()
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent = "Waiter has been notified."
+      }
+    } catch (e) {
+      applyMenuWaiterButtonState()
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent = e instanceof Error ? e.message : "Could not call waiter"
+      }
+    }
+  })
+}
 
 function openImageLightbox(src) {
   const root = $("#menu-image-lightbox")
@@ -474,9 +529,12 @@ function renderMenu(data, cart) {
   const nameEl = $(".restaurant-name")
   if (nameEl) nameEl.textContent = restaurant.name
   setOpeningSplashTitle(restaurant.name)
+  waiterCallState = data?.tableService || null
   const badge = $(".table-badge")
   if (badge) badge.textContent = isDelivery ? "Delivery" : `Table ${tableNumber}`
   setLogo(restaurant.logoUrl || null)
+  applyMenuWaiterButtonState()
+  wireMenuWaiterButton()
 
   const tabs = $("#category-tabs")
   const sections = $("#menu-sections")

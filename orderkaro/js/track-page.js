@@ -6,7 +6,7 @@ import {
 } from "./config.js"
 import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
-import { fetchOrder, requestBill, requestOrderCancel, submitOrderFeedback } from "./api.js"
+import { fetchOrder, requestBill, requestOrderCancel, requestWaiterCall, submitOrderFeedback } from "./api.js"
 import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
 import { itemDietPillHtml } from "./diet.js"
 
@@ -501,6 +501,25 @@ function applyAskBillState(data) {
     : '<span class="material-symbols-outlined" aria-hidden="true">payments</span><span>Request Bill</span>'
 }
 
+function isWaiterCallActive(state) {
+  return Boolean(state?.waiterCallActive || (state?.waiterCallRequestedAt && !state?.waiterCallResolvedAt))
+}
+
+function applyCallWaiterState(data) {
+  const btn = document.getElementById("call-waiter-btn")
+  if (!btn) return
+  const ctx = resolveTableContext()
+  const isDineIn = String(ctx.serviceType || "DINE_IN").toUpperCase() === "DINE_IN"
+  btn.hidden = !isDineIn
+  if (!isDineIn) return
+  const tableService = data?.tableService || null
+  const active = isWaiterCallActive(tableService)
+  btn.disabled = active
+  btn.innerHTML = active
+    ? '<span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Waiter Called</span>'
+    : '<span class="material-symbols-outlined" aria-hidden="true">notifications_active</span><span>Call Waiter</span>'
+}
+
 function canCustomerRequestCancel(status) {
   const s = String(status || "").toUpperCase()
   return s === "NEW" || s === "ORDER_PLACED" || s === "ACCEPTED"
@@ -544,6 +563,7 @@ async function poll(orderId) {
     latestOrder = data
     applyAskBillState(data)
     applyCancelOrderState(data)
+    applyCallWaiterState(data)
     updateTrackCard(orderId, data)
     updateEstimateCountdowns()
   } catch (e) {
@@ -648,6 +668,37 @@ function wireAskBill() {
       if (err) {
         err.hidden = false
         err.textContent = e instanceof Error ? e.message : "Could not request bill"
+      }
+    }
+  })
+}
+
+function wireCallWaiter() {
+  const btn = document.getElementById("call-waiter-btn")
+  if (!btn) return
+  btn.addEventListener("click", async () => {
+    const ctx = resolveTableContext()
+    if (String(ctx.serviceType || "DINE_IN").toUpperCase() !== "DINE_IN") return
+    if (latestOrder?.tableService && isWaiterCallActive(latestOrder.tableService)) return
+    btn.disabled = true
+    try {
+      const data = await requestWaiterCall(ctx.slug, ctx.tableNumber)
+      latestOrder = {
+        ...(latestOrder || {}),
+        tableService: data,
+      }
+      applyCallWaiterState(latestOrder)
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent = "Waiter has been notified."
+      }
+    } catch (e) {
+      applyCallWaiterState(latestOrder)
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent = e instanceof Error ? e.message : "Could not call waiter"
       }
     }
   })
@@ -828,6 +879,7 @@ async function main() {
     }
     applyAskBillState(null)
     applyCancelOrderState(null)
+    applyCallWaiterState(null)
     return
   }
 
@@ -835,6 +887,7 @@ async function main() {
   if (tracked) {
     applyAskBillState(tracked.data)
     applyCancelOrderState(tracked.data)
+    applyCallWaiterState(tracked.data)
   }
 
   void poll(orderId)

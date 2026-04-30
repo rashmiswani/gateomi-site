@@ -1178,7 +1178,35 @@ body.menu-page {
 }
 
 .sticky-cart__inner {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sticky-cart__waiter-btn {
+  height: 46px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 10%, white);
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.sticky-cart__waiter-btn:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.sticky-cart__waiter-btn .material-symbols-outlined {
+  font-size: 20px;
 }
 
 .sticky-cart__cta {
@@ -1236,8 +1264,12 @@ body.menu-page {
     font-size: 1.05rem;
   }
 
-  .menu-topbar__right .table-badge--action span:last-child {
+  #top-track-link span:last-child {
     display: none;
+  }
+
+  .sticky-cart__waiter-btn {
+    font-size: 0.88rem;
   }
 }
 

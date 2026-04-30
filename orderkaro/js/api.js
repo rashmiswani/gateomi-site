@@ -97,3 +97,21 @@ export async function requestOrderCancel(orderId) {
   }
   return body.data
 }
+
+
+export async function requestWaiterCall(slug, tableNumber) {
+  const base = getApiBase()
+  const res = await fetch(
+    `${base}/api/public/restaurants/${encodeURIComponent(slug)}/tables/${encodeURIComponent(String(tableNumber))}/waiter-call`,
+    {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    }
+  )
+  const { body, ok } = await parseJson(res)
+  if (!ok) {
+    const msg = body && body.error ? body.error : `Could not call waiter (${res.status})`
+    throw new Error(msg)
+  }
+  return body.data
+}
