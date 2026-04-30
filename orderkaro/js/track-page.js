@@ -255,6 +255,68 @@ function lineItemTemplate(line) {
   `
 }
 
+function paymentDetailsHtml(payment, status) {
+  const upiId = String(payment?.upiId || "").trim()
+  if (!upiId) return ""
+  const normalizedStatus = String(status || "").toUpperCase()
+  if (normalizedStatus === "PAID" || normalizedStatus === "COMPLETED" || normalizedStatus === "CANCELLED") {
+    return ""
+  }
+  const payeeName = String(payment?.payeeName || "Restaurant").trim() || "Restaurant"
+  const amount = Number(payment?.amount || 0)
+  const payUrl = String(payment?.url || "").trim()
+  return `
+    <div class="track-payment-card">
+      <div class="track-payment-card__head">
+        <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+        <div>
+          <p>Restaurant UPI ID</p>
+          <strong>${escapeHtml(upiId)}</strong>
+        </div>
+        <button type="button" class="upi-copy-btn" data-copy-upi="${escapeHtml(upiId)}" aria-label="Copy UPI ID">
+          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+        </button>
+      </div>
+      <div class="track-payment-card__meta">
+        <span>Payee: ${escapeHtml(payeeName)}</span>
+        ${amount > 0 ? `<span>Amount: ${escapeHtml(formatMoney(amount))}</span>` : ""}
+      </div>
+      ${payUrl ? `<a class="track-payment-card__link" href="${escapeHtml(payUrl)}">Open payment app</a>` : ""}
+    </div>
+  `
+}
+
+function setCopyButtonState(button, copied) {
+  const icon = button?.querySelector('.material-symbols-outlined')
+  if (!button || !icon) return
+  if (copied) {
+    button.dataset.copied = '1'
+    icon.textContent = 'check'
+    window.setTimeout(() => {
+      button.dataset.copied = '0'
+      icon.textContent = 'content_copy'
+    }, 1600)
+    return
+  }
+  button.dataset.copied = '0'
+  icon.textContent = 'content_copy'
+}
+
+function wireUpiCopyButtons() {
+  document.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-copy-upi]') : null
+    if (!(button instanceof HTMLButtonElement)) return
+    const upiId = String(button.getAttribute('data-copy-upi') || '').trim()
+    if (!upiId) return
+    try {
+      await navigator.clipboard.writeText(upiId)
+      setCopyButtonState(button, true)
+    } catch {
+      setCopyButtonState(button, false)
+    }
+  })
+}
+
 function createOrderCardElement(orderId, data, currentOrderId) {
   const meta = statusUi(data.status)
   const total = orderTotal(data)
@@ -300,6 +362,7 @@ function createOrderCardElement(orderId, data, currentOrderId) {
         <span class="track-card__footer-label">Order Total</span>
         <span class="track-card__footer-total">${escapeHtml(formatMoney(total))}</span>
       </div>
+      ${paymentDetailsHtml(data?.payment, data?.status)}
       ${
         feedbackAllowed
           ? `<div class="track-feedback" data-feedback-order-id="${escapeHtml(orderId)}">
@@ -778,6 +841,8 @@ async function main() {
   timer = window.setInterval(() => void poll(orderId), 5000)
   window.setInterval(updateEstimateCountdowns, 1000)
 }
+
+wireUpiCopyButtons()
 
 void main()
 

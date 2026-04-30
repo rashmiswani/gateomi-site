@@ -88,6 +88,71 @@ async function maybeShowBreadReorderBrowserNotice(order) {
   }
 }
 
+function paymentInfoHtml(payment) {
+  const upiId = String(payment?.upiId || "").trim()
+  if (!upiId) return ""
+  const payeeName = String(payment?.payeeName || "Restaurant").trim() || "Restaurant"
+  const amount = Number(payment?.amount || 0)
+  return `
+    <section class="success-payment-card" aria-label="Payment details">
+      <div class="success-payment-card__head">
+        <span class="material-symbols-outlined" aria-hidden="true">payments</span>
+        <div>
+          <p>Restaurant UPI ID</p>
+          <strong>${escapeHtml(upiId)}</strong>
+        </div>
+        <button type="button" class="upi-copy-btn" data-copy-upi="${escapeHtml(upiId)}" aria-label="Copy UPI ID">
+          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+        </button>
+      </div>
+      <div class="success-payment-card__meta">
+        <span>Payee: ${escapeHtml(payeeName)}</span>
+        ${amount > 0 ? `<span>Amount: ${escapeHtml(formatMoney(amount))}</span>` : ""}
+      </div>
+    </section>
+  `
+}
+
+function renderPaymentInfo(order) {
+  document.querySelector('.success-payment-card')?.remove()
+  const totalSection = document.querySelector('.success-status-total')
+  if (!totalSection) return
+  const html = paymentInfoHtml(order?.payment)
+  if (!html) return
+  totalSection.insertAdjacentHTML('afterend', html)
+}
+
+function setCopyButtonState(button, copied) {
+  const icon = button?.querySelector('.material-symbols-outlined')
+  if (!button || !icon) return
+  if (copied) {
+    button.dataset.copied = '1'
+    icon.textContent = 'check'
+    window.setTimeout(() => {
+      button.dataset.copied = '0'
+      icon.textContent = 'content_copy'
+    }, 1600)
+    return
+  }
+  button.dataset.copied = '0'
+  icon.textContent = 'content_copy'
+}
+
+function wireUpiCopyButtons() {
+  document.addEventListener('click', async (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-copy-upi]') : null
+    if (!(button instanceof HTMLButtonElement)) return
+    const upiId = String(button.getAttribute('data-copy-upi') || '').trim()
+    if (!upiId) return
+    try {
+      await navigator.clipboard.writeText(upiId)
+      setCopyButtonState(button, true)
+    } catch {
+      setCopyButtonState(button, false)
+    }
+  })
+}
+
 function mountEstimateCountdown(container, estimatedReadyAt, status) {
   if (!container || !estimatedReadyAt) return
   const end = new Date(estimatedReadyAt).getTime()
@@ -197,6 +262,7 @@ async function main() {
     }, 0)
     if (totalEl) totalEl.textContent = formatMoney(subtotal)
     if (orderedAtEl) orderedAtEl.textContent = formatTrackDateTime(order?.createdAt || "")
+    renderPaymentInfo(order)
     list.innerHTML = ""
     items.forEach((line) => {
       const li = document.createElement("li")
@@ -222,5 +288,7 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
 }
+
+wireUpiCopyButtons()
 
 main()

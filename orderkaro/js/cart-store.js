@@ -16,12 +16,58 @@ function emptyCart(slug, tableNumber, restaurantName) {
   }
 }
 
+export function normalizeSelectedPortion(value) {
+  const normalized = String(value || "").trim().toUpperCase()
+  return normalized === "HALF" || normalized === "FULL" ? normalized : null
+}
+
+export function itemHasHalfFullOptions(item) {
+  return Boolean(item?.hasHalfFullOptions)
+}
+
+export function getDisplayNameForMenuItem(name, selectedPortion = null) {
+  const baseName = String(name || "Item").trim() || "Item"
+  const portion = normalizeSelectedPortion(selectedPortion)
+  if (!portion) return baseName
+  return `${baseName} (${portion === "HALF" ? "Half" : "Full"})`
+}
+
+export function getUnitPriceForMenuItem(item, selectedPortion = null) {
+  const portion = normalizeSelectedPortion(selectedPortion)
+  if (itemHasHalfFullOptions(item)) {
+    if (portion === "HALF") return Number(item?.halfPrice || 0)
+    return Number(item?.fullPrice || item?.price || 0)
+  }
+  return Number(item?.price || 0)
+}
+
+export function buildCartLineKey(menuItemId, selectedPortion = null) {
+  const portion = normalizeSelectedPortion(selectedPortion)
+  return `${String(menuItemId || "")}::${portion || "STANDARD"}`
+}
+
+function normalizeCartLine(line) {
+  const selectedPortion = normalizeSelectedPortion(line?.selectedPortion)
+  const baseName = String(line?.baseName || line?.name || "Item").trim() || "Item"
+  return {
+    ...line,
+    selectedPortion,
+    baseName,
+    name: getDisplayNameForMenuItem(baseName, selectedPortion),
+    unitPrice: Number(line?.unitPrice || 0),
+    quantity: Math.max(0, Math.floor(Number(line?.quantity || 0))),
+    photoUrl: line?.photoUrl || null,
+    foodType: line?.foodType || "VEG",
+  }
+}
+
 export function loadCart() {
   try {
     const raw = sessionStorage.getItem(KEY)
     if (!raw) return null
     const data = JSON.parse(raw)
     if (!data || !data.restaurantSlug || !Array.isArray(data.lines)) return null
+    data.lines = data.lines.map(normalizeCartLine).filter((line) => line.quantity > 0)
     return data
   } catch {
     return null
@@ -88,27 +134,42 @@ export function ensureCart(slug, tableNumber, restaurantName, serviceType = "DIN
   return c
 }
 
-export function getQuantityForMenuItem(cart, menuItemId) {
-  const line = cart.lines.find((l) => l.menuItemId === menuItemId)
-  return line ? line.quantity : 0
+export function getQuantityForMenuItem(cart, menuItemId, selectedPortion = null) {
+  const key = buildCartLineKey(menuItemId, selectedPortion)
+  return cart.lines
+    .filter((line) => buildCartLineKey(line.menuItemId, line.selectedPortion) === key)
+    .reduce((sum, line) => sum + Number(line.quantity || 0), 0)
 }
 
 /** Set quantity for menu item. qty 0 removes the line. */
-export function setMenuItemLineQuantity(cart, { menuItemId, name, unitPrice, photoUrl, foodType }, quantity) {
+export function setMenuItemLineQuantity(
+  cart,
+  { menuItemId, name, unitPrice, photoUrl, foodType, selectedPortion = null },
+  quantity
+) {
   const q = Math.max(0, Math.floor(Number(quantity)))
-  const idx = cart.lines.findIndex((l) => l.menuItemId === menuItemId)
+  const portion = normalizeSelectedPortion(selectedPortion)
+  const key = buildCartLineKey(menuItemId, portion)
+  const idx = cart.lines.findIndex((line) => buildCartLineKey(line.menuItemId, line.selectedPortion) === key)
   if (q === 0) {
     if (idx >= 0) cart.lines.splice(idx, 1)
   } else if (idx >= 0) {
     cart.lines[idx].quantity = q
+    cart.lines[idx].unitPrice = Number(unitPrice)
+    cart.lines[idx].baseName = String(name || cart.lines[idx].baseName || cart.lines[idx].name || "Item").trim() || "Item"
+    cart.lines[idx].name = getDisplayNameForMenuItem(cart.lines[idx].baseName, portion)
+    cart.lines[idx].selectedPortion = portion
     cart.lines[idx].photoUrl = photoUrl || cart.lines[idx].photoUrl || null
     if (foodType != null && foodType !== "") {
       cart.lines[idx].foodType = foodType
     }
   } else {
+    const baseName = String(name || "Item").trim() || "Item"
     cart.lines.push({
       menuItemId,
-      name,
+      baseName,
+      name: getDisplayNameForMenuItem(baseName, portion),
+      selectedPortion: portion,
       unitPrice: Number(unitPrice),
       quantity: q,
       photoUrl: photoUrl || null,
@@ -119,14 +180,19 @@ export function setMenuItemLineQuantity(cart, { menuItemId, name, unitPrice, pho
   return cart
 }
 
-export function addLine(cart, { menuItemId, name, unitPrice }) {
-  const line = cart.lines.find((l) => l.menuItemId === menuItemId)
+export function addLine(cart, { menuItemId, name, unitPrice, selectedPortion = null }) {
+  const portion = normalizeSelectedPortion(selectedPortion)
+  const key = buildCartLineKey(menuItemId, portion)
+  const line = cart.lines.find((entry) => buildCartLineKey(entry.menuItemId, entry.selectedPortion) === key)
   if (line) {
     line.quantity += 1
   } else {
+    const baseName = String(name || "Item").trim() || "Item"
     cart.lines.push({
       menuItemId,
-      name,
+      baseName,
+      name: getDisplayNameForMenuItem(baseName, portion),
+      selectedPortion: portion,
       unitPrice: Number(unitPrice),
       quantity: 1,
       photoUrl: null,
@@ -175,9 +241,9 @@ export function setDeliveryAddress(cart, address) {
 export function cartTotals(cart) {
   let count = 0
   let total = 0
-  for (const l of cart.lines) {
-    count += l.quantity
-    total += l.quantity * Number(l.unitPrice)
+  for (const line of cart.lines) {
+    count += line.quantity
+    total += line.quantity * Number(line.unitPrice)
   }
   return { count, total }
 }
@@ -192,9 +258,10 @@ export function toOrderPayload(cart) {
       orderType === "DELIVERY" && cart.deliveryAddress && String(cart.deliveryAddress).trim()
         ? String(cart.deliveryAddress).trim().slice(0, 500)
         : null,
-    items: cart.lines.map((l) => ({
-      menuItemId: l.menuItemId,
-      quantity: l.quantity,
+    items: cart.lines.map((line) => ({
+      menuItemId: line.menuItemId,
+      quantity: line.quantity,
+      selectedPortion: normalizeSelectedPortion(line.selectedPortion),
       note: null,
     })),
     specialInstructions: cart.specialInstructions && cart.specialInstructions.trim() ? cart.specialInstructions.trim() : null,

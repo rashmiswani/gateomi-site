@@ -6,6 +6,10 @@ import {
   cartTotals,
   loadCart,
   getQuantityForMenuItem,
+  getDisplayNameForMenuItem,
+  getUnitPriceForMenuItem,
+  itemHasHalfFullOptions,
+  normalizeSelectedPortion,
   setMenuItemLineQuantity,
 } from "./cart-store.js"
 import { formatMoney } from "./format.js"
@@ -20,6 +24,7 @@ let menuSearchText = ""
 let menuVegOnly = false
 let menuVegOnlyLocked = false
 let activeCategoryId = ""
+const selectedPortionsByItemId = new Map()
 const OPENING_SPLASH_DURATION_MS = 1000
 const OPENING_SPLASH_FADE_MS = 420
 
@@ -115,13 +120,12 @@ function bindCategoryGallery() {
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && !root.hidden) closeCategoryGallery()
   })
-  const logoLink = document.querySelector(".orderkaro-logo-link")
-  if (logoLink) {
-    logoLink.addEventListener("click", (ev) => {
+  document.querySelectorAll(".orderkaro-logo-link, .restaurant-name-link").forEach((link) => {
+    link.addEventListener("click", (ev) => {
       ev.preventDefault()
       openCategoryGallery()
     })
-  }
+  })
 }
 
 /** Match .app-shell--menu padding to actual fixed header height (avoids a gap when the estimate is too large). */
@@ -281,6 +285,17 @@ function isNonVegFoodType(foodType) {
   return value.includes("non") || value.includes("egg")
 }
 
+function getSelectedPortionForMenuItem(item) {
+  if (!itemHasHalfFullOptions(item)) return null
+  return normalizeSelectedPortion(selectedPortionsByItemId.get(String(item?.id || ""))) || "FULL"
+}
+
+function setSelectedPortionForMenuItem(itemId, portion) {
+  const normalized = normalizeSelectedPortion(portion)
+  if (!normalized) return
+  selectedPortionsByItemId.set(String(itemId || ""), normalized)
+}
+
 function isEnabledFlag(value) {
   return value === true || value === 1 || value === "1" || String(value || "").toLowerCase() === "true"
 }
@@ -324,7 +339,15 @@ function renderCategorySection(sectionRoot, cat, cart) {
     const isNonVeg = isNonVegFoodType(it.foodType)
     const dietLabel = isNonVeg ? "Non-Veg" : "Veg"
     const dietDotClass = isNonVeg ? "is-nonveg" : "is-veg"
-    const qty = getQuantityForMenuItem(cart, it.id)
+    const selectedPortion = getSelectedPortionForMenuItem(it)
+    const qty = getQuantityForMenuItem(cart, it.id, selectedPortion)
+    const displayPrice = getUnitPriceForMenuItem(it, selectedPortion)
+    const portionSelectorHtml = itemHasHalfFullOptions(it)
+      ? `<div class="menu-card__portion-picker" role="group" aria-label="Choose portion">
+          <button type="button" class="menu-card__portion-btn ${selectedPortion === "HALF" ? "is-active" : ""}" data-portion="HALF">Half · ${formatMoney(Number(it.halfPrice || 0))}</button>
+          <button type="button" class="menu-card__portion-btn ${selectedPortion === "FULL" ? "is-active" : ""}" data-portion="FULL">Full · ${formatMoney(Number(it.fullPrice || it.price || 0))}</button>
+        </div>`
+      : ""
     const overlay = document.createElement("div")
     overlay.className = "menu-card__image-overlay"
     overlay.innerHTML = `
@@ -358,8 +381,9 @@ function renderCategorySection(sectionRoot, cat, cart) {
     body.innerHTML = `
       <div class="menu-card__head">
         <h2 class="menu-card__title">${escapeHtml(it.name)}</h2>
-        <span class="menu-card__price">${formatMoney(it.price)}</span>
+        <span class="menu-card__price">${formatMoney(displayPrice)}</span>
       </div>
+      ${portionSelectorHtml}
       <p class="menu-card__desc${showMore ? " is-collapsed" : ""}">${effectiveDesc ? escapeHtml(effectiveDesc) : ""}</p>
       ${
         showMore
@@ -386,9 +410,10 @@ function renderCategorySection(sectionRoot, cat, cart) {
         {
           menuItemId: it.id,
           name: it.name,
-          unitPrice: it.price,
+          unitPrice: displayPrice,
           photoUrl: it.photoUrl || null,
           foodType: it.foodType,
+          selectedPortion,
         },
         next
       )
@@ -397,7 +422,7 @@ function renderCategorySection(sectionRoot, cat, cart) {
     if (decBtn) {
       decBtn.disabled = !it.isAvailable || qty <= 0
       decBtn.addEventListener("click", () => {
-        const current = getQuantityForMenuItem(loadCart(), it.id)
+        const current = getQuantityForMenuItem(loadCart(), it.id, selectedPortion)
         if (current <= 0) return
         setQty(current - 1)
       })
@@ -405,11 +430,19 @@ function renderCategorySection(sectionRoot, cat, cart) {
     if (incBtn) {
       incBtn.disabled = !it.isAvailable
       incBtn.addEventListener("click", () => {
-        const current = getQuantityForMenuItem(loadCart(), it.id)
+        const current = getQuantityForMenuItem(loadCart(), it.id, selectedPortion)
         setQty(current + 1)
       })
     }
     if (!it.isAvailable) body.classList.add("menu-card__body--unavailable")
+    body.querySelectorAll("[data-portion]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const nextPortion = btn.getAttribute("data-portion")
+        if (!nextPortion) return
+        setSelectedPortionForMenuItem(it.id, nextPortion)
+        refreshFromCart()
+      })
+    })
     body.querySelectorAll(".menu-card__more").forEach((btn) => {
       btn.addEventListener("click", () => {
         const p = body.querySelector(".menu-card__desc")
@@ -447,6 +480,7 @@ function renderMenu(data, cart) {
 
   const tabs = $("#category-tabs")
   const sections = $("#menu-sections")
+  const disclaimer = $("#menu-image-disclaimer")
   if (!tabs || !sections) return
 
   sections.classList.remove("menu-feed--enter")
@@ -466,6 +500,11 @@ function renderMenu(data, cart) {
     })
     .filter((cat) => cat.items.length > 0)
   tabs.hidden = filteredCategories.length === 0
+  if (disclaimer) {
+    disclaimer.hidden = !filteredCategories.some((cat) =>
+      Array.isArray(cat.items) && cat.items.some((it) => String(it?.photoUrl || "").trim())
+    )
+  }
 
   if (categories.length === 0) {
     const p = document.createElement("p")

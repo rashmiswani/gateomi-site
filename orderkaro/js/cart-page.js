@@ -20,6 +20,11 @@ import {
   cartTotals,
   toOrderPayload,
   clearCart,
+  getDisplayNameForMenuItem,
+  getQuantityForMenuItem,
+  getUnitPriceForMenuItem,
+  itemHasHalfFullOptions,
+  normalizeSelectedPortion,
 } from "./cart-store.js"
 import { formatMoney } from "./format.js"
 import { isNonVegFoodType, itemDietPillHtml } from "./diet.js"
@@ -47,7 +52,7 @@ function clearFieldError(fieldInput, errorEl) {
   }
 }
 
-function showFieldError(fieldInput, errorEl, message) {
+function showFieldError(fieldInput, errorEl, message, shouldFocus = true) {
   if (!(fieldInput instanceof HTMLElement)) return
   fieldInput.classList.add("cart-customer-name__input--invalid")
   fieldInput.setAttribute("aria-invalid", "true")
@@ -57,7 +62,7 @@ function showFieldError(fieldInput, errorEl, message) {
     errorEl.hidden = false
     errorEl.textContent = message
   }
-  fieldInput.focus()
+  if (shouldFocus) fieldInput.focus()
 }
 
 function isValidMobileNumber(mobile) {
@@ -479,7 +484,7 @@ function renderSuggestionCard(it) {
         <h4 class="cart-suggest-card__name">${escapeHtml(it.name || "Item")}</h4>
       </div>
       <div class="cart-suggest-card__row">
-        <span class="cart-suggest-card__price">${formatMoney(Number(it.price))}</span>
+        <span class="cart-suggest-card__price">${itemHasHalfFullOptions(it) ? `From ${formatMoney(Number(it.halfPrice || it.price || 0))}` : formatMoney(Number(it.price))}</span>
         <button type="button" class="cart-suggest-card__add" data-suggest-add data-id="${escapeHtml(
           String(it.id)
         )}" aria-label="Add ${escapeHtml(it.name || "item")}">
@@ -500,16 +505,18 @@ function bindSuggestionAdds(root) {
       if (!it || !it.isAvailable) return
       const c = loadCart()
       if (!c) return
+      const selectedPortion = itemHasHalfFullOptions(it) ? "FULL" : null
       setMenuItemLineQuantity(
         c,
         {
           menuItemId: it.id,
           name: it.name,
-          unitPrice: Number(it.price),
+          unitPrice: getUnitPriceForMenuItem(it, selectedPortion),
           photoUrl: it.photoUrl || null,
           foodType: it.foodType,
+          selectedPortion,
         },
-        getQtyForItem(c, id) + 1
+        getQtyForItem(c, id, selectedPortion) + 1
       )
       void hydrateCartLineImages(loadCart() || c).then((updated) => {
         render(updated || loadCart() || c)
@@ -518,9 +525,8 @@ function bindSuggestionAdds(root) {
   })
 }
 
-function getQtyForItem(cart, menuItemId) {
-  const line = cart.lines.find((l) => String(l.menuItemId) === String(menuItemId))
-  return line ? line.quantity : 0
+function getQtyForItem(cart, menuItemId, selectedPortion = null) {
+  return getQuantityForMenuItem(cart, menuItemId, selectedPortion)
 }
 
 function renderSuggestionSections(cart) {
@@ -630,9 +636,17 @@ function render(cart) {
   const customerNameWrap = $("#cart-customer-name-wrap")
   if (customerNameEl) {
     customerNameEl.value = typeof cart.customerName === "string" ? cart.customerName : ""
+    customerNameEl.required = isDelivery
   }
   if (customerMobileEl) {
     customerMobileEl.value = typeof cart.customerMobile === "string" ? cart.customerMobile : ""
+    customerMobileEl.required = isDelivery
+  }
+  const customerNameLabel = document.querySelector('label[for="customer-name"]')
+  const customerMobileLabel = document.querySelector('label[for="customer-mobile"]')
+  if (customerNameLabel) customerNameLabel.textContent = isDelivery ? "Name (required)" : "Name (optional)"
+  if (customerMobileLabel) {
+    customerMobileLabel.textContent = isDelivery ? "Mobile number (required)" : "Mobile number (optional)"
   }
   if (customerNameWrap) {
     customerNameWrap.hidden = cart.lines.length === 0
@@ -812,6 +826,7 @@ async function hydrateCartLineImages(cart) {
     ? ""
     : "Restaurant is not accepting orders right now. Please try again during working hours."
   const items = (menuData?.categories || []).flatMap((cat) => cat.items || [])
+  const itemById = new Map(items.map((it) => [String(it.id), it]))
   const photoById = new Map(items.map((it) => [String(it.id), String(it.photoUrl || "")]))
   const foodTypeById = new Map(items.map((it) => [String(it.id), it.foodType]))
   const nextAvailability = new Map()
@@ -833,6 +848,7 @@ async function hydrateCartLineImages(cart) {
   }
   cart.lines.forEach((line) => {
     const id = String(line.menuItemId)
+    const item = itemById.get(id)
     if (!line.photoUrl) {
       const photoUrl = photoById.get(id) || ""
       if (photoUrl) {
@@ -844,6 +860,24 @@ async function hydrateCartLineImages(cart) {
       const ft = foodTypeById.get(id)
       if (ft != null && ft !== "") {
         line.foodType = ft
+        changed = true
+      }
+    }
+    if (item) {
+      const selectedPortion = normalizeSelectedPortion(line.selectedPortion)
+      const nextBaseName = String(item.name || line.baseName || line.name || "Item").trim() || "Item"
+      const nextName = getDisplayNameForMenuItem(nextBaseName, selectedPortion)
+      const nextUnitPrice = getUnitPriceForMenuItem(item, selectedPortion)
+      if (line.baseName !== nextBaseName) {
+        line.baseName = nextBaseName
+        changed = true
+      }
+      if (line.name !== nextName) {
+        line.name = nextName
+        changed = true
+      }
+      if (Number(line.unitPrice || 0) !== Number(nextUnitPrice || 0)) {
+        line.unitPrice = Number(nextUnitPrice || 0)
         changed = true
       }
     }
@@ -896,12 +930,38 @@ async function placeOrder(cart) {
       setCustomerMobile(cart, mobileInput.value)
       cart = loadCart() || cart
     }
-
+    const isDelivery = String(cart.serviceType || "").toUpperCase() === "DELIVERY"
+    const customerName = String(nameInput?.value || "").trim()
     const customerMobile = String(mobileInput?.value || "").trim()
+    const deliveryAddress = String(deliveryAddressInput?.value || "").trim()
     clearFieldError(nameInput, nameError)
     clearFieldError(mobileInput, mobileError)
+    clearFieldError(deliveryAddressInput, deliveryAddressError)
+
+    let firstInvalidField = null
+    let hasValidationErrors = false
+    if (isDelivery && !customerName) {
+      showFieldError(nameInput, nameError, "Name is required for delivery.", false)
+      firstInvalidField = firstInvalidField || nameInput
+      hasValidationErrors = true
+    }
+    if (isDelivery && !customerMobile) {
+      showFieldError(mobileInput, mobileError, "Mobile number is required for delivery.", false)
+      firstInvalidField = firstInvalidField || mobileInput
+      hasValidationErrors = true
+    }
     if (customerMobile && !isValidMobileNumber(customerMobile)) {
-      showFieldError(mobileInput, mobileError, "Please enter a valid 10-digit mobile number.")
+      showFieldError(mobileInput, mobileError, "Please enter a valid 10-digit mobile number.", false)
+      firstInvalidField = firstInvalidField || mobileInput
+      hasValidationErrors = true
+    }
+    if (isDelivery && !deliveryAddress) {
+      showFieldError(deliveryAddressInput, deliveryAddressError, "Delivery address is required.", false)
+      firstInvalidField = firstInvalidField || deliveryAddressInput
+      hasValidationErrors = true
+    }
+    if (hasValidationErrors) {
+      if (firstInvalidField instanceof HTMLElement) firstInvalidField.focus()
       btn.disabled = false
       btn.textContent = "Place order"
       return
@@ -911,13 +971,6 @@ async function placeOrder(cart) {
       setDeliveryAddress(cart, deliveryAddressInput.value)
       cart = loadCart() || cart
     }
-    if (String(cart.serviceType || "").toUpperCase() === "DELIVERY" && !String(cart.deliveryAddress || "").trim()) {
-      showFieldError(deliveryAddressInput, deliveryAddressError, "Delivery address is required.")
-      btn.disabled = false
-      btn.textContent = "Place order"
-      return
-    }
-    clearFieldError(deliveryAddressInput, deliveryAddressError)
 
     const payload = toOrderPayload(cart)
     const res = await createOrder(payload)
