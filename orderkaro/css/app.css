@@ -3558,6 +3558,11 @@ body.cart-page {
   padding: 10px 12px;
 }
 
+.cart-customer-name__box--invalid {
+  border-color: rgba(186, 26, 26, 0.45);
+  background: rgba(186, 26, 26, 0.06);
+}
+
 .cart-customer-name__input {
   width: 100%;
   border: 0;
@@ -3570,6 +3575,18 @@ body.cart-page {
 
 .cart-customer-name__input::placeholder {
   color: #94a3b8;
+}
+
+.cart-customer-name__input--invalid::placeholder {
+  color: rgba(186, 26, 26, 0.7);
+}
+
+.cart-field-error {
+  margin: 6px 2px 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: #ba1a1a;
+  font-weight: 600;
 }
 
 .cart-place-btn {

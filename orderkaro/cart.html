@@ -91,6 +91,7 @@
             autocomplete="name"
           />
         </div>
+        <p id="customer-name-error" class="cart-field-error" hidden></p>
         <label for="customer-mobile" class="cart-customer-name__label">Mobile number (optional)</label>
         <div class="cart-customer-name__box">
           <input
@@ -103,6 +104,7 @@
             inputmode="numeric"
           />
         </div>
+        <p id="customer-mobile-error" class="cart-field-error" hidden></p>
         <div id="cart-delivery-address-wrap" hidden>
           <label for="delivery-address" class="cart-customer-name__label">Delivery address (required)</label>
           <div class="cart-customer-name__box">
@@ -114,6 +116,7 @@
               placeholder="Enter full delivery address"
             ></textarea>
           </div>
+          <p id="delivery-address-error" class="cart-field-error" hidden></p>
         </div>
       </div>
       <button type="button" class="cart-place-btn" id="place-order-btn">

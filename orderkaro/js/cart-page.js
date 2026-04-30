@@ -35,6 +35,36 @@ function $(sel, root = document) {
   return root.querySelector(sel)
 }
 
+function clearFieldError(fieldInput, errorEl) {
+  if (!(fieldInput instanceof HTMLElement)) return
+  fieldInput.classList.remove("cart-customer-name__input--invalid")
+  fieldInput.removeAttribute("aria-invalid")
+  const box = fieldInput.closest(".cart-customer-name__box")
+  if (box) box.classList.remove("cart-customer-name__box--invalid")
+  if (errorEl) {
+    errorEl.hidden = true
+    errorEl.textContent = ""
+  }
+}
+
+function showFieldError(fieldInput, errorEl, message) {
+  if (!(fieldInput instanceof HTMLElement)) return
+  fieldInput.classList.add("cart-customer-name__input--invalid")
+  fieldInput.setAttribute("aria-invalid", "true")
+  const box = fieldInput.closest(".cart-customer-name__box")
+  if (box) box.classList.add("cart-customer-name__box--invalid")
+  if (errorEl) {
+    errorEl.hidden = false
+    errorEl.textContent = message
+  }
+  fieldInput.focus()
+}
+
+function isValidMobileNumber(mobile) {
+  const digitsOnly = String(mobile || "").replace(/\D+/g, "")
+  return digitsOnly.length === 10
+}
+
 function roundMoney(v) {
   return Math.round((Number(v) || 0) * 100) / 100
 }
@@ -824,6 +854,12 @@ async function hydrateCartLineImages(cart) {
 
 async function placeOrder(cart) {
   const btn = $("#place-order-btn")
+  const nameInput = $("#customer-name")
+  const mobileInput = $("#customer-mobile")
+  const deliveryAddressInput = $("#delivery-address")
+  const nameError = $("#customer-name-error")
+  const mobileError = $("#customer-mobile-error")
+  const deliveryAddressError = $("#delivery-address-error")
   if (!btn || cart.lines.length === 0) return
   if (!cartOrderAllowed) {
     alert(cartOrderBlockedReason || "Restaurant is not accepting orders right now.")
@@ -852,8 +888,6 @@ async function placeOrder(cart) {
       return
     }
 
-    const nameInput = $("#customer-name")
-    const mobileInput = $("#customer-mobile")
     if (nameInput) {
       setCustomerName(cart, nameInput.value)
       cart = loadCart() || cart
@@ -862,17 +896,28 @@ async function placeOrder(cart) {
       setCustomerMobile(cart, mobileInput.value)
       cart = loadCart() || cart
     }
-    const deliveryAddressInput = $("#delivery-address")
+
+    const customerMobile = String(mobileInput?.value || "").trim()
+    clearFieldError(nameInput, nameError)
+    clearFieldError(mobileInput, mobileError)
+    if (customerMobile && !isValidMobileNumber(customerMobile)) {
+      showFieldError(mobileInput, mobileError, "Please enter a valid 10-digit mobile number.")
+      btn.disabled = false
+      btn.textContent = "Place order"
+      return
+    }
+
     if (deliveryAddressInput) {
       setDeliveryAddress(cart, deliveryAddressInput.value)
       cart = loadCart() || cart
     }
     if (String(cart.serviceType || "").toUpperCase() === "DELIVERY" && !String(cart.deliveryAddress || "").trim()) {
-      alert("Delivery address is required.")
+      showFieldError(deliveryAddressInput, deliveryAddressError, "Delivery address is required.")
       btn.disabled = false
       btn.textContent = "Place order"
       return
     }
+    clearFieldError(deliveryAddressInput, deliveryAddressError)
 
     const payload = toOrderPayload(cart)
     const res = await createOrder(payload)
@@ -898,7 +943,16 @@ async function placeOrder(cart) {
     window.location.href = `${base}${qs}`
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not place order"
-    alert(msg)
+    const lowerMsg = String(msg || "").toLowerCase()
+    if (lowerMsg.includes("mobile")) {
+      showFieldError(mobileInput, mobileError, msg)
+    } else if (lowerMsg.includes("name")) {
+      showFieldError(nameInput, nameError, msg)
+    } else if (lowerMsg.includes("address")) {
+      showFieldError(deliveryAddressInput, deliveryAddressError, msg)
+    } else {
+      alert(msg)
+    }
     btn.disabled = false
     btn.textContent = "Place order"
   }
@@ -941,32 +995,44 @@ async function main() {
   }
 
   const customerNameInput = $("#customer-name")
+  const customerNameError = $("#customer-name-error")
   if (customerNameInput) {
     const syncName = () => {
       const c = loadCart()
       if (!c) return
       setCustomerName(c, customerNameInput.value)
+      clearFieldError(customerNameInput, customerNameError)
     }
     customerNameInput.addEventListener("change", syncName)
+    customerNameInput.addEventListener("input", syncName)
     customerNameInput.addEventListener("blur", syncName)
   }
   const customerMobileInput = $("#customer-mobile")
+  const customerMobileError = $("#customer-mobile-error")
   if (customerMobileInput) {
     const syncMobile = () => {
       const c = loadCart()
       if (!c) return
       setCustomerMobile(c, customerMobileInput.value)
+      const rawMobile = String(customerMobileInput.value || "").trim()
+      if (!rawMobile || isValidMobileNumber(rawMobile)) {
+        clearFieldError(customerMobileInput, customerMobileError)
+      }
     }
     customerMobileInput.addEventListener("change", syncMobile)
     customerMobileInput.addEventListener("blur", syncMobile)
     customerMobileInput.addEventListener("input", syncMobile)
   }
   const deliveryAddressInput = $("#delivery-address")
+  const deliveryAddressError = $("#delivery-address-error")
   if (deliveryAddressInput) {
     const syncAddress = () => {
       const c = loadCart()
       if (!c) return
       setDeliveryAddress(c, deliveryAddressInput.value)
+      if (String(deliveryAddressInput.value || "").trim()) {
+        clearFieldError(deliveryAddressInput, deliveryAddressError)
+      }
     }
     deliveryAddressInput.addEventListener("change", syncAddress)
     deliveryAddressInput.addEventListener("blur", syncAddress)
