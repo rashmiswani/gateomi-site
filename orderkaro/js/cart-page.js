@@ -931,7 +931,7 @@ async function placeOrder(cart) {
         /* ignore */
       }
       const { slug, tableNumber } = resolveTableContext()
-      appendDayOrderId(slug, tableNumber || 0, id)
+      appendDayOrderId(slug, tableNumber, id)
     }
     const base = withTableQuery("success")
     const sep = base.includes("?") ? "&" : "?"

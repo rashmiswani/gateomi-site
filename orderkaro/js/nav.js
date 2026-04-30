@@ -19,8 +19,8 @@ export function resolveTableContext() {
     return getTableContext()
   }
   const hasSlug = u.searchParams.has("slug")
-  const hasTable = u.searchParams.has("table")
-  const hasService = u.searchParams.has("service")
+  const hasTable = u.searchParams.has("table") || u.searchParams.has("tableNumber")
+  const hasService = u.searchParams.has("service") || u.searchParams.has("serviceType")
   const base = getTableContext()
   const cart = loadCart()
   if (!cart) return base
@@ -31,9 +31,11 @@ export function resolveTableContext() {
 
   const serviceType = hasService
     ? base.serviceType
-    : String(cart.serviceType || base.serviceType || "DINE_IN").toUpperCase() === "DELIVERY"
-      ? "DELIVERY"
-      : "DINE_IN"
+    : hasTable
+      ? "DINE_IN"
+      : String(cart.serviceType || base.serviceType || "DINE_IN").toUpperCase() === "DELIVERY"
+        ? "DELIVERY"
+        : "DINE_IN"
   let tableNumber = base.tableNumber
   if (serviceType === "DELIVERY") {
     tableNumber = null
@@ -71,10 +73,16 @@ export function withTableQuery(href) {
   u.searchParams.set("slug", slug)
   if (serviceType === "DELIVERY") {
     u.searchParams.delete("table")
+    u.searchParams.delete("tableNumber")
+    u.searchParams.delete("serviceType")
     u.searchParams.set("service", "delivery")
   } else {
-    u.searchParams.set("table", String(tableNumber))
-    u.searchParams.delete("service")
+    const nextTable =
+      Number.isFinite(Number(tableNumber)) && Number(tableNumber) > 0 ? Number(tableNumber) : 1
+    u.searchParams.set("table", String(nextTable))
+    u.searchParams.delete("tableNumber")
+    u.searchParams.delete("serviceType")
+    u.searchParams.set("service", "dine-in")
   }
   const api = new URL(window.location.href).searchParams.get("api")
   if (api) u.searchParams.set("api", api)

@@ -15,7 +15,11 @@ function calendarDayKey() {
 }
 
 function key(slug, tableNumber) {
-  return `${PREFIX}:${slug}:${tableNumber}`
+  const normalizedTable =
+    Number.isFinite(Number(tableNumber)) && Number(tableNumber) > 0
+      ? String(Number(tableNumber))
+      : "delivery"
+  return `${PREFIX}:${slug}:${normalizedTable}`
 }
 
 const KEY_PREFIX_PATTERN = `${PREFIX}:`

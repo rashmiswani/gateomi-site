@@ -171,6 +171,20 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function restaurantNameFromSlug(slug) {
+  return String(slug || "")
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function setOpeningSplashTitle(name) {
+  const titleEl = $(".menu-opening-splash__title", $("#menu-opening-splash") || document)
+  if (!titleEl) return
+  titleEl.textContent = String(name || "").trim() || "Restaurant"
+}
+
 async function showOpeningSplash(readyPromise = Promise.resolve()) {
   const overlay = $("#menu-opening-splash")
   if (!overlay) return
@@ -426,6 +440,7 @@ function renderMenu(data, cart) {
   const isDelivery = String(data?.serviceType || "").toUpperCase() === "DELIVERY"
   const nameEl = $(".restaurant-name")
   if (nameEl) nameEl.textContent = restaurant.name
+  setOpeningSplashTitle(restaurant.name)
   const badge = $(".table-badge")
   if (badge) badge.textContent = isDelivery ? "Delivery" : `Table ${tableNumber}`
   setLogo(restaurant.logoUrl || null)
@@ -522,6 +537,7 @@ async function main() {
   const loadingTabs = $("#orderkaro-loading-tabs")
   const shell = $(".app-shell")
   const { slug, tableNumber, serviceType } = resolveTableContext()
+  setOpeningSplashTitle(restaurantNameFromSlug(slug))
 
   hideError()
   if (loading) loading.hidden = true

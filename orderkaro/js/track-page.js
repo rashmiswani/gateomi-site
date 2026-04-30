@@ -1,12 +1,11 @@
 import {
   applyRememberedThemeColor,
-  getTableContext,
   LAST_ORDER_ID_KEY,
   rememberThemeColor,
   rememberTrackPath,
 } from "./config.js"
 import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
-import { withTableQuery } from "./nav.js"
+import { resolveTableContext, withTableQuery } from "./nav.js"
 import { fetchOrder, requestBill, requestOrderCancel, submitOrderFeedback } from "./api.js"
 import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
 import { itemDietPillHtml } from "./diet.js"
@@ -213,7 +212,7 @@ function statusUi(status) {
 }
 
 function setHeaderContext() {
-  const { slug, tableNumber } = getTableContext()
+  const { slug, tableNumber, serviceType } = resolveTableContext()
   const restaurantName = slug
     .split("-")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -221,10 +220,13 @@ function setHeaderContext() {
   const nameEl = document.getElementById("track-restaurant-name")
   if (nameEl) nameEl.textContent = restaurantName
   const tableEl = document.getElementById("track-table-label")
-  if (tableEl) tableEl.textContent = `Table ${tableNumber}`
+  if (tableEl) tableEl.textContent = serviceType === "DELIVERY" ? "Delivery" : `Table ${tableNumber}`
   const descEl = document.getElementById("track-editorial-desc")
   if (descEl) {
-    descEl.textContent = `Managing your culinary journey at ${restaurantName}. All active orders for Table ${tableNumber} are listed below.`
+    descEl.textContent =
+      serviceType === "DELIVERY"
+        ? `Managing your culinary journey at ${restaurantName}. All active delivery orders are listed below.`
+        : `Managing your culinary journey at ${restaurantName}. All active orders for Table ${tableNumber} are listed below.`
   }
 }
 
@@ -692,7 +694,7 @@ async function main() {
   wireFeedbackSubmit()
   wireCustomConfirm()
 
-  const { slug, tableNumber } = getTableContext()
+  const { slug, tableNumber } = resolveTableContext()
   const errBanner = document.querySelector("#orderkaro-error")
   if (errBanner) errBanner.hidden = true
 

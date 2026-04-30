@@ -29,6 +29,15 @@ export const TRACK_PATH_KEY = "orderkaro_track_path_v1"
 /** Set when an order is placed; used if the success URL drops ?orderId= (pretty URLs / redirects). */
 export const LAST_ORDER_ID_KEY = "orderkaro_last_order_id_v1"
 export const THEME_COLOR_KEY = "orderkaro_theme_color_v1"
+export const DEFAULT_THEME_COLOR = "#3D6B41"
+
+function normalizeServiceType(input) {
+  const raw = String(input || "").trim().toLowerCase()
+  const compact = raw.replace(/[\s_-]+/g, "")
+  if (compact === "delivery" || compact === "delivary") return "DELIVERY"
+  if (compact === "dinein" || compact === "table" || compact === "tableorder") return "DINE_IN"
+  return DEFAULT_SERVICE_TYPE
+}
 
 function normalizeThemeColor(input) {
   const v = String(input || "").trim()
@@ -95,8 +104,8 @@ export function rememberThemeColor(color) {
     } catch {
       /* ignore */
     }
-    clearThemeVars()
-    return ""
+    setThemeVars(DEFAULT_THEME_COLOR)
+    return DEFAULT_THEME_COLOR
   }
   try {
     sessionStorage.setItem(THEME_COLOR_KEY, safe)
@@ -112,14 +121,14 @@ export function applyRememberedThemeColor() {
     const saved = sessionStorage.getItem(THEME_COLOR_KEY) || ""
     const safe = normalizeThemeColor(saved)
     if (!safe) {
-      clearThemeVars()
-      return ""
+      setThemeVars(DEFAULT_THEME_COLOR)
+      return DEFAULT_THEME_COLOR
     }
     setThemeVars(safe)
     return safe
   } catch {
-    clearThemeVars()
-    return ""
+    setThemeVars(DEFAULT_THEME_COLOR)
+    return DEFAULT_THEME_COLOR
   }
 }
 
@@ -160,9 +169,10 @@ export function getTableContext() {
   try {
     const u = new URL(window.location.href)
     const slug = u.searchParams.get("slug") || DEFAULT_SLUG
-    const serviceRaw = String(u.searchParams.get("service") || "").toUpperCase()
-    const serviceType = serviceRaw === "DELIVERY" ? "DELIVERY" : DEFAULT_SERVICE_TYPE
-    const t = u.searchParams.get("table")
+    const serviceType = normalizeServiceType(
+      u.searchParams.get("service") || u.searchParams.get("serviceType") || ""
+    )
+    const t = u.searchParams.get("table") || u.searchParams.get("tableNumber")
     const tableNumber = t ? Number.parseInt(t, 10) : DEFAULT_TABLE
     const normalizedTable = Number.isFinite(tableNumber) && tableNumber > 0 ? tableNumber : DEFAULT_TABLE
     return {
