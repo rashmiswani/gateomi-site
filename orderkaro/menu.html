@@ -42,13 +42,18 @@
         placeholder="Search dishes"
         autocomplete="off"
       />
-      <label class="menu-filter-toggle" for="menu-veg-only-toggle">
-        <span class="menu-filter-toggle__label">Pure Veg</span>
-        <span class="menu-filter-toggle__switch">
-          <input id="menu-veg-only-toggle" type="checkbox" />
-          <span class="menu-filter-toggle__slider" aria-hidden="true"></span>
-        </span>
-      </label>
+      <div class="menu-topbar__controls">
+        <label class="menu-filter-toggle" for="menu-veg-only-toggle">
+          <span class="menu-filter-toggle__label">Pure Veg</span>
+          <span class="menu-filter-toggle__switch">
+            <input id="menu-veg-only-toggle" type="checkbox" />
+            <span class="menu-filter-toggle__slider" aria-hidden="true"></span>
+          </span>
+        </label>
+        <p class="menu-disclaimer" id="menu-image-disclaimer" hidden>
+          Image shown is for reference only. Actual dish may vary.
+        </p>
+      </div>
     </div>
     <div class="menu-loading-strip" id="orderkaro-loading-tabs" aria-live="polite">
       <div class="skeleton skeleton--tabs"></div>
@@ -62,11 +67,6 @@
       <div class="skeleton skeleton--card"></div>
       <div class="skeleton skeleton--card"></div>
     </div>
-
-    <p class="menu-disclaimer" id="menu-image-disclaimer" hidden>
-      Image shown is for reference only. Actual dish may vary.
-    </p>
-
     <div class="menu-editorial-layout">
       <aside id="category-tabs" class="menu-category-rail" aria-label="Menu categories" hidden></aside>
       <section id="menu-sections" class="menu-editorial-feed"></section>

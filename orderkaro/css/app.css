@@ -515,8 +515,16 @@ body.menu-page {
   padding: 0 16px 12px;
 }
 
-.menu-filter-toggle {
+.menu-topbar__controls {
   margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.menu-filter-toggle {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -630,14 +638,12 @@ body.menu-page {
 }
 
 .menu-disclaimer {
-  margin: 8px 12px 6px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid #efe2c5;
-  background: #fff8ea;
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   color: #8a5a14;
-  font-size: 0.72rem;
-  line-height: 1.35;
+  font-size: 0.62rem;
+  line-height: 1.2;
   font-weight: 600;
 }
 
@@ -1179,12 +1185,14 @@ body.menu-page {
 
 .sticky-cart__inner {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 10px;
 }
 
 .sticky-cart__waiter-btn {
   height: 46px;
+  flex: 0 0 auto;
   border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--primary) 10%, white);
@@ -1211,6 +1219,8 @@ body.menu-page {
 
 .sticky-cart__cta {
   height: 54px;
+  flex: 1 1 auto;
+  min-width: 0;
   border-radius: 999px;
   background: var(--primary);
   color: #fff;
