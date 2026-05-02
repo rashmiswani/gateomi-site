@@ -29,6 +29,91 @@ const selectedPortionsByItemId = new Map()
 const OPENING_SPLASH_DURATION_MS = 1000
 const OPENING_SPLASH_FADE_MS = 420
 
+let menuPromotionSliderTimer = null
+let menuPromotionSliderIndex = 0
+
+function teardownMenuPromotionSlider() {
+  if (menuPromotionSliderTimer) {
+    clearInterval(menuPromotionSliderTimer)
+    menuPromotionSliderTimer = null
+  }
+  const root = $("#menu-promotion-slider")
+  if (!root) return
+  root.innerHTML = ""
+  root.hidden = true
+}
+
+function mountMenuPromotionSlider(slides) {
+  teardownMenuPromotionSlider()
+  const root = $("#menu-promotion-slider")
+  if (!root || !Array.isArray(slides) || slides.length === 0) return
+  const urls = slides.map((s) => String(s || "").trim()).filter(Boolean)
+  if (!urls.length) return
+
+  root.hidden = false
+  const intervalMs = 4500
+  menuPromotionSliderIndex = 0
+
+  const track = document.createElement("div")
+  track.className = "menu-promotion-slider__track"
+  const dots = document.createElement("div")
+  dots.className = "menu-promotion-slider__dots"
+
+  urls.forEach((src, i) => {
+    const slide = document.createElement("div")
+    slide.className = `menu-promotion-slider__slide${i === 0 ? " is-active" : ""}`
+    const img = document.createElement("img")
+    img.src = src
+    img.alt = ""
+    img.decoding = "async"
+    img.loading = i === 0 ? "eager" : "lazy"
+    slide.appendChild(img)
+    track.appendChild(slide)
+
+    if (urls.length > 1) {
+      const dot = document.createElement("button")
+      dot.type = "button"
+      dot.className = `menu-promotion-slider__dot${i === 0 ? " is-active" : ""}`
+      dot.setAttribute("aria-label", `Promotion slide ${i + 1}`)
+      dot.addEventListener("click", () => {
+        menuPromotionSliderIndex = i
+        applySlide()
+      })
+      dots.appendChild(dot)
+    }
+  })
+
+  root.appendChild(track)
+  if (urls.length > 1) root.appendChild(dots)
+
+  const slidesEls = () => [...track.querySelectorAll(".menu-promotion-slider__slide")]
+  const dotEls = () => [...dots.querySelectorAll(".menu-promotion-slider__dot")]
+
+  function applySlide() {
+    slidesEls().forEach((el, i) => {
+      el.classList.toggle("is-active", i === menuPromotionSliderIndex)
+    })
+    dotEls().forEach((el, i) => {
+      el.classList.toggle("is-active", i === menuPromotionSliderIndex)
+    })
+  }
+
+  function nextSlide() {
+    menuPromotionSliderIndex = (menuPromotionSliderIndex + 1) % urls.length
+    applySlide()
+  }
+
+  if (urls.length > 1) {
+    menuPromotionSliderTimer = window.setInterval(nextSlide, intervalMs)
+  }
+}
+
+function syncMenuPromotionFromRestaurant(restaurant) {
+  const promo = restaurant?.menuPromotion
+  const slides = Array.isArray(promo?.slides) ? promo.slides : []
+  if (slides.length) mountMenuPromotionSlider(slides)
+  else teardownMenuPromotionSlider()
+}
 
 function isWaiterCallActive(state) {
   return Boolean(state?.waiterCallActive || (state?.waiterCallRequestedAt && !state?.waiterCallResolvedAt))
@@ -282,6 +367,7 @@ async function showOpeningSplash(readyPromise = Promise.resolve()) {
 }
 
 function showSingleScreenMessage(msg) {
+  teardownMenuPromotionSlider()
   const stickyCart = document.querySelector(".sticky-cart")
   const loading = $("#orderkaro-loading")
   const loadingTabs = $("#orderkaro-loading-tabs")
@@ -545,6 +631,7 @@ function renderCategorySection(sectionRoot, cat, cart) {
 function renderMenu(data, cart) {
   if (menuVegOnlyLocked) menuVegOnly = true
   const { restaurant, tableNumber, categories } = data
+  syncMenuPromotionFromRestaurant(restaurant)
   const isDelivery = String(data?.serviceType || "").toUpperCase() === "DELIVERY"
   const nameEl = $(".restaurant-name")
   if (nameEl) nameEl.textContent = restaurant.name
