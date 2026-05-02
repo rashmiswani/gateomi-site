@@ -13,6 +13,15 @@ export function formatOrderId(id) {
   return `#OK-${short}`
 }
 
+/** Order ref shown to customers (#123 once assigned; `#OK-…` fallback until loaded). */
+export function formatCustomerOrderRef(orderLike) {
+  const n = Number(orderLike?.restaurantOrderNo ?? orderLike?.restaurant_order_no)
+  if (Number.isFinite(n) && n > 0) return `#${Math.trunc(n)}`
+  const sid = String(orderLike?.shortId ?? "").trim()
+  if (sid) return formatOrderId(sid)
+  return "—"
+}
+
 /** ISO string → local date + time for track page (12-hour clock). */
 export function formatTrackDateTime(iso) {
   if (!iso || typeof iso !== "string") return "—"

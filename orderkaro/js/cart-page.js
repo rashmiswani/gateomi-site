@@ -74,6 +74,12 @@ function roundMoney(v) {
   return Math.round((Number(v) || 0) * 100) / 100
 }
 
+function extractFivePercentGstFromInclusivePrice(price) {
+  const gross = Number(price || 0)
+  if (gross <= 0) return 0
+  return roundMoney(gross / 1.05)
+}
+
 function syncCartBottomOffset() {
   const bar = document.querySelector(".cart-bottom-bar")
   const shell = document.querySelector(".app-shell--cart")
@@ -87,6 +93,56 @@ let availabilityById = new Map()
 let lastMenuData = null
 let cartOrderAllowed = true
 let cartOrderBlockedReason = ""
+let cartActiveStep = 1
+let lastDisplayedGrandTotal = 0
+
+function setCartStep(nextStep) {
+  cartActiveStep = Number(nextStep) === 2 ? 2 : 1
+  const itemsView = $("#cart-step-items-view")
+  const detailsView = $("#cart-step-details-view")
+  const chipItems = $("#cart-step-chip-items")
+  const chipDetails = $("#cart-step-chip-details")
+  const backBtn = $("#cart-step-back-btn")
+  const titleEl = $(".cart-title")
+  const subtitleEl = $(".cart-subtitle")
+  if (itemsView) itemsView.hidden = cartActiveStep !== 1
+  if (detailsView) detailsView.hidden = cartActiveStep !== 2
+  if (chipItems) chipItems.classList.toggle("is-active", cartActiveStep === 1)
+  if (chipDetails) chipDetails.classList.toggle("is-active", cartActiveStep === 2)
+  if (backBtn) backBtn.hidden = cartActiveStep !== 2
+  if (titleEl) titleEl.textContent = cartActiveStep === 1 ? "Your Order" : "Review & Confirm"
+  if (subtitleEl) {
+    subtitleEl.textContent =
+      cartActiveStep === 1
+        ? "Review your curated selection"
+        : "Confirm details before placing your order"
+  }
+}
+
+function syncPrimaryActionButton({ canProceed, canPlaceOrder, payableAmount }) {
+  const btn = $("#place-order-btn")
+  const textEl = $("#cart-primary-btn-text")
+  const methodEl = $("#cart-primary-btn-method")
+  if (!btn) return
+  const resolvedPayableAmount = Number.isFinite(Number(payableAmount))
+    ? Number(payableAmount)
+    : lastDisplayedGrandTotal
+  if (cartActiveStep === 1) {
+    if (textEl) textEl.textContent = "Continue"
+    if (methodEl) methodEl.hidden = true
+    btn.disabled = !canProceed
+  } else {
+    if (textEl) {
+      if (canPlaceOrder) {
+        textEl.textContent = `Place Order · ${formatMoney(resolvedPayableAmount)}`
+      } else {
+        textEl.textContent = "Ordering unavailable"
+      }
+    }
+    if (methodEl) methodEl.hidden = !canPlaceOrder
+    btn.disabled = !canPlaceOrder
+  }
+}
 
 function flattenMenuItems(menuData) {
   const out = []
@@ -476,20 +532,20 @@ function renderSuggestionCard(it) {
   const photo = it.photoUrl
     ? `<img src="${escapeHtml(it.photoUrl)}" alt="" class="cart-suggest-card__photo" loading="lazy" />`
     : `<span class="material-symbols-outlined cart-suggest-card__photo-fallback">restaurant</span>`
+  const description = String(it.description || "").trim()
+  const addOverlay = `<button type="button" class="cart-suggest-card__add cart-suggest-card__add--image" data-suggest-add data-id="${escapeHtml(
+    String(it.id)
+  )}" aria-label="Add ${escapeHtml(it.name || "item")}">Add</button>`
+  const dietOverlay = `<div class="cart-suggest-card__diet-overlay">${itemDietPillHtml(it.foodType)}</div>`
   return `<div class="cart-suggest-card">
-    <div class="cart-suggest-card__media">${photo}</div>
+    <div class="cart-suggest-card__media">${photo}${dietOverlay}${addOverlay}</div>
     <div class="cart-suggest-card__body">
       <div class="cart-suggest-card__title-row">
-        ${itemDietPillHtml(it.foodType)}
         <h4 class="cart-suggest-card__name">${escapeHtml(it.name || "Item")}</h4>
       </div>
+      ${description ? `<p class="cart-suggest-card__desc">${escapeHtml(description)}</p>` : ""}
       <div class="cart-suggest-card__row">
         <span class="cart-suggest-card__price">${itemHasHalfFullOptions(it) ? `From ${formatMoney(Number(it.halfPrice || it.price || 0))}` : formatMoney(Number(it.price))}</span>
-        <button type="button" class="cart-suggest-card__add" data-suggest-add data-id="${escapeHtml(
-          String(it.id)
-        )}" aria-label="Add ${escapeHtml(it.name || "item")}">
-          <span class="material-symbols-outlined">add</span>
-        </button>
       </div>
     </div>
   </div>`
@@ -669,11 +725,8 @@ function render(cart) {
     if (totalLabelEl) totalLabelEl.textContent = "Total"
     if (totalEl) totalEl.textContent = formatMoney(0)
     if (unavailableBanner) unavailableBanner.hidden = true
-    const btn = $("#place-order-btn")
-    if (btn) {
-      btn.disabled = true
-      btn.textContent = "Place order"
-    }
+    setCartStep(1)
+    syncPrimaryActionButton({ canProceed: false, canPlaceOrder: false, payableAmount: 0 })
     renderSuggestionSections(cart)
     requestAnimationFrame(syncCartBottomOffset)
     return
@@ -732,11 +785,16 @@ function render(cart) {
     const dietWrap = row.querySelector(".cart-row__diet")
     if (dietWrap) dietWrap.innerHTML = itemDietPillHtml(line.foodType)
     row.querySelector(".cart-row__name").textContent = line.name
+    const lineDisplayUnitPrice =
+      cart.isGstEnabled && cart.isGstInclusive
+        ? extractFivePercentGstFromInclusivePrice(line.unitPrice)
+        : Number(line.unitPrice || 0)
+    const lineDisplayTotal = roundMoney(line.quantity * lineDisplayUnitPrice)
     row.querySelector(".cart-row__line").textContent = isUnavailable
       ? "Currently unavailable"
-      : `${formatMoney(line.unitPrice)} each`
+      : `${formatMoney(lineDisplayUnitPrice)} each`
     row.querySelector(".qty-val").textContent = String(line.quantity)
-    row.querySelector(".line-total").textContent = formatMoney(line.quantity * line.unitPrice)
+    row.querySelector(".line-total").textContent = formatMoney(lineDisplayTotal)
 
     row.querySelector('[data-act="dec"]').addEventListener("click", () => {
       const c = loadCart()
@@ -763,8 +821,12 @@ function render(cart) {
   const gstRate = cart.isGstEnabled ? 0.05 : 0
   const gstInclusive = cart.isGstEnabled && cart.isGstInclusive
   const taxableSubtotal = roundMoney(gstInclusive ? total / (1 + gstRate) : total)
-  const grandTotal = gstInclusive ? roundMoney(total) : roundMoney(taxableSubtotal + taxableSubtotal * gstRate)
-  const gst = roundMoney(gstInclusive ? grandTotal - taxableSubtotal : grandTotal - taxableSubtotal)
+  const computedGrandTotal = gstInclusive ? roundMoney(total) : roundMoney(taxableSubtotal + taxableSubtotal * gstRate)
+  const roundOffEnabled = Boolean(cart.isRoundOffTotalEnabled)
+  const grandTotal = roundOffEnabled ? Math.floor(computedGrandTotal) : computedGrandTotal
+  lastDisplayedGrandTotal = grandTotal
+  const roundOffAmount = roundMoney(grandTotal - computedGrandTotal)
+  const gst = roundMoney(gstInclusive ? computedGrandTotal - taxableSubtotal : computedGrandTotal - taxableSubtotal)
   if (summary) summary.hidden = false
   if (unavailableBanner) unavailableBanner.hidden = unavailableCount === 0
   if (subtotalLabelEl) subtotalLabelEl.textContent = gstInclusive ? "Subtotal (excl. GST)" : "Subtotal"
@@ -778,13 +840,18 @@ function render(cart) {
   }
   if (gstEl) gstEl.textContent = formatMoney(gst)
   if (gstRow) gstRow.hidden = false
-  if (totalLabelEl) totalLabelEl.textContent = cart.isGstEnabled ? "Total (Subtotal + GST)" : "Total"
-  if (totalEl) totalEl.textContent = formatMoney(grandTotal)
-  const btn = $("#place-order-btn")
-  if (btn) {
-    btn.disabled = unavailableCount > 0 || !cartOrderAllowed
-    btn.textContent = cartOrderAllowed ? "Place order" : "Ordering unavailable"
+  if (totalLabelEl) {
+    if (roundOffEnabled && roundOffAmount !== 0) {
+      totalLabelEl.textContent = `Total (Round off -${Math.abs(roundOffAmount).toFixed(2)})`
+    } else {
+      totalLabelEl.textContent = cart.isGstEnabled ? "Total (Subtotal + GST)" : "Total"
+    }
   }
+  if (totalEl) totalEl.textContent = formatMoney(grandTotal)
+  const canProceed = unavailableCount === 0 && cartOrderAllowed
+  const canPlaceOrder = unavailableCount === 0 && cartOrderAllowed
+  if (cartActiveStep === 2 && !cart.lines.length) setCartStep(1)
+  syncPrimaryActionButton({ canProceed, canPlaceOrder, payableAmount: grandTotal })
 
   renderSuggestionSections(cart)
   requestAnimationFrame(syncCartBottomOffset)
@@ -838,12 +905,17 @@ async function hydrateCartLineImages(cart) {
   let changed = false
   const gstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
   const gstInclusive = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
+  const roundOffTotalEnabled = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.roundOffTotalEnabled)
   if (cart.isGstEnabled !== gstEnabled) {
     cart.isGstEnabled = gstEnabled
     changed = true
   }
   if (cart.isGstInclusive !== gstInclusive) {
     cart.isGstInclusive = gstInclusive
+    changed = true
+  }
+  if (cart.isRoundOffTotalEnabled !== roundOffTotalEnabled) {
+    cart.isRoundOffTotalEnabled = roundOffTotalEnabled
     changed = true
   }
   cart.lines.forEach((line) => {
@@ -888,6 +960,7 @@ async function hydrateCartLineImages(cart) {
 
 async function placeOrder(cart) {
   const btn = $("#place-order-btn")
+  const btnText = $("#cart-primary-btn-text")
   const nameInput = $("#customer-name")
   const mobileInput = $("#customer-mobile")
   const deliveryAddressInput = $("#delivery-address")
@@ -900,13 +973,13 @@ async function placeOrder(cart) {
     return
   }
   btn.disabled = true
-  btn.textContent = "Placing…"
+  if (btnText) btnText.textContent = "Placing…"
   try {
     const latestMenu = await fetchMenu(cart.restaurantSlug, cart.tableNumber, cart.serviceType || "DINE_IN")
     if (latestMenu?.restaurant?.isOpenNow === false) {
       alert("Restaurant is currently closed. Please place order during open hours.")
       btn.disabled = false
-      btn.textContent = "Place order"
+      syncPrimaryActionButton({ canProceed: true, canPlaceOrder: true })
       return
     }
     const unavailableLines = getUnavailableLines(cart, latestMenu)
@@ -918,7 +991,7 @@ async function placeOrder(cart) {
         `Please remove unavailable item(s) from cart before placing order: ${names.join(", ")}`
       )
       btn.disabled = false
-      btn.textContent = "Place order"
+      syncPrimaryActionButton({ canProceed: true, canPlaceOrder: true })
       return
     }
 
@@ -963,7 +1036,7 @@ async function placeOrder(cart) {
     if (hasValidationErrors) {
       if (firstInvalidField instanceof HTMLElement) firstInvalidField.focus()
       btn.disabled = false
-      btn.textContent = "Place order"
+      syncPrimaryActionButton({ canProceed: true, canPlaceOrder: true })
       return
     }
 
@@ -977,6 +1050,10 @@ async function placeOrder(cart) {
     clearCart()
     const id = res && res.orderId ? res.orderId : ""
     const shortId = res && res.shortId ? String(res.shortId) : ""
+    const orderNo =
+      res && Number.isFinite(Number(res.restaurantOrderNo)) && Number(res.restaurantOrderNo) > 0
+        ? String(Math.trunc(Number(res.restaurantOrderNo)))
+        : ""
     if (id) {
       try {
         sessionStorage.setItem(LAST_ORDER_ID_KEY, id)
@@ -993,6 +1070,10 @@ async function placeOrder(cart) {
       const sep2 = qs ? "&" : sep
       qs += `${sep2}shortId=${encodeURIComponent(shortId)}`
     }
+    if (orderNo) {
+      const sep3 = qs ? "&" : sep
+      qs += `${sep3}orderNo=${encodeURIComponent(orderNo)}`
+    }
     window.location.href = `${base}${qs}`
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Could not place order"
@@ -1007,7 +1088,7 @@ async function placeOrder(cart) {
       alert(msg)
     }
     btn.disabled = false
-    btn.textContent = "Place order"
+    syncPrimaryActionButton({ canProceed: true, canPlaceOrder: true })
   }
 }
 
@@ -1093,11 +1174,27 @@ async function main() {
   }
 
   const btn = $("#place-order-btn")
+  const backBtn = $("#cart-step-back-btn")
+  setCartStep(1)
+  if (backBtn) {
+    backBtn.addEventListener("click", () => {
+      setCartStep(1)
+      requestAnimationFrame(syncCartBottomOffset)
+    })
+  }
   if (btn) {
     btn.addEventListener("click", (ev) => {
       ev.preventDefault()
       const c = loadCart()
-      if (c) placeOrder(c)
+      if (!c) return
+      if (cartActiveStep === 1) {
+        if (Array.isArray(c.lines) && c.lines.length > 0) {
+          setCartStep(2)
+          requestAnimationFrame(syncCartBottomOffset)
+        }
+        return
+      }
+      placeOrder(c)
     })
   }
 

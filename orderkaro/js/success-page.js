@@ -1,5 +1,5 @@
 import { withTableQuery, resolveTableContext } from "./nav.js"
-import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
+import { formatCustomerOrderRef, formatMoney, formatTrackDateTime } from "./format.js"
 import {
   applyRememberedThemeColor,
   LAST_ORDER_ID_KEY,
@@ -26,6 +26,17 @@ function getShortIdFromUrl() {
   try {
     const u = new URL(window.location.href)
     return u.searchParams.get("shortId") || ""
+  } catch {
+    return ""
+  }
+}
+
+function getOrderNoFromUrl() {
+  try {
+    const u = new URL(window.location.href)
+    const raw = u.searchParams.get("orderNo") || ""
+    const n = Number(raw)
+    return Number.isFinite(n) && n > 0 ? String(Math.trunc(n)) : ""
   } catch {
     return ""
   }
@@ -112,13 +123,28 @@ function isWaiterCallActive(state) {
   return Boolean(state?.waiterCallActive || (state?.waiterCallRequestedAt && !state?.waiterCallResolvedAt))
 }
 
+function forceHideSuccessWaiterButton() {
+  const btn = document.getElementById("success-call-waiter-btn")
+  if (!(btn instanceof HTMLButtonElement)) return
+  btn.hidden = true
+  btn.style.display = "none"
+  btn.disabled = true
+}
+
 function applySuccessWaiterState(order) {
   const btn = document.getElementById("success-call-waiter-btn")
   if (!(btn instanceof HTMLButtonElement)) return
   const ctx = resolveTableContext()
-  const isDineIn = String(ctx.serviceType || "DINE_IN").toUpperCase() === "DINE_IN"
-  btn.hidden = !isDineIn
-  if (!isDineIn || !order) {
+  const ctxServiceType = String(ctx.serviceType || "").toUpperCase()
+  const orderType = String(order?.orderType || "").toUpperCase()
+  const isDelivery = ctxServiceType === "DELIVERY" || orderType === "DELIVERY"
+  if (isDelivery) {
+    forceHideSuccessWaiterButton()
+    return
+  }
+  btn.style.display = ""
+  btn.hidden = false
+  if (!order) {
     btn.disabled = true
     return
   }
@@ -221,7 +247,9 @@ function wireSuccessActions(getOrderId, getLatestOrder, setLatestOrder) {
     waiterBtn.addEventListener("click", async () => {
       const ctx = resolveTableContext()
       const latestOrder = getLatestOrder()
-      if (!latestOrder || String(ctx.serviceType || "DINE_IN").toUpperCase() !== "DINE_IN") return
+      if (!latestOrder) return
+      if (String(ctx.serviceType || "").toUpperCase() === "DELIVERY") return
+      if (String(latestOrder?.orderType || "").toUpperCase() === "DELIVERY") return
       clearActionFeedback()
       waiterBtn.disabled = true
       try {
@@ -431,9 +459,13 @@ async function main() {
   applyRememberedThemeColor()
   bindCustomConfirmModal()
   rememberSuccessPath()
+  if (String(resolveTableContext().serviceType || "").toUpperCase() === "DELIVERY") {
+    forceHideSuccessWaiterButton()
+  }
 
   const fromUrl = getOrderIdFromUrl()
   const shortId = getShortIdFromUrl()
+  const preOrderNo = getOrderNoFromUrl()
   let id = fromUrl
   if (!id) {
     try {
@@ -465,7 +497,9 @@ async function main() {
   }
 
   const numEl = document.querySelector(".order-number")
-  if (numEl) numEl.textContent = formatOrderId(shortId || id)
+  if (numEl) {
+    numEl.textContent = preOrderNo ? `#${preOrderNo}` : formatCustomerOrderRef({ shortId, id })
+  }
 
   const track = document.querySelector("#success-track-link")
   if (track) {
@@ -489,6 +523,7 @@ async function main() {
   try {
     const order = await fetchOrder(id)
     latestOrder = order
+    if (numEl) numEl.textContent = formatCustomerOrderRef(order)
     applySuccessBillState(order)
     applySuccessCancelState(order)
     applySuccessWaiterState(order)

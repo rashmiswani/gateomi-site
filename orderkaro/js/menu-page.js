@@ -38,13 +38,27 @@ function getMenuWaiterButton() {
   return document.getElementById("menu-footer-waiter-btn")
 }
 
+function forceHideMenuWaiterButton() {
+  const btn = getMenuWaiterButton()
+  if (!(btn instanceof HTMLButtonElement)) return
+  btn.hidden = true
+  btn.style.display = "none"
+}
+
 function applyMenuWaiterButtonState() {
   const btn = getMenuWaiterButton()
   if (!(btn instanceof HTMLButtonElement)) return
   const ctx = resolveTableContext()
-  const isDineIn = String(ctx.serviceType || menuData?.serviceType || "DINE_IN").toUpperCase() === "DINE_IN"
-  btn.hidden = !isDineIn
-  if (!isDineIn) return
+  const ctxServiceType = String(ctx.serviceType || "").toUpperCase()
+  const dataServiceType = String(menuData?.serviceType || "").toUpperCase()
+  const isDelivery = ctxServiceType === "DELIVERY" || dataServiceType === "DELIVERY"
+  const isDineIn = !isDelivery
+  if (!isDineIn) {
+    forceHideMenuWaiterButton()
+    return
+  }
+  btn.style.display = ""
+  btn.hidden = false
   const active = isWaiterCallActive(waiterCallState)
   btn.disabled = active
   btn.title = active ? "Waiter already requested for this table" : "Call waiter to your table"
@@ -61,7 +75,9 @@ function wireMenuWaiterButton() {
   btn.addEventListener("click", async () => {
     if (!menuData) return
     const ctx = resolveTableContext()
-    if (String(ctx.serviceType || menuData?.serviceType || "DINE_IN").toUpperCase() !== "DINE_IN") return
+    const ctxServiceType = String(ctx.serviceType || "").toUpperCase()
+    const dataServiceType = String(menuData?.serviceType || "").toUpperCase()
+    if (ctxServiceType === "DELIVERY" || dataServiceType === "DELIVERY") return
     btn.disabled = true
     try {
       const data = await requestWaiterCall(ctx.slug, ctx.tableNumber)
@@ -148,6 +164,9 @@ function openCategoryGallery() {
       )
       latestCart.isGstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
       latestCart.isGstInclusive = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
+      latestCart.isRoundOffTotalEnabled = Boolean(
+        menuData?.restaurant?.estimatedTimeSettings?.pricing?.roundOffTotalEnabled
+      )
       closeCategoryGallery()
       renderMenu(menuData, latestCart)
       updateSticky(latestCart)
@@ -331,6 +350,7 @@ function refreshFromCart() {
   )
   c.isGstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
   c.isGstInclusive = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
+  c.isRoundOffTotalEnabled = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.roundOffTotalEnabled)
   renderMenu(menuData, c)
   updateSticky(c)
 }
@@ -634,6 +654,9 @@ async function main() {
   const loadingTabs = $("#orderkaro-loading-tabs")
   const shell = $(".app-shell")
   const { slug, tableNumber, serviceType } = resolveTableContext()
+  if (String(serviceType || "").toUpperCase() === "DELIVERY") {
+    forceHideMenuWaiterButton()
+  }
   setOpeningSplashTitle(restaurantNameFromSlug(slug))
 
   hideError()
@@ -665,6 +688,7 @@ async function main() {
   const cart = ensureCart(slug, tableNumber, data.restaurant.name, serviceType)
   cart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
   cart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
+  cart.isRoundOffTotalEnabled = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.roundOffTotalEnabled)
   renderMenu(data, cart)
   updateSticky(cart)
   const searchInput = $("#menu-search-input")
@@ -675,6 +699,9 @@ async function main() {
       const latestCart = ensureCart(slug, tableNumber, data.restaurant.name, serviceType)
       latestCart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
       latestCart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
+      latestCart.isRoundOffTotalEnabled = Boolean(
+        data?.restaurant?.estimatedTimeSettings?.pricing?.roundOffTotalEnabled
+      )
       renderMenu(data, latestCart)
       updateSticky(latestCart)
     })
@@ -691,6 +718,9 @@ async function main() {
       const latestCart = ensureCart(slug, tableNumber, data.restaurant.name, serviceType)
       latestCart.isGstEnabled = Boolean(data?.restaurant?.isGstEnabled)
       latestCart.isGstInclusive = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
+      latestCart.isRoundOffTotalEnabled = Boolean(
+        data?.restaurant?.estimatedTimeSettings?.pricing?.roundOffTotalEnabled
+      )
       renderMenu(data, latestCart)
       updateSticky(latestCart)
       syncVegToggleUi()

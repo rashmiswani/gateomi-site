@@ -30,97 +30,110 @@
         <h1 class="cart-title">Your Order</h1>
         <p class="cart-subtitle">Review your curated selection</p>
       </header>
-
-      <div id="cart-unavailable-banner" class="cart-unavailable-banner" hidden>
-        <span class="material-symbols-outlined">error</span>
-        <p>Some items in your cart are unavailable. Please remove them to continue.</p>
+      <div class="cart-stepper">
+        <button type="button" class="cart-stepper__chip is-active" id="cart-step-chip-items" disabled>1. Cart</button>
+        <button type="button" class="cart-stepper__chip" id="cart-step-chip-details" disabled>2. Details</button>
       </div>
 
-      <div class="cart-add-more-wrap">
-        <a href="menu" id="top-add-link" class="cart-add-more-btn">
-          <span class="material-symbols-outlined">add_circle</span>
-          <span>Add more items</span>
-        </a>
-      </div>
-
-      <div id="cart-mount" class="cart-list"></div>
-
-      <div id="cart-suggestions" class="cart-suggestions" hidden></div>
-
-      <section class="cart-special">
-        <label for="special-instructions" class="cart-special__label">Special Instructions</label>
-        <div class="cart-special-suggestions" id="special-instructions-suggestions"></div>
-        <div class="cart-special__box">
-          <textarea
-            id="special-instructions"
-            class="note-field note-field--global"
-            rows="3"
-            placeholder="Add any notes for the kitchen (allergies, preferences)..."
-          ></textarea>
+      <section id="cart-step-items-view">
+        <div id="cart-unavailable-banner" class="cart-unavailable-banner" hidden>
+          <span class="material-symbols-outlined">error</span>
+          <p>Some items in your cart are unavailable. Please remove them to continue.</p>
         </div>
+
+        <div class="cart-add-more-wrap">
+          <a href="menu" id="top-add-link" class="cart-add-more-btn">
+            <span class="material-symbols-outlined">add_circle</span>
+            <span>Add more items</span>
+          </a>
+        </div>
+
+        <div id="cart-mount" class="cart-list"></div>
+
+        <div id="cart-suggestions" class="cart-suggestions" hidden></div>
+
+        <section class="cart-special">
+          <label for="special-instructions" class="cart-special__label">Special Instructions</label>
+          <div class="cart-special-suggestions" id="special-instructions-suggestions"></div>
+          <div class="cart-special__box">
+            <textarea
+              id="special-instructions"
+              class="note-field note-field--global"
+              rows="3"
+              placeholder="Add any notes for the kitchen (allergies, preferences)..."
+            ></textarea>
+          </div>
+        </section>
       </section>
 
-      <section class="cart-summary" id="cart-summary" hidden>
-        <div class="cart-summary__row">
-          <span id="summary-subtotal-label">Subtotal</span>
-          <span id="summary-subtotal">₹0</span>
+      <section id="cart-step-details-view" hidden>
+        <div class="cart-customer-name" id="cart-customer-name-wrap" hidden>
+          <label for="customer-name" class="cart-customer-name__label">Name (optional)</label>
+          <div class="cart-customer-name__box">
+            <input
+              type="text"
+              id="customer-name"
+              class="cart-customer-name__input"
+              maxlength="120"
+              placeholder="Who's this order for?"
+              autocomplete="name"
+            />
+          </div>
+          <p id="customer-name-error" class="cart-field-error" hidden></p>
+          <label for="customer-mobile" class="cart-customer-name__label">Mobile number (optional)</label>
+          <div class="cart-customer-name__box">
+            <input
+              type="tel"
+              id="customer-mobile"
+              class="cart-customer-name__input"
+              maxlength="15"
+              placeholder="10-digit mobile number"
+              autocomplete="tel"
+              inputmode="numeric"
+            />
+          </div>
+          <p id="customer-mobile-error" class="cart-field-error" hidden></p>
+          <div id="cart-delivery-address-wrap" hidden>
+            <label for="delivery-address" class="cart-customer-name__label">Delivery address (required)</label>
+            <div class="cart-customer-name__box">
+              <textarea
+                id="delivery-address"
+                class="cart-customer-name__input"
+                maxlength="500"
+                rows="3"
+                placeholder="Enter full delivery address"
+              ></textarea>
+            </div>
+            <p id="delivery-address-error" class="cart-field-error" hidden></p>
+          </div>
         </div>
-        <div class="cart-summary__row" id="summary-gst-row" hidden>
-          <span id="summary-gst-label">GST (5%)</span>
-          <span id="summary-gst">₹0</span>
-        </div>
-        <div class="cart-summary__total">
-          <span id="summary-total-label">Total</span>
-          <span id="summary-total">₹0</span>
-        </div>
+
+        <section class="cart-summary" id="cart-summary" hidden>
+          <div class="cart-summary__row">
+            <span id="summary-subtotal-label">Subtotal</span>
+            <span id="summary-subtotal">₹0</span>
+          </div>
+          <div class="cart-summary__row" id="summary-gst-row" hidden>
+            <span id="summary-gst-label">GST (5%)</span>
+            <span id="summary-gst">₹0</span>
+          </div>
+          <div class="cart-summary__total">
+            <span id="summary-total-label">Total</span>
+            <span id="summary-total">₹0</span>
+          </div>
+        </section>
       </section>
     </main>
   </div>
 
   <div class="cart-bottom-bar">
     <div class="cart-bottom-bar__inner">
-      <div class="cart-customer-name" id="cart-customer-name-wrap" hidden>
-        <label for="customer-name" class="cart-customer-name__label">Name (optional)</label>
-        <div class="cart-customer-name__box">
-          <input
-            type="text"
-            id="customer-name"
-            class="cart-customer-name__input"
-            maxlength="120"
-            placeholder="Who's this order for?"
-            autocomplete="name"
-          />
-        </div>
-        <p id="customer-name-error" class="cart-field-error" hidden></p>
-        <label for="customer-mobile" class="cart-customer-name__label">Mobile number (optional)</label>
-        <div class="cart-customer-name__box">
-          <input
-            type="tel"
-            id="customer-mobile"
-            class="cart-customer-name__input"
-            maxlength="15"
-            placeholder="10-digit mobile number"
-            autocomplete="tel"
-            inputmode="numeric"
-          />
-        </div>
-        <p id="customer-mobile-error" class="cart-field-error" hidden></p>
-        <div id="cart-delivery-address-wrap" hidden>
-          <label for="delivery-address" class="cart-customer-name__label">Delivery address (required)</label>
-          <div class="cart-customer-name__box">
-            <textarea
-              id="delivery-address"
-              class="cart-customer-name__input"
-              maxlength="500"
-              rows="3"
-              placeholder="Enter full delivery address"
-            ></textarea>
-          </div>
-          <p id="delivery-address-error" class="cart-field-error" hidden></p>
-        </div>
-      </div>
+      <button type="button" class="cart-secondary-btn" id="cart-step-back-btn" hidden>Back to cart</button>
       <button type="button" class="cart-place-btn" id="place-order-btn">
-        <span>Place Order</span>
+        <span class="cart-place-btn__content">
+          <span id="cart-primary-btn-text">Continue</span>
+          <small id="cart-primary-btn-method" hidden>Cash On Delivery</small>
+        </span>
         <span class="material-symbols-outlined">arrow_forward</span>
       </button>
       <nav class="cart-bottom-nav" aria-label="Primary">

@@ -7,7 +7,7 @@ import {
 import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
 import { fetchOrder, requestBill, requestOrderCancel, requestWaiterCall, submitOrderFeedback } from "./api.js"
-import { formatMoney, formatOrderId, formatTrackDateTime } from "./format.js"
+import { formatCustomerOrderRef, formatMoney, formatTrackDateTime } from "./format.js"
 import { itemDietPillHtml } from "./diet.js"
 
 function getOrderId() {
@@ -346,7 +346,7 @@ function createOrderCardElement(orderId, data, currentOrderId) {
       <div class="track-card__head">
         <div>
           <p class="track-card__id-label">Order ID</p>
-          <h3 class="track-card__id-value">${escapeHtml(formatOrderId(data.shortId || orderId))}</h3>
+          <h3 class="track-card__id-value">${escapeHtml(formatCustomerOrderRef({ ...data }))}</h3>
           ${
             data.customerName
               ? `<p class="track-card__guest-name">For ${escapeHtml(String(data.customerName))}</p>`
@@ -505,13 +505,27 @@ function isWaiterCallActive(state) {
   return Boolean(state?.waiterCallActive || (state?.waiterCallRequestedAt && !state?.waiterCallResolvedAt))
 }
 
+function forceHideTrackWaiterButton() {
+  const btn = document.getElementById("call-waiter-btn")
+  if (!(btn instanceof HTMLButtonElement)) return
+  btn.hidden = true
+  btn.style.display = "none"
+  btn.disabled = true
+}
+
 function applyCallWaiterState(data) {
   const btn = document.getElementById("call-waiter-btn")
   if (!btn) return
   const ctx = resolveTableContext()
-  const isDineIn = String(ctx.serviceType || "DINE_IN").toUpperCase() === "DINE_IN"
-  btn.hidden = !isDineIn
-  if (!isDineIn) return
+  const ctxServiceType = String(ctx.serviceType || "").toUpperCase()
+  const orderType = String(data?.orderType || "").toUpperCase()
+  const isDelivery = ctxServiceType === "DELIVERY" || orderType === "DELIVERY"
+  if (isDelivery) {
+    forceHideTrackWaiterButton()
+    return
+  }
+  btn.style.display = ""
+  btn.hidden = false
   const tableService = data?.tableService || null
   const active = isWaiterCallActive(tableService)
   btn.disabled = active
@@ -678,7 +692,8 @@ function wireCallWaiter() {
   if (!btn) return
   btn.addEventListener("click", async () => {
     const ctx = resolveTableContext()
-    if (String(ctx.serviceType || "DINE_IN").toUpperCase() !== "DINE_IN") return
+    if (String(ctx.serviceType || "").toUpperCase() === "DELIVERY") return
+    if (String(latestOrder?.orderType || "").toUpperCase() === "DELIVERY") return
     if (latestOrder?.tableService && isWaiterCallActive(latestOrder.tableService)) return
     btn.disabled = true
     try {
@@ -809,6 +824,9 @@ async function main() {
   wireCustomConfirm()
 
   const { slug, tableNumber } = resolveTableContext()
+  if (String(resolveTableContext().serviceType || "").toUpperCase() === "DELIVERY") {
+    forceHideTrackWaiterButton()
+  }
   const errBanner = document.querySelector("#orderkaro-error")
   if (errBanner) errBanner.hidden = true
 
