@@ -40,6 +40,16 @@ function $(sel, root = document) {
   return root.querySelector(sel)
 }
 
+function normalizePhoneForTel(raw) {
+  const val = String(raw || "").trim()
+  if (!val) return ""
+  const cleaned = val.replace(/[^\d+\-() ]/g, "").trim()
+  if (!cleaned) return ""
+  const hasDigit = /\d/.test(cleaned)
+  if (!hasDigit) return ""
+  return `tel:${cleaned}`
+}
+
 function clearFieldError(fieldInput, errorEl) {
   if (!(fieldInput instanceof HTMLElement)) return
   fieldInput.classList.remove("cart-customer-name__input--invalid")
@@ -632,11 +642,14 @@ function render(cart) {
   const mount = $("#cart-mount")
   const topName = $(".cart-topbar__name")
   const topTable = $(".cart-topbar__table")
+  const callRestaurantBtn = $("#cart-call-restaurant-btn")
   const subtotalEl = $("#summary-subtotal")
   const subtotalLabelEl = $("#summary-subtotal-label")
-  const gstRow = $("#summary-gst-row")
-  const gstLabelEl = $("#summary-gst-label")
-  const gstEl = $("#summary-gst")
+  const gstSplitWrap = $("#summary-gst-split")
+  const cgstLabelEl = $("#summary-cgst-label")
+  const sgstLabelEl = $("#summary-sgst-label")
+  const cgstEl = $("#summary-cgst")
+  const sgstEl = $("#summary-sgst")
   const totalLabelEl = $("#summary-total-label")
   const totalEl = $("#summary-total")
   const summary = $("#cart-summary")
@@ -646,9 +659,24 @@ function render(cart) {
   const deliveryAddressWrap = $("#cart-delivery-address-wrap")
   const deliveryAddressEl = $("#delivery-address")
   const isDelivery = String(cart.serviceType || "").toUpperCase() === "DELIVERY"
+  const supportTel = normalizePhoneForTel(lastMenuData?.restaurant?.supportPhone)
 
   if (topName) topName.textContent = cart.restaurantName || "Restaurant"
   if (topTable) topTable.textContent = isDelivery ? "Delivery" : `Table ${cart.tableNumber}`
+  if (callRestaurantBtn instanceof HTMLAnchorElement) {
+    if (supportTel) {
+      callRestaurantBtn.hidden = false
+      callRestaurantBtn.style.display = "inline-grid"
+      callRestaurantBtn.href = supportTel
+      callRestaurantBtn.setAttribute("aria-label", "Call restaurant")
+      callRestaurantBtn.title = "Call restaurant"
+    } else {
+      callRestaurantBtn.hidden = true
+      callRestaurantBtn.style.display = "none"
+      callRestaurantBtn.href = "#"
+      callRestaurantBtn.removeAttribute("title")
+    }
+  }
 
   const addLinks = [$("#top-add-link"), $("#bottom-menu-link")].filter(Boolean)
   addLinks.forEach((a) => {
@@ -719,9 +747,9 @@ function render(cart) {
     if (summary) summary.hidden = true
     if (subtotalEl) subtotalEl.textContent = formatMoney(0)
     if (subtotalLabelEl) subtotalLabelEl.textContent = "Subtotal"
-    if (gstEl) gstEl.textContent = formatMoney(0)
-    if (gstLabelEl) gstLabelEl.textContent = "GST (5%)"
-    if (gstRow) gstRow.hidden = true
+    if (cgstEl) cgstEl.textContent = formatMoney(0)
+    if (sgstEl) sgstEl.textContent = formatMoney(0)
+    if (gstSplitWrap) gstSplitWrap.hidden = true
     if (totalLabelEl) totalLabelEl.textContent = "Total"
     if (totalEl) totalEl.textContent = formatMoney(0)
     if (unavailableBanner) unavailableBanner.hidden = true
@@ -786,7 +814,8 @@ function render(cart) {
     if (dietWrap) dietWrap.innerHTML = itemDietPillHtml(line.foodType)
     row.querySelector(".cart-row__name").textContent = line.name
     const lineDisplayUnitPrice =
-      cart.isGstEnabled && cart.isGstInclusive
+      (Boolean(cart.isGstEnabled) || Boolean(cart.isGstInclusive)) &&
+      Boolean(cart.isGstInclusive)
         ? extractFivePercentGstFromInclusivePrice(line.unitPrice)
         : Number(line.unitPrice || 0)
     const lineDisplayTotal = roundMoney(line.quantity * lineDisplayUnitPrice)
@@ -818,8 +847,9 @@ function render(cart) {
   })
 
   const { total } = cartTotals(cart)
-  const gstRate = cart.isGstEnabled ? 0.05 : 0
-  const gstInclusive = cart.isGstEnabled && cart.isGstInclusive
+  const gstActive = Boolean(cart.isGstEnabled) || Boolean(cart.isGstInclusive)
+  const gstRate = gstActive ? 0.05 : 0
+  const gstInclusive = gstActive && Boolean(cart.isGstInclusive)
   const taxableSubtotal = roundMoney(gstInclusive ? total / (1 + gstRate) : total)
   const computedGrandTotal = gstInclusive ? roundMoney(total) : roundMoney(taxableSubtotal + taxableSubtotal * gstRate)
   const roundOffEnabled = Boolean(cart.isRoundOffTotalEnabled)
@@ -827,24 +857,34 @@ function render(cart) {
   lastDisplayedGrandTotal = grandTotal
   const roundOffAmount = roundMoney(grandTotal - computedGrandTotal)
   const gst = roundMoney(gstInclusive ? computedGrandTotal - taxableSubtotal : computedGrandTotal - taxableSubtotal)
+  const cgstAmt = roundMoney(gst / 2)
+  const sgstAmt = roundMoney(gst - cgstAmt)
   if (summary) summary.hidden = false
   if (unavailableBanner) unavailableBanner.hidden = unavailableCount === 0
   if (subtotalLabelEl) subtotalLabelEl.textContent = gstInclusive ? "Subtotal (excl. GST)" : "Subtotal"
   if (subtotalEl) subtotalEl.textContent = formatMoney(taxableSubtotal)
-  if (gstLabelEl) {
-    gstLabelEl.textContent = cart.isGstEnabled
-      ? gstInclusive
-        ? "GST (5% included)"
-        : "GST (5%)"
-      : "GST (off)"
+  if (gstActive) {
+    if (gstSplitWrap) gstSplitWrap.hidden = false
+    if (cgstEl) cgstEl.textContent = formatMoney(cgstAmt)
+    if (sgstEl) sgstEl.textContent = formatMoney(sgstAmt)
+    if (cgstLabelEl) {
+      cgstLabelEl.textContent = gstInclusive
+        ? "CGST 2.5% (included in menu price)"
+        : "CGST 2.5%"
+    }
+    if (sgstLabelEl) {
+      sgstLabelEl.textContent = gstInclusive
+        ? "SGST 2.5% (included in menu price)"
+        : "SGST 2.5%"
+    }
+  } else {
+    if (gstSplitWrap) gstSplitWrap.hidden = true
   }
-  if (gstEl) gstEl.textContent = formatMoney(gst)
-  if (gstRow) gstRow.hidden = false
   if (totalLabelEl) {
     if (roundOffEnabled && roundOffAmount !== 0) {
       totalLabelEl.textContent = `Total (Round off -${Math.abs(roundOffAmount).toFixed(2)})`
     } else {
-      totalLabelEl.textContent = cart.isGstEnabled ? "Total (Subtotal + GST)" : "Total"
+      totalLabelEl.textContent = gstActive ? "Total (Subtotal + GST)" : "Total"
     }
   }
   if (totalEl) totalEl.textContent = formatMoney(grandTotal)

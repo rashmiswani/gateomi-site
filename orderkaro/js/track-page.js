@@ -56,6 +56,22 @@ function statusPillText(status) {
   return LABELS[status] || status
 }
 
+function isDeliveryOrder(order) {
+  const mode = String(order?.orderType || order?.serviceType || "").toUpperCase()
+  return mode === "DELIVERY"
+}
+
+function statusPillTextForOrder(status, order) {
+  const normalized = String(status || "").toUpperCase()
+  if (normalized === "READY" && isDeliveryOrder(order)) {
+    return "On the way"
+  }
+  if (normalized === "SERVED" && isDeliveryOrder(order)) {
+    return "Delivered"
+  }
+  return statusPillText(status)
+}
+
 function feedbackLabelForRating(rating) {
   const n = Number(rating || 0)
   if (!Number.isInteger(n) || n < 1 || n > 5) return ""
@@ -192,12 +208,12 @@ function orderTotal(data) {
   return data.items.reduce((sum, l) => sum + Number(l.quantity || 0) * Number(l.unitPrice || 0), 0)
 }
 
-function statusUi(status) {
+function statusUi(status, order = null) {
   if (status === "CANCELLED") {
-    return { pillClass: "track-card__status--danger", label: statusPillText(status) }
+    return { pillClass: "track-card__status--danger", label: statusPillTextForOrder(status, order) }
   }
   if (status === "SERVED" || status === "PAID" || status === "COMPLETED") {
-    return { pillClass: "track-card__status--muted", label: statusPillText(status) }
+    return { pillClass: "track-card__status--muted", label: statusPillTextForOrder(status, order) }
   }
   const pulse =
     status === "NEW" ||
@@ -207,7 +223,7 @@ function statusUi(status) {
     status === "READY"
   return {
     pillClass: `track-card__status--live${pulse ? " track-card__status--pulse" : ""}`,
-    label: statusPillText(status),
+    label: statusPillTextForOrder(status, order),
   }
 }
 
@@ -318,7 +334,7 @@ function wireUpiCopyButtons() {
 }
 
 function createOrderCardElement(orderId, data, currentOrderId) {
-  const meta = statusUi(data.status)
+  const meta = statusUi(data.status, data)
   const total = orderTotal(data)
   const isCurrent = orderId === currentOrderId
   const items = Array.isArray(data.items) ? data.items : []
@@ -337,7 +353,7 @@ function createOrderCardElement(orderId, data, currentOrderId) {
         <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
         <span data-estimate-countdown="${escapeHtml(String(data.estimatedReadyAt))}" data-estimate-status="${escapeHtml(
           String(data.status || "")
-        )}">—</span>
+        )}" data-estimate-delivery="${isDeliveryOrder(data) ? "1" : "0"}">—</span>
       </div>
     </div>`
   }
@@ -400,8 +416,13 @@ function createOrderCardElement(orderId, data, currentOrderId) {
 function updateEstimateCountdowns() {
   document.querySelectorAll("[data-estimate-countdown]").forEach((el) => {
     const status = String(el.getAttribute("data-estimate-status") || "").toUpperCase()
+    const isDelivery = String(el.getAttribute("data-estimate-delivery") || "") === "1"
+    if (status === "READY" && isDelivery) {
+      el.textContent = "On the way"
+      return
+    }
     if (status === "SERVED") {
-      el.textContent = "Served"
+      el.textContent = isDelivery ? "Delivered" : "Served"
       return
     }
     if (status === "PAID" || status === "COMPLETED" || status === "CANCELLED") {
@@ -505,6 +526,16 @@ function isWaiterCallActive(state) {
   return Boolean(state?.waiterCallActive || (state?.waiterCallRequestedAt && !state?.waiterCallResolvedAt))
 }
 
+function normalizePhoneForTel(raw) {
+  const val = String(raw || "").trim()
+  if (!val) return ""
+  const cleaned = val.replace(/[^\d+\-() ]/g, "").trim()
+  if (!cleaned) return ""
+  const hasDigit = /\d/.test(cleaned)
+  if (!hasDigit) return ""
+  return `tel:${cleaned}`
+}
+
 function forceHideTrackWaiterButton() {
   const btn = document.getElementById("call-waiter-btn")
   if (!(btn instanceof HTMLButtonElement)) return
@@ -521,9 +552,20 @@ function applyCallWaiterState(data) {
   const orderType = String(data?.orderType || "").toUpperCase()
   const isDelivery = ctxServiceType === "DELIVERY" || orderType === "DELIVERY"
   if (isDelivery) {
-    forceHideTrackWaiterButton()
+    const telHref = normalizePhoneForTel(data?.restaurantSupportPhone)
+    if (!telHref) {
+      forceHideTrackWaiterButton()
+      return
+    }
+    btn.style.display = ""
+    btn.hidden = false
+    btn.disabled = false
+    btn.setAttribute("data-support-tel", telHref)
+    btn.innerHTML =
+      '<span class="material-symbols-outlined" aria-hidden="true">call</span><span>Call Restaurant</span>'
     return
   }
+  btn.removeAttribute("data-support-tel")
   btn.style.display = ""
   btn.hidden = false
   const tableService = data?.tableService || null
@@ -568,6 +610,13 @@ let timer = null
 let latestOrder = null
 let currentOrderId = ""
 let feedbackSubmittingFor = ""
+
+function setFeedbackHint(form, message, isError = false) {
+  const hint = form?.querySelector?.("[data-feedback-hint]")
+  if (!(hint instanceof HTMLElement)) return
+  hint.textContent = String(message || "")
+  hint.classList.toggle("is-error", Boolean(isError))
+}
 
 async function poll(orderId) {
   try {
@@ -691,6 +740,11 @@ function wireCallWaiter() {
   const btn = document.getElementById("call-waiter-btn")
   if (!btn) return
   btn.addEventListener("click", async () => {
+    const supportTel = String(btn.getAttribute("data-support-tel") || "").trim()
+    if (supportTel) {
+      window.location.href = supportTel
+      return
+    }
     const ctx = resolveTableContext()
     if (String(ctx.serviceType || "").toUpperCase() === "DELIVERY") return
     if (String(latestOrder?.orderType || "").toUpperCase() === "DELIVERY") return
@@ -730,9 +784,8 @@ function wireFeedbackSubmit() {
     const form = starBtn.closest("form[data-feedback-form]")
     if (!(form instanceof HTMLFormElement)) return
     const rating = Number(starBtn.getAttribute("data-star") || 0)
-    const hint = form.querySelector("[data-feedback-hint]")
-    if (hint instanceof HTMLElement && rating >= 1 && rating <= 5) {
-      hint.textContent = `${rating} star${rating > 1 ? "s" : ""} - ${feedbackLabelForRating(rating)}`
+    if (rating >= 1 && rating <= 5) {
+      setFeedbackHint(form, `${rating} star${rating > 1 ? "s" : ""} - ${feedbackLabelForRating(rating)}`)
     }
   })
   list.addEventListener("mouseout", (ev) => {
@@ -746,12 +799,10 @@ function wireFeedbackSubmit() {
     const selected = Number(
       ratingInput instanceof HTMLInputElement ? ratingInput.value : "0"
     )
-    const hint = form.querySelector("[data-feedback-hint]")
-    if (!(hint instanceof HTMLElement)) return
     if (selected >= 1 && selected <= 5) {
-      hint.textContent = `${selected} star${selected > 1 ? "s" : ""} - ${feedbackLabelForRating(selected)}`
+      setFeedbackHint(form, `${selected} star${selected > 1 ? "s" : ""} - ${feedbackLabelForRating(selected)}`)
     } else {
-      hint.textContent = "Tap a star to rate"
+      setFeedbackHint(form, "Tap a star to rate")
     }
   })
   list.addEventListener("click", (ev) => {
@@ -765,10 +816,7 @@ function wireFeedbackSubmit() {
     if (!Number.isInteger(selected) || selected < 1 || selected > 5) return
     const ratingInput = form.querySelector('input[name="rating"]')
     if (ratingInput instanceof HTMLInputElement) ratingInput.value = String(selected)
-    const hint = form.querySelector("[data-feedback-hint]")
-    if (hint instanceof HTMLElement) {
-      hint.textContent = `${selected} star${selected > 1 ? "s" : ""} - ${feedbackLabelForRating(selected)}`
-    }
+    setFeedbackHint(form, `${selected} star${selected > 1 ? "s" : ""} - ${feedbackLabelForRating(selected)}`)
     form.querySelectorAll(".track-feedback-star").forEach((btn) => {
       if (!(btn instanceof HTMLElement)) return
       const value = Number(btn.getAttribute("data-star") || 0)
@@ -786,6 +834,7 @@ function wireFeedbackSubmit() {
     const rating = Number(fd.get("rating") || 0)
     const comment = String(fd.get("comment") || "").trim()
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      setFeedbackHint(target, "Please select a star rating before submitting.", true)
       const err = document.querySelector("#orderkaro-error")
       if (err) {
         err.hidden = false
@@ -820,6 +869,7 @@ async function main() {
   setHeaderContext()
   wireAskBill()
   wireCancelOrder()
+  wireCallWaiter()
   wireFeedbackSubmit()
   wireCustomConfirm()
 

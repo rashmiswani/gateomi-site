@@ -115,6 +115,7 @@ body.menu-page {
   opacity: 0;
   transition: opacity 420ms ease;
   pointer-events: none;
+  cursor: zoom-in;
 }
 
 .menu-promotion-slider__slide.is-active {
@@ -592,7 +593,7 @@ body.menu-page {
   gap: 10px;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--primary);
+  color: #166534;
   user-select: none;
 }
 
@@ -618,7 +619,7 @@ body.menu-page {
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: #d6d3d1;
+  background: #166534;
   transition: background 0.2s ease;
 }
 
@@ -636,7 +637,7 @@ body.menu-page {
 }
 
 .menu-filter-toggle__switch input:checked + .menu-filter-toggle__slider {
-  background: var(--primary);
+  background: #166534;
 }
 
 .menu-filter-toggle__switch input:checked + .menu-filter-toggle__slider::before {
@@ -644,7 +645,7 @@ body.menu-page {
 }
 
 .menu-filter-toggle__switch input:focus-visible + .menu-filter-toggle__slider {
-  box-shadow: 0 0 0 3px var(--primary-soft);
+  box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.2);
 }
 
 .menu-topbar__right {
@@ -893,7 +894,7 @@ body.menu-page {
 }
 
 .menu-card__diet-dot.is-veg {
-  background: #22c55e;
+  background: #166534;
 }
 
 .menu-card__diet-dot.is-nonveg {
@@ -3012,8 +3013,8 @@ body.menu-page {
 .menu-image-lightbox__panel {
   position: relative;
   width: min(92vw, 560px);
-  max-height: 86dvh;
-  margin: 6dvh auto 0;
+  max-height: 94dvh;
+  margin: 2dvh auto 0;
   border-radius: 16px;
   overflow: hidden;
   background: #fff;
@@ -3024,7 +3025,7 @@ body.menu-page {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 86dvh;
+  max-height: 94dvh;
   object-fit: contain;
   background: #0f172a;
 }
@@ -3093,6 +3094,29 @@ body.menu-page {
   color: rgba(255, 255, 255, 0.82);
   opacity: 0;
   animation: menu-splash-fade-slide 0.8s ease-out 0.5s forwards;
+}
+
+.menu-opening-splash__hours {
+  margin: 10px 0 0;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0;
+  animation: menu-splash-fade-slide 0.8s ease-out 0.62s forwards;
+}
+
+.menu-opening-splash__open-days {
+  margin: 8px 0 0;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  opacity: 0;
+  animation: menu-splash-fade-slide 0.8s ease-out 0.7s forwards;
 }
 
 @keyframes menu-splash-fade-scale {
@@ -3273,10 +3297,35 @@ body.cart-page {
   color: var(--track-primary-mid);
 }
 
+.cart-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .cart-topbar__table {
   color: #5f5f5f;
   font-size: 0.875rem;
   font-weight: 500;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.cart-topbar__call {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-grid;
+  place-items: center;
+  background: #f1f5f9;
+  color: var(--track-primary-mid);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  text-decoration: none;
+}
+
+.cart-topbar__call .material-symbols-outlined {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .app-shell--cart {
@@ -4165,7 +4214,7 @@ body.success-status-page {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .success-line__main {
@@ -4189,17 +4238,33 @@ body.success-status-page {
   flex-shrink: 0;
 }
 
+.success-line__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.success-line__meta .item-diet-pill {
+  max-width: 100%;
+}
+
 .success-line__title {
   font-size: 0.94rem;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .success-status-items li > span {
   font-size: 0.86rem;
   color: #64748b;
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding-top: 2px;
 }
 
 .success-status-actions {
@@ -4548,6 +4613,10 @@ body.success-status-page {
   font-weight: 600;
 }
 
+.track-feedback__hint.is-error {
+  color: #b91c1c;
+}
+
 .track-feedback textarea {
   width: 100%;
   border: 1px solid var(--border);
@@ -4617,6 +4686,7 @@ body.success-status-page {
 
 .track-card__line-head {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
 }
@@ -4635,10 +4705,13 @@ body.success-status-page {
 
 .track-card__line-title {
   min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .track-card__line-qty {
   margin: 0;
+  flex: 0 0 auto;
   font-size: 0.75rem;
   color: var(--track-text-muted);
 }
@@ -4718,37 +4791,48 @@ body.success-status-page {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--track-nav-h) + 12px);
+  bottom: calc(var(--track-nav-h) + 10px);
   z-index: 42;
   padding: 0 24px;
   pointer-events: none;
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .track-bill-cta {
-  width: min(760px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
   pointer-events: auto;
   border: none;
   border-radius: 999px;
-  padding: 16px 18px;
+  padding: 11px 14px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fff;
   background: linear-gradient(90deg, var(--track-primary), var(--track-primary-soft));
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--track-primary) 30%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--track-primary) 24%, transparent);
 }
 
 .track-bill-cta:disabled {
   opacity: 0.62;
+}
+
+
+.track-bill-cta-wrap .track-bill-cta:nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+.track-bill-cta .material-symbols-outlined {
+  font-size: 1.15rem;
 }
 
 .track-bill-cta--secondary {
@@ -4876,9 +4960,11 @@ body.success-status-page {
   }
 
   .track-bill-cta {
-    padding: 14px 16px;
-    font-size: 0.74rem;
-    letter-spacing: 0.08em;
+    min-height: 44px;
+    padding: 9px 12px;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    gap: 6px;
   }
 }
 

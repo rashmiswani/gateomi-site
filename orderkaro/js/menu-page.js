@@ -25,8 +25,9 @@ let menuVegOnly = false
 let menuVegOnlyLocked = false
 let activeCategoryId = ""
 let waiterCallState = null
+let waiterStatusPollTimer = null
 const selectedPortionsByItemId = new Map()
-const OPENING_SPLASH_DURATION_MS = 1000
+const OPENING_SPLASH_DURATION_MS = 2500
 const OPENING_SPLASH_FADE_MS = 420
 
 let menuPromotionSliderTimer = null
@@ -62,12 +63,22 @@ function mountMenuPromotionSlider(slides) {
   urls.forEach((src, i) => {
     const slide = document.createElement("div")
     slide.className = `menu-promotion-slider__slide${i === 0 ? " is-active" : ""}`
+    slide.setAttribute("role", "button")
+    slide.setAttribute("tabindex", "0")
+    slide.setAttribute("aria-label", `Open promotion banner ${i + 1} in full screen`)
     const img = document.createElement("img")
     img.src = src
     img.alt = ""
     img.decoding = "async"
     img.loading = i === 0 ? "eager" : "lazy"
     slide.appendChild(img)
+    slide.addEventListener("click", () => openImageLightbox(src))
+    slide.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault()
+        openImageLightbox(src)
+      }
+    })
     track.appendChild(slide)
 
     if (urls.length > 1) {
@@ -128,6 +139,17 @@ function forceHideMenuWaiterButton() {
   if (!(btn instanceof HTMLButtonElement)) return
   btn.hidden = true
   btn.style.display = "none"
+  btn.removeAttribute("data-support-tel")
+}
+
+function normalizePhoneForTel(raw) {
+  const val = String(raw || "").trim()
+  if (!val) return ""
+  const cleaned = val.replace(/[^\d+\-() ]/g, "").trim()
+  if (!cleaned) return ""
+  const hasDigit = /\d/.test(cleaned)
+  if (!hasDigit) return ""
+  return `tel:${cleaned}`
 }
 
 function applyMenuWaiterButtonState() {
@@ -139,9 +161,22 @@ function applyMenuWaiterButtonState() {
   const isDelivery = ctxServiceType === "DELIVERY" || dataServiceType === "DELIVERY"
   const isDineIn = !isDelivery
   if (!isDineIn) {
-    forceHideMenuWaiterButton()
+    const telHref = normalizePhoneForTel(menuData?.restaurant?.supportPhone)
+    if (!telHref) {
+      forceHideMenuWaiterButton()
+      return
+    }
+    btn.style.display = ""
+    btn.hidden = false
+    btn.disabled = false
+    btn.setAttribute("data-support-tel", telHref)
+    btn.title = "Call restaurant support"
+    btn.setAttribute("aria-label", "Call restaurant support")
+    btn.innerHTML =
+      '<span class="material-symbols-outlined">call</span><span>Call Restaurant</span>'
     return
   }
+  btn.removeAttribute("data-support-tel")
   btn.style.display = ""
   btn.hidden = false
   const active = isWaiterCallActive(waiterCallState)
@@ -159,6 +194,11 @@ function wireMenuWaiterButton() {
   btn.dataset.bound = "1"
   btn.addEventListener("click", async () => {
     if (!menuData) return
+    const supportTel = String(btn.getAttribute("data-support-tel") || "")
+    if (supportTel) {
+      window.location.href = supportTel
+      return
+    }
     const ctx = resolveTableContext()
     const ctxServiceType = String(ctx.serviceType || "").toUpperCase()
     const dataServiceType = String(menuData?.serviceType || "").toUpperCase()
@@ -168,6 +208,7 @@ function wireMenuWaiterButton() {
       const data = await requestWaiterCall(ctx.slug, ctx.tableNumber)
       waiterCallState = data
       applyMenuWaiterButtonState()
+      startMenuWaiterStatusPolling()
       const err = document.querySelector("#orderkaro-error")
       if (err) {
         err.hidden = false
@@ -182,6 +223,38 @@ function wireMenuWaiterButton() {
       }
     }
   })
+}
+
+function stopMenuWaiterStatusPolling() {
+  if (!waiterStatusPollTimer) return
+  window.clearInterval(waiterStatusPollTimer)
+  waiterStatusPollTimer = null
+}
+
+function startMenuWaiterStatusPolling() {
+  const ctx = resolveTableContext()
+  const serviceType = String(ctx.serviceType || "").toUpperCase()
+  if (serviceType === "DELIVERY") {
+    stopMenuWaiterStatusPolling()
+    return
+  }
+  if (!isWaiterCallActive(waiterCallState)) {
+    stopMenuWaiterStatusPolling()
+    return
+  }
+  if (waiterStatusPollTimer) return
+  waiterStatusPollTimer = window.setInterval(async () => {
+    try {
+      const latest = await fetchMenu(ctx.slug, ctx.tableNumber, ctx.serviceType || "DINE_IN")
+      waiterCallState = latest?.tableService || null
+      applyMenuWaiterButtonState()
+      if (!isWaiterCallActive(waiterCallState)) {
+        stopMenuWaiterStatusPolling()
+      }
+    } catch {
+      // Keep existing UI state; next interval retries.
+    }
+  }, 5000)
 }
 
 function openImageLightbox(src) {
@@ -346,6 +419,33 @@ function setOpeningSplashTitle(name) {
   const titleEl = $(".menu-opening-splash__title", $("#menu-opening-splash") || document)
   if (!titleEl) return
   titleEl.textContent = String(name || "").trim() || "Restaurant"
+}
+
+function formatRestaurantTimeLabel(value) {
+  const raw = String(value || "").trim()
+  if (!raw) return ""
+  const m = raw.match(/^(\d{1,2}):(\d{2})/)
+  if (!m) return ""
+  const hh = Number(m[1])
+  const mm = Number(m[2])
+  if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return ""
+  const period = hh >= 12 ? "PM" : "AM"
+  const h12 = hh % 12 || 12
+  return `${h12}:${String(mm).padStart(2, "0")} ${period}`
+}
+
+function setOpeningSplashHours(restaurant) {
+  const hoursEl = $("#menu-opening-splash-hours")
+  if (!hoursEl) return
+  const openText = formatRestaurantTimeLabel(restaurant?.openingTime)
+  const closeText = formatRestaurantTimeLabel(restaurant?.closingTime)
+  if (!openText || !closeText) {
+    hoursEl.hidden = true
+    hoursEl.textContent = ""
+    return
+  }
+  hoursEl.hidden = false
+  hoursEl.textContent = `Open ${openText} - Close ${closeText}`
 }
 
 async function showOpeningSplash(readyPromise = Promise.resolve()) {
@@ -745,6 +845,7 @@ async function main() {
     forceHideMenuWaiterButton()
   }
   setOpeningSplashTitle(restaurantNameFromSlug(slug))
+  setOpeningSplashHours(null)
 
   hideError()
   if (loading) loading.hidden = true
@@ -752,7 +853,14 @@ async function main() {
   if (shell) shell.setAttribute("aria-busy", "true")
 
   const menuFetchPromise = fetchMenu(slug, tableNumber, serviceType)
-  await showOpeningSplash(menuFetchPromise.then(() => undefined, () => undefined))
+  const splashReadyPromise = menuFetchPromise.then(
+    (data) => {
+      setOpeningSplashHours(data?.restaurant || null)
+      return undefined
+    },
+    () => undefined,
+  )
+  await showOpeningSplash(splashReadyPromise)
 
   let data
   try {
@@ -764,6 +872,7 @@ async function main() {
   }
 
   menuData = data
+  setOpeningSplashHours(data?.restaurant || null)
   rememberThemeColor(data?.restaurant?.themeColor)
   menuVegOnlyLocked = isEnabledFlag(data?.restaurant?.pureVegOnly)
   menuVegOnly = menuVegOnlyLocked ? true : menuVegOnly
@@ -778,6 +887,9 @@ async function main() {
   cart.isRoundOffTotalEnabled = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.roundOffTotalEnabled)
   renderMenu(data, cart)
   updateSticky(cart)
+  waiterCallState = data?.tableService || null
+  applyMenuWaiterButtonState()
+  startMenuWaiterStatusPolling()
   const searchInput = $("#menu-search-input")
   if (searchInput) {
     searchInput.value = menuSearchText
@@ -819,3 +931,7 @@ async function main() {
 }
 
 main()
+
+window.addEventListener("beforeunload", () => {
+  stopMenuWaiterStatusPolling()
+})

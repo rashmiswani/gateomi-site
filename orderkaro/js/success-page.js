@@ -123,12 +123,23 @@ function isWaiterCallActive(state) {
   return Boolean(state?.waiterCallActive || (state?.waiterCallRequestedAt && !state?.waiterCallResolvedAt))
 }
 
+function normalizePhoneForTel(raw) {
+  const val = String(raw || "").trim()
+  if (!val) return ""
+  const cleaned = val.replace(/[^\d+\-() ]/g, "").trim()
+  if (!cleaned) return ""
+  const hasDigit = /\d/.test(cleaned)
+  if (!hasDigit) return ""
+  return `tel:${cleaned}`
+}
+
 function forceHideSuccessWaiterButton() {
   const btn = document.getElementById("success-call-waiter-btn")
   if (!(btn instanceof HTMLButtonElement)) return
   btn.hidden = true
   btn.style.display = "none"
   btn.disabled = true
+  btn.removeAttribute("data-support-tel")
 }
 
 function applySuccessWaiterState(order) {
@@ -139,9 +150,20 @@ function applySuccessWaiterState(order) {
   const orderType = String(order?.orderType || "").toUpperCase()
   const isDelivery = ctxServiceType === "DELIVERY" || orderType === "DELIVERY"
   if (isDelivery) {
-    forceHideSuccessWaiterButton()
+    const telHref = normalizePhoneForTel(order?.restaurantSupportPhone)
+    if (!telHref) {
+      forceHideSuccessWaiterButton()
+      return
+    }
+    btn.style.display = ""
+    btn.hidden = false
+    btn.disabled = false
+    btn.setAttribute("data-support-tel", telHref)
+    btn.innerHTML =
+      '<span class="material-symbols-outlined" aria-hidden="true">call</span><span>Call Restaurant</span>'
     return
   }
+  btn.removeAttribute("data-support-tel")
   btn.style.display = ""
   btn.hidden = false
   if (!order) {
@@ -245,6 +267,11 @@ function wireSuccessActions(getOrderId, getLatestOrder, setLatestOrder) {
   }
   if (waiterBtn instanceof HTMLButtonElement) {
     waiterBtn.addEventListener("click", async () => {
+      const supportTel = String(waiterBtn.getAttribute("data-support-tel") || "").trim()
+      if (supportTel) {
+        window.location.href = supportTel
+        return
+      }
       const ctx = resolveTableContext()
       const latestOrder = getLatestOrder()
       if (!latestOrder) return
@@ -418,8 +445,10 @@ function mountEstimateCountdown(container, estimatedReadyAt, status) {
   if (!Number.isFinite(end)) return
   const card = document.createElement("section")
   card.className = "success-estimate-hero"
+  const serviceType = String(latestOrder?.orderType || latestOrder?.serviceType || "").toUpperCase()
+  const isDelivery = serviceType === "DELIVERY"
   card.innerHTML = `
-    <span class="success-estimate-hero__label">Estimated Ready In</span>
+    <span class="success-estimate-hero__label">${isDelivery ? "Estimated Arrival In" : "Estimated Ready In"}</span>
     <div class="success-estimate-hero__row">
       <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
       <p id="success-estimate-countdown">—</p>
@@ -428,8 +457,12 @@ function mountEstimateCountdown(container, estimatedReadyAt, status) {
   container.insertAdjacentElement("afterend", card)
   const el = card.querySelector("#success-estimate-countdown")
   const currentStatus = String(status || "").toUpperCase()
+  if (currentStatus === "READY" && isDelivery) {
+    el.textContent = "On the way"
+    return
+  }
   if (currentStatus === "SERVED") {
-    el.textContent = "Served"
+    el.textContent = isDelivery ? "Delivered" : "Served"
     return
   }
   if (currentStatus === "PAID" || currentStatus === "COMPLETED" || currentStatus === "CANCELLED") {
@@ -545,7 +578,7 @@ async function main() {
       li.innerHTML = `
         <div class="success-line__main">
           <span class="success-line__qty">${Number(line?.quantity || 0)}×</span>
-          <strong class="success-line__title">${itemDietPillHtml(line?.foodType)}${escapeHtml(String(line?.itemName || "Item"))}</strong>
+          <div class="success-line__meta">${itemDietPillHtml(line?.foodType)}<strong class="success-line__title">${escapeHtml(String(line?.itemName || "Item"))}</strong></div>
         </div>
         <span>${formatMoney(Number(line?.unitPrice || 0) * Number(line?.quantity || 0))}</span>
       `

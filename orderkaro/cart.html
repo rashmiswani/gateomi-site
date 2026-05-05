@@ -20,7 +20,18 @@
         </div>
         <span class="cart-topbar__name">Restaurant</span>
       </div>
-      <div class="cart-topbar__table">Table —</div>
+      <div class="cart-topbar__actions">
+        <div class="cart-topbar__table">Table —</div>
+        <a
+          href="#"
+          id="cart-call-restaurant-btn"
+          class="cart-topbar__call"
+          aria-label="Call restaurant"
+          hidden
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">call</span>
+        </a>
+      </div>
     </div>
   </header>
 
@@ -113,9 +124,15 @@
             <span id="summary-subtotal-label">Subtotal</span>
             <span id="summary-subtotal">₹0</span>
           </div>
-          <div class="cart-summary__row" id="summary-gst-row" hidden>
-            <span id="summary-gst-label">GST (5%)</span>
-            <span id="summary-gst">₹0</span>
+          <div id="summary-gst-split" hidden>
+            <div class="cart-summary__row">
+              <span id="summary-cgst-label">CGST 2.5%</span>
+              <span id="summary-cgst">₹0</span>
+            </div>
+            <div class="cart-summary__row">
+              <span id="summary-sgst-label">SGST 2.5%</span>
+              <span id="summary-sgst">₹0</span>
+            </div>
           </div>
           <div class="cart-summary__total">
             <span id="summary-total-label">Total</span>
