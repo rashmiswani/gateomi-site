@@ -61,7 +61,6 @@
   </div>
 
   <div class="app-shell app-shell--menu" aria-busy="true">
-    <div id="menu-promotion-slider" class="menu-promotion-slider" hidden aria-label="Restaurant promotions"></div>
     <div class="banner-error" id="orderkaro-error" role="alert" hidden></div>
 
     <div class="menu-loading" id="orderkaro-loading" aria-live="polite">
@@ -69,8 +68,7 @@
       <div class="skeleton skeleton--card"></div>
     </div>
     <div class="menu-editorial-layout">
-      <aside id="category-tabs" class="menu-category-rail" aria-label="Menu categories" hidden></aside>
-      <section id="menu-sections" class="menu-editorial-feed"></section>
+      <section id="menu-sections" class="menu-editorial-feed" aria-label="Menu"></section>
     </div>
   </div>
 
@@ -90,13 +88,28 @@
     </div>
   </div>
 
+  <div id="menu-promotion-popup" class="menu-promotion-popup" hidden aria-hidden="true">
+    <button type="button" class="menu-promotion-popup__backdrop" data-promotion-popup-close aria-label="Close promotions"></button>
+    <div class="menu-promotion-popup__panel" role="dialog" aria-modal="true" aria-label="Restaurant promotions">
+      <button type="button" class="menu-promotion-popup__close" data-promotion-popup-close aria-label="Close promotions">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <div id="menu-promotion-popup-track" class="menu-promotion-popup__track" aria-live="polite"></div>
+      <div id="menu-promotion-popup-dots" class="menu-promotion-popup__dots"></div>
+    </div>
+  </div>
+
   <div id="menu-image-lightbox" class="menu-image-lightbox" hidden aria-hidden="true">
     <button type="button" class="menu-image-lightbox__backdrop" aria-label="Close image preview"></button>
-    <div class="menu-image-lightbox__panel" role="dialog" aria-modal="true" aria-label="Image preview">
+    <div class="menu-image-lightbox__panel" role="dialog" aria-modal="true" aria-labelledby="menu-image-lightbox-title">
       <button type="button" id="menu-image-lightbox-close" class="menu-image-lightbox__close" aria-label="Close image preview">
         <span class="material-symbols-outlined">close</span>
       </button>
-      <img id="menu-image-lightbox-img" class="menu-image-lightbox__img" alt="Menu item image preview" />
+      <img id="menu-image-lightbox-img" class="menu-image-lightbox__img" alt="" />
+      <div id="menu-image-lightbox-caption" class="menu-image-lightbox__caption" hidden>
+        <h3 id="menu-image-lightbox-title" class="menu-image-lightbox__title"></h3>
+        <p id="menu-image-lightbox-desc" class="menu-image-lightbox__desc"></p>
+      </div>
     </div>
   </div>
 
@@ -109,16 +122,26 @@
     </div>
   </div>
 
-  <div id="menu-category-gallery" class="menu-category-gallery" hidden aria-hidden="true">
-    <button type="button" class="menu-category-gallery__backdrop" data-category-gallery-close aria-label="Close categories"></button>
-    <div class="menu-category-gallery__panel" role="dialog" aria-modal="true" aria-labelledby="menu-category-gallery-title">
-      <div class="menu-category-gallery__head">
-        <h3 id="menu-category-gallery-title">Browse Categories</h3>
-        <button type="button" class="menu-category-gallery__close" data-category-gallery-close aria-label="Close categories">
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-      <div id="menu-category-gallery-grid" class="menu-category-gallery__grid"></div>
+  <button type="button" id="menu-category-fab" class="menu-category-fab" hidden aria-label="Browse menu categories">
+    <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
+    <span class="menu-category-fab__label">Menu</span>
+  </button>
+
+  <div id="menu-category-gallery" class="menu-category-sheet" hidden aria-hidden="true">
+    <button type="button" class="menu-category-sheet__backdrop" data-category-gallery-close aria-label="Close categories"></button>
+    <div class="menu-category-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="menu-category-gallery-title">
+      <h3 id="menu-category-gallery-title" class="visually-hidden">Menu categories</h3>
+      <ul id="menu-category-gallery-list" class="menu-category-sheet__list"></ul>
+    </div>
+  </div>
+
+  <div id="menu-portion-picker" class="menu-portion-picker" hidden aria-hidden="true">
+    <button type="button" class="menu-portion-picker__backdrop" data-portion-picker-close aria-label="Close portion picker"></button>
+    <div class="menu-portion-picker__panel" role="dialog" aria-modal="true" aria-labelledby="menu-portion-picker-title">
+      <h3 id="menu-portion-picker-title" class="menu-portion-picker__title">Choose portion</h3>
+      <p id="menu-portion-picker-item" class="menu-portion-picker__item-name"></p>
+      <div id="menu-portion-picker-options" class="menu-portion-picker__options"></div>
+      <button type="button" class="menu-portion-picker__cancel" data-portion-picker-close>Cancel</button>
     </div>
   </div>
 

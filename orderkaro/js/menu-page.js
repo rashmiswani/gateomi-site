@@ -23,8 +23,9 @@ let menuHeaderResizeObserver = null
 let menuSearchText = ""
 let menuVegOnly = false
 let menuVegOnlyLocked = false
-let activeCategoryId = ""
 let waiterCallState = null
+/** @type {Set<string>} */
+const collapsedCategoryIds = new Set()
 let waiterStatusPollTimer = null
 const selectedPortionsByItemId = new Map()
 const OPENING_SPLASH_DURATION_MS = 2500
@@ -33,76 +34,78 @@ const OPENING_SPLASH_FADE_MS = 420
 let menuPromotionSliderTimer = null
 let menuPromotionSliderIndex = 0
 
-function teardownMenuPromotionSlider() {
+function isRestaurantMenuOpen(restaurant) {
+  return restaurant?.isOpenNow !== false
+}
+
+function teardownMenuPromotionPopup() {
   if (menuPromotionSliderTimer) {
     clearInterval(menuPromotionSliderTimer)
     menuPromotionSliderTimer = null
   }
-  const root = $("#menu-promotion-slider")
-  if (!root) return
-  root.innerHTML = ""
-  root.hidden = true
+  const track = $("#menu-promotion-popup-track")
+  const dots = $("#menu-promotion-popup-dots")
+  const root = $("#menu-promotion-popup")
+  if (track) track.innerHTML = ""
+  if (dots) dots.innerHTML = ""
+  if (root) {
+    root.hidden = true
+    root.setAttribute("aria-hidden", "true")
+  }
 }
 
-function mountMenuPromotionSlider(slides) {
-  teardownMenuPromotionSlider()
-  const root = $("#menu-promotion-slider")
-  if (!root || !Array.isArray(slides) || slides.length === 0) return
-  const urls = slides.map((s) => String(s || "").trim()).filter(Boolean)
-  if (!urls.length) return
+function closeMenuPromotionPopup() {
+  teardownMenuPromotionPopup()
+  unlockMenuPageScroll()
+}
 
-  root.hidden = false
+function mountMenuPromotionPopup(slides) {
+  teardownMenuPromotionPopup()
+  const root = $("#menu-promotion-popup")
+  const track = $("#menu-promotion-popup-track")
+  const dotsRoot = $("#menu-promotion-popup-dots")
+  if (!root || !track || !dotsRoot || !Array.isArray(slides) || slides.length === 0) return false
+  const urls = slides.map((s) => String(s || "").trim()).filter(Boolean)
+  if (!urls.length) return false
+
   const intervalMs = 4500
   menuPromotionSliderIndex = 0
-
-  const track = document.createElement("div")
-  track.className = "menu-promotion-slider__track"
-  const dots = document.createElement("div")
-  dots.className = "menu-promotion-slider__dots"
+  track.innerHTML = ""
+  dotsRoot.innerHTML = ""
 
   urls.forEach((src, i) => {
     const slide = document.createElement("div")
-    slide.className = `menu-promotion-slider__slide${i === 0 ? " is-active" : ""}`
-    slide.setAttribute("role", "button")
-    slide.setAttribute("tabindex", "0")
-    slide.setAttribute("aria-label", `Open promotion banner ${i + 1} in full screen`)
+    slide.className = `menu-promotion-popup__slide${i === 0 ? " is-active" : ""}`
+    slide.setAttribute("aria-hidden", i === 0 ? "false" : "true")
     const img = document.createElement("img")
     img.src = src
-    img.alt = ""
+    img.alt = `Promotion ${i + 1} of ${urls.length}`
     img.decoding = "async"
     img.loading = i === 0 ? "eager" : "lazy"
     slide.appendChild(img)
-    slide.addEventListener("click", () => openImageLightbox(src))
-    slide.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter" || ev.key === " ") {
-        ev.preventDefault()
-        openImageLightbox(src)
-      }
-    })
     track.appendChild(slide)
 
     if (urls.length > 1) {
       const dot = document.createElement("button")
       dot.type = "button"
-      dot.className = `menu-promotion-slider__dot${i === 0 ? " is-active" : ""}`
-      dot.setAttribute("aria-label", `Promotion slide ${i + 1}`)
+      dot.className = `menu-promotion-popup__dot${i === 0 ? " is-active" : ""}`
+      dot.setAttribute("aria-label", `Show promotion ${i + 1}`)
       dot.addEventListener("click", () => {
         menuPromotionSliderIndex = i
         applySlide()
       })
-      dots.appendChild(dot)
+      dotsRoot.appendChild(dot)
     }
   })
 
-  root.appendChild(track)
-  if (urls.length > 1) root.appendChild(dots)
-
-  const slidesEls = () => [...track.querySelectorAll(".menu-promotion-slider__slide")]
-  const dotEls = () => [...dots.querySelectorAll(".menu-promotion-slider__dot")]
+  const slidesEls = () => [...track.querySelectorAll(".menu-promotion-popup__slide")]
+  const dotEls = () => [...dotsRoot.querySelectorAll(".menu-promotion-popup__dot")]
 
   function applySlide() {
     slidesEls().forEach((el, i) => {
-      el.classList.toggle("is-active", i === menuPromotionSliderIndex)
+      const active = i === menuPromotionSliderIndex
+      el.classList.toggle("is-active", active)
+      el.setAttribute("aria-hidden", active ? "false" : "true")
     })
     dotEls().forEach((el, i) => {
       el.classList.toggle("is-active", i === menuPromotionSliderIndex)
@@ -117,13 +120,42 @@ function mountMenuPromotionSlider(slides) {
   if (urls.length > 1) {
     menuPromotionSliderTimer = window.setInterval(nextSlide, intervalMs)
   }
+
+  root.hidden = false
+  root.setAttribute("aria-hidden", "false")
+  lockMenuPageScroll()
+  return true
 }
 
-function syncMenuPromotionFromRestaurant(restaurant) {
+function getMenuPromotionSlides(restaurant) {
   const promo = restaurant?.menuPromotion
-  const slides = Array.isArray(promo?.slides) ? promo.slides : []
-  if (slides.length) mountMenuPromotionSlider(slides)
-  else teardownMenuPromotionSlider()
+  return Array.isArray(promo?.slides)
+    ? promo.slides.map((s) => String(s || "").trim()).filter(Boolean)
+    : []
+}
+
+function maybeShowMenuPromotionPopup(restaurant) {
+  if (!isRestaurantMenuOpen(restaurant)) {
+    teardownMenuPromotionPopup()
+    return
+  }
+  const slides = getMenuPromotionSlides(restaurant)
+  if (!slides.length) {
+    teardownMenuPromotionPopup()
+    return
+  }
+  mountMenuPromotionPopup(slides)
+}
+
+function bindMenuPromotionPopup() {
+  const root = $("#menu-promotion-popup")
+  if (!root) return
+  root.querySelectorAll("[data-promotion-popup-close]").forEach((el) => {
+    el.addEventListener("click", closeMenuPromotionPopup)
+  })
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && root && !root.hidden) closeMenuPromotionPopup()
+  })
 }
 
 function isWaiterCallActive(state) {
@@ -257,24 +289,67 @@ function startMenuWaiterStatusPolling() {
   }, 5000)
 }
 
-function openImageLightbox(src) {
+function updateTableBadge(tableNumber, isDelivery) {
+  const badge = document.querySelector(".menu-topbar__right .table-badge:not(.table-badge--action)")
+  if (!badge) return
+  badge.textContent = isDelivery ? "Delivery" : `Table ${tableNumber}`
+}
+
+function openImageLightbox(src, details = {}) {
   const root = $("#menu-image-lightbox")
   const img = $("#menu-image-lightbox-img")
+  const caption = $("#menu-image-lightbox-caption")
+  const titleEl = $("#menu-image-lightbox-title")
+  const descEl = $("#menu-image-lightbox-desc")
   if (!root || !img || !src) return
+  const name = String(details?.name || "").trim()
+  const description = String(details?.description || "").trim()
   img.src = src
+  img.alt = name || "Menu item image"
+  const panel = root.querySelector(".menu-image-lightbox__panel")
+  if (caption && titleEl && descEl) {
+    const hasCaption = Boolean(name || description)
+    caption.hidden = !hasCaption
+    titleEl.textContent = name
+    titleEl.hidden = !name
+    descEl.textContent = description
+    descEl.hidden = !description
+  }
+  if (panel instanceof HTMLElement) {
+    if (name) {
+      panel.setAttribute("aria-labelledby", "menu-image-lightbox-title")
+      panel.removeAttribute("aria-label")
+    } else {
+      panel.setAttribute("aria-label", "Image preview")
+      panel.removeAttribute("aria-labelledby")
+    }
+  }
   root.hidden = false
   root.setAttribute("aria-hidden", "false")
-  document.body.style.overflow = "hidden"
+  lockMenuPageScroll()
 }
 
 function closeImageLightbox() {
   const root = $("#menu-image-lightbox")
   const img = $("#menu-image-lightbox-img")
+  const caption = $("#menu-image-lightbox-caption")
+  const titleEl = $("#menu-image-lightbox-title")
+  const descEl = $("#menu-image-lightbox-desc")
   if (!root || !img) return
   root.hidden = true
   root.setAttribute("aria-hidden", "true")
   img.removeAttribute("src")
-  document.body.style.overflow = ""
+  img.alt = ""
+  if (caption) caption.hidden = true
+  if (titleEl) {
+    titleEl.textContent = ""
+    titleEl.hidden = true
+  }
+  if (descEl) {
+    descEl.textContent = ""
+    descEl.hidden = true
+  }
+  unlockMenuPageScroll()
 }
 
 function bindImageLightbox() {
@@ -289,50 +364,63 @@ function bindImageLightbox() {
   })
 }
 
+function filterMenuCategories(categories) {
+  const q = menuSearchText.trim().toLowerCase()
+  return (Array.isArray(categories) ? categories : [])
+    .map((cat) => {
+      const items = (cat.items || []).filter((it) => {
+        if (menuVegOnly && isNonVegFoodType(it.foodType)) return false
+        if (!q) return true
+        return String(it.name || "").toLowerCase().includes(q)
+      })
+      return { ...cat, items }
+    })
+    .filter((cat) => cat.items.length > 0)
+}
+
+function scrollToMenuCategory(categoryId) {
+  const id = String(categoryId || "")
+  if (!id) return
+  collapsedCategoryIds.delete(id)
+  const section = document.getElementById(`menu-cat-${id}`)
+  const feed = $("#menu-sections")
+  if (!section || !feed) return
+  section.classList.remove("is-collapsed")
+  const head = section.querySelector(".menu-cat-block__head")
+  if (head) head.setAttribute("aria-expanded", "true")
+  const headerEl = document.querySelector(".sticky-menu-header")
+  const headerOffset = headerEl ? Math.ceil(headerEl.getBoundingClientRect().height) + 8 : 72
+  const top = section.getBoundingClientRect().top - feed.getBoundingClientRect().top + feed.scrollTop - headerOffset
+  feed.scrollTo({ top: Math.max(0, top), behavior: "smooth" })
+}
+
 function openCategoryGallery() {
   const root = $("#menu-category-gallery")
   if (!root || !menuData) return
-  const grid = $("#menu-category-gallery-grid")
-  if (!grid) return
-  const categories = Array.isArray(menuData?.categories) ? menuData.categories : []
-  grid.innerHTML = categories
-    .map((cat) => {
-      const thumb = categoryRailThumbUrl(cat)
-      return `<button type="button" class="menu-category-gallery__item" data-category-jump="${escapeHtml(
-        String(cat.id)
-      )}">
-        <span class="menu-category-gallery__thumb">${
-          thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : '<span class="material-symbols-outlined">restaurant_menu</span>'
-        }</span>
-        <span class="menu-category-gallery__name">${escapeHtml(String(cat.name || "Category"))}</span>
-      </button>`
-    })
+  const list = $("#menu-category-gallery-list")
+  if (!list) return
+  const categories = filterMenuCategories(menuData.categories)
+  list.innerHTML = categories
+    .map(
+      (cat) => `<li>
+        <button type="button" class="menu-category-sheet__row" data-category-jump="${escapeHtml(String(cat.id))}">
+          <span class="menu-category-sheet__name">${escapeHtml(String(cat.name || "Category"))}</span>
+          <span class="menu-category-sheet__count">${(cat.items || []).length}</span>
+        </button>
+      </li>`,
+    )
     .join("")
-  grid.querySelectorAll("[data-category-jump]").forEach((btn) => {
+  list.querySelectorAll("[data-category-jump]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const nextId = String(btn.getAttribute("data-category-jump") || "")
-      if (!nextId || !menuData) return
-      activeCategoryId = nextId
-      const ctx = resolveTableContext()
-      const latestCart = ensureCart(
-        ctx.slug,
-        ctx.tableNumber,
-        menuData.restaurant.name,
-        ctx.serviceType || menuData?.serviceType || "DINE_IN"
-      )
-      latestCart.isGstEnabled = Boolean(menuData?.restaurant?.isGstEnabled)
-      latestCart.isGstInclusive = Boolean(menuData?.restaurant?.estimatedTimeSettings?.pricing?.gstInclusive)
-      latestCart.isRoundOffTotalEnabled = Boolean(
-        menuData?.restaurant?.estimatedTimeSettings?.pricing?.roundOffTotalEnabled
-      )
+      if (!nextId) return
       closeCategoryGallery()
-      renderMenu(menuData, latestCart)
-      updateSticky(latestCart)
+      scrollToMenuCategory(nextId)
     })
   })
   root.hidden = false
   root.setAttribute("aria-hidden", "false")
-  document.body.style.overflow = "hidden"
+  lockMenuPageScroll()
 }
 
 function closeCategoryGallery() {
@@ -340,11 +428,37 @@ function closeCategoryGallery() {
   if (!root) return
   root.hidden = true
   root.setAttribute("aria-hidden", "true")
+  unlockMenuPageScroll()
+}
+
+function isMenuOverlayOpen() {
+  return [
+    "#menu-category-gallery",
+    "#menu-image-lightbox",
+    "#menu-portion-picker",
+    "#menu-promotion-popup",
+  ].some(
+    (sel) => {
+      const el = $(sel)
+      return el && !el.hidden
+    },
+  )
+}
+
+function unlockMenuPageScroll() {
+  if (isMenuOverlayOpen()) return
   document.body.style.overflow = ""
+  document.body.classList.remove("menu-page-scroll-locked")
+}
+
+function lockMenuPageScroll() {
+  document.body.style.overflow = "hidden"
+  document.body.classList.add("menu-page-scroll-locked")
 }
 
 function bindCategoryGallery() {
   const root = $("#menu-category-gallery")
+  const fab = $("#menu-category-fab")
   if (!root) return
   root.querySelectorAll("[data-category-gallery-close]").forEach((el) => {
     el.addEventListener("click", closeCategoryGallery)
@@ -352,12 +466,19 @@ function bindCategoryGallery() {
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && !root.hidden) closeCategoryGallery()
   })
+  fab?.addEventListener("click", () => openCategoryGallery())
   document.querySelectorAll(".orderkaro-logo-link, .restaurant-name-link").forEach((link) => {
     link.addEventListener("click", (ev) => {
       ev.preventDefault()
       openCategoryGallery()
     })
   })
+}
+
+function syncMenuCategoryFab(visible) {
+  const fab = $("#menu-category-fab")
+  if (!fab) return
+  fab.hidden = !visible
 }
 
 /** Match .app-shell--menu padding to actual fixed header height (avoids a gap when the estimate is too large). */
@@ -467,13 +588,12 @@ async function showOpeningSplash(readyPromise = Promise.resolve()) {
 }
 
 function showSingleScreenMessage(msg) {
-  teardownMenuPromotionSlider()
+  teardownMenuPromotionPopup()
   const stickyCart = document.querySelector(".sticky-cart")
   const loading = $("#orderkaro-loading")
   const loadingTabs = $("#orderkaro-loading-tabs")
   const disclaimer = $("#menu-image-disclaimer")
   const errorBanner = $("#orderkaro-error")
-  const tabs = $("#category-tabs")
   const sections = $("#menu-sections")
   const shell = $(".app-shell")
 
@@ -481,13 +601,10 @@ function showSingleScreenMessage(msg) {
   if (loading) loading.hidden = true
   if (loadingTabs) loadingTabs.hidden = true
   if (disclaimer) disclaimer.hidden = true
+  syncMenuCategoryFab(false)
   if (errorBanner) {
     errorBanner.hidden = false
     errorBanner.textContent = msg
-  }
-  if (tabs) {
-    tabs.hidden = true
-    tabs.innerHTML = ""
   }
   if (sections) {
     sections.innerHTML = `<p class="cart-empty" style="padding:36px 20px; text-align:center;">${escapeHtml(msg)}</p>`
@@ -515,14 +632,6 @@ function updateSticky(cart) {
   if (topTrackLink) {
     topTrackLink.href = withTableQuery("track")
   }
-}
-
-/** Category rail thumbnail: use category image when set, otherwise any item image in that category. */
-function categoryRailThumbUrl(cat) {
-  const direct = String(cat.photoUrl || "").trim()
-  if (direct) return direct
-  const withPhoto = (cat.items || []).find((it) => String(it.photoUrl || "").trim())
-  return withPhoto ? String(withPhoto.photoUrl).trim() : ""
 }
 
 function refreshFromCart() {
@@ -557,6 +666,115 @@ function setSelectedPortionForMenuItem(itemId, portion) {
   selectedPortionsByItemId.set(String(itemId || ""), normalized)
 }
 
+function getTotalQuantityForMenuItem(cart, menuItemId) {
+  if (!cart || !menuItemId) return 0
+  if (!menuData) {
+    return getQuantityForMenuItem(cart, menuItemId, null)
+  }
+  const item = findMenuItemById(menuItemId)
+  if (!item || !itemHasHalfFullOptions(item)) {
+    return getQuantityForMenuItem(cart, menuItemId, null)
+  }
+  return (
+    getQuantityForMenuItem(cart, menuItemId, "HALF") +
+    getQuantityForMenuItem(cart, menuItemId, "FULL")
+  )
+}
+
+function findMenuItemById(menuItemId) {
+  if (!menuData?.categories) return null
+  const id = String(menuItemId || "")
+  for (const cat of menuData.categories) {
+    const hit = (cat.items || []).find((it) => String(it.id) === id)
+    if (hit) return hit
+  }
+  return null
+}
+
+function formatMenuItemPriceLabel(item) {
+  if (!itemHasHalfFullOptions(item)) {
+    return formatMoney(Number(item.price || 0))
+  }
+  const half = Number(item.halfPrice || 0)
+  const full = Number(item.fullPrice || item.price || 0)
+  if (half > 0 && full > half) {
+    return `${formatMoney(half)} – ${formatMoney(full)}`
+  }
+  return formatMoney(full)
+}
+
+let portionPickerOnSelect = null
+
+function closePortionPicker() {
+  const root = $("#menu-portion-picker")
+  if (!root) return
+  root.hidden = true
+  root.setAttribute("aria-hidden", "true")
+  portionPickerOnSelect = null
+  unlockMenuPageScroll()
+}
+
+function openPortionPicker(item, onSelect, pickerOptions = {}) {
+  const root = $("#menu-portion-picker")
+  const titleEl = $("#menu-portion-picker-title")
+  const nameEl = $("#menu-portion-picker-item")
+  const optionsEl = $("#menu-portion-picker-options")
+  if (!root || !optionsEl || !item) return
+  const mode = pickerOptions.mode === "remove" ? "remove" : "add"
+  const cart = loadCart()
+  const halfQty = getQuantityForMenuItem(cart, item.id, "HALF")
+  const fullQty = getQuantityForMenuItem(cart, item.id, "FULL")
+  portionPickerOnSelect = typeof onSelect === "function" ? onSelect : null
+  if (titleEl) {
+    titleEl.textContent = mode === "remove" ? "Remove which portion?" : "Add which portion?"
+  }
+  if (nameEl) {
+    nameEl.textContent = String(item.name || "Item")
+  }
+  const renderOption = (portion, price, inCartQty) => {
+    const disabled = mode === "remove" && inCartQty <= 0
+    const qtyHint =
+      inCartQty > 0
+        ? `<span class="menu-portion-picker__option-qty">In cart: ${inCartQty}</span>`
+        : ""
+    return `<button type="button" class="menu-portion-picker__option${
+      disabled ? " is-disabled" : ""
+    }" data-pick-portion="${portion}" ${disabled ? "disabled" : ""}>
+      <span class="menu-portion-picker__option-label">${portion === "HALF" ? "Half" : "Full"}</span>
+      <span class="menu-portion-picker__option-price">${formatMoney(price)}</span>
+      ${qtyHint}
+    </button>`
+  }
+  optionsEl.innerHTML =
+    renderOption("HALF", Number(item.halfPrice || 0), halfQty) +
+    renderOption("FULL", Number(item.fullPrice || item.price || 0), fullQty)
+  optionsEl.querySelectorAll("[data-pick-portion]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return
+      const portion = normalizeSelectedPortion(btn.getAttribute("data-pick-portion"))
+      if (!portion) return
+      setSelectedPortionForMenuItem(item.id, portion)
+      const cb = portionPickerOnSelect
+      closePortionPicker()
+      if (cb) cb(portion)
+    })
+  })
+  root.hidden = false
+  root.setAttribute("aria-hidden", "false")
+  lockMenuPageScroll()
+}
+
+function bindPortionPicker() {
+  const root = $("#menu-portion-picker")
+  if (!root) return
+  root.querySelectorAll("[data-portion-picker-close]").forEach((el) => {
+    el.addEventListener("click", closePortionPicker)
+  })
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && root && !root.hidden) closePortionPicker()
+  })
+}
+
 function isEnabledFlag(value) {
   return value === true || value === 1 || value === "1" || String(value || "").toLowerCase() === "true"
 }
@@ -571,16 +789,7 @@ function syncVegToggleUi() {
     : ""
 }
 
-function renderCategorySection(sectionRoot, cat, cart) {
-  const heading = document.createElement("div")
-  heading.className = "menu-feed-head"
-  const categoryDesc = String(cat.description || "").trim()
-  heading.innerHTML = `<h2>${escapeHtml(cat.name)}</h2><p>${categoryDesc ? escapeHtml(categoryDesc) : ""}</p>`
-  sectionRoot.appendChild(heading)
-
-  const list = document.createElement("div")
-  list.className = "menu-list menu-list--editorial"
-
+function appendCategoryItemsToList(list, cat, cart) {
   for (const it of cat.items || []) {
     const card = document.createElement("article")
     card.className = "menu-card menu-card--editorial"
@@ -594,31 +803,25 @@ function renderCategorySection(sectionRoot, cat, cart) {
       img.alt = ""
       img.className = "menu-card__img-el menu-card__img-el--tap"
       img.loading = "lazy"
-      img.addEventListener("click", () => openImageLightbox(it.photoUrl))
+      img.addEventListener("click", () =>
+        openImageLightbox(it.photoUrl, {
+          name: it.name,
+          description: it.description,
+        }),
+      )
       imgWrap.appendChild(img)
     }
     const isNonVeg = isNonVegFoodType(it.foodType)
     const dietLabel = isNonVeg ? "Non-Veg" : "Veg"
     const dietDotClass = isNonVeg ? "is-nonveg" : "is-veg"
-    const selectedPortion = getSelectedPortionForMenuItem(it)
-    const qty = getQuantityForMenuItem(cart, it.id, selectedPortion)
-    const displayPrice = getUnitPriceForMenuItem(it, selectedPortion)
-    const portionSelectorHtml = itemHasHalfFullOptions(it)
-      ? `<div class="menu-card__portion-picker" role="group" aria-label="Choose portion">
-          <button type="button" class="menu-card__portion-btn ${selectedPortion === "HALF" ? "is-active" : ""}" data-portion="HALF">Half · ${formatMoney(Number(it.halfPrice || 0))}</button>
-          <button type="button" class="menu-card__portion-btn ${selectedPortion === "FULL" ? "is-active" : ""}" data-portion="FULL">Full · ${formatMoney(Number(it.fullPrice || it.price || 0))}</button>
-        </div>`
-      : ""
+    const hasPortions = itemHasHalfFullOptions(it)
+    const qty = getTotalQuantityForMenuItem(cart, it.id)
+    const priceLabel = formatMenuItemPriceLabel(it)
     const overlay = document.createElement("div")
     overlay.className = "menu-card__image-overlay"
-    overlay.innerHTML = `
-      <div class="menu-card__diet-pill">
-        <span class="menu-card__diet-dot ${dietDotClass}"></span>
-        <span>${dietLabel}</span>
-      </div>
-      ${
-        it.isAvailable
-          ? `<div class="menu-card__qty-overlay">
+    overlay.innerHTML =
+      it.isAvailable && qty > 0
+        ? `<div class="menu-card__qty-overlay">
               <button type="button" class="menu-card__qty-btn menu-card__qty-btn--dec" aria-label="Decrease quantity">
                 <span class="material-symbols-outlined">remove</span>
               </button>
@@ -627,36 +830,34 @@ function renderCategorySection(sectionRoot, cat, cart) {
                 <span class="material-symbols-outlined">add</span>
               </button>
             </div>`
+        : it.isAvailable
+          ? `<button type="button" class="menu-card__add-btn menu-card__qty-btn--inc" aria-label="Add to cart">
+              <span class="material-symbols-outlined">add</span>
+            </button>`
           : `<div class="menu-card__sold-overlay">
               <div class="menu-card__sold-pill">Sold Out</div>
             </div>`
-      }
-    `
     imgWrap.appendChild(overlay)
 
     const body = document.createElement("div")
     body.className = "menu-card__body"
-    const desc = String(it.description || "")
-    const effectiveDesc = it.isAvailable ? desc : "Currently Unavailable"
-    const showMore = it.isAvailable && effectiveDesc.length > 52
     body.innerHTML = `
       <div class="menu-card__head">
-        <h2 class="menu-card__title">${escapeHtml(it.name)}</h2>
-        <span class="menu-card__price">${formatMoney(displayPrice)}</span>
+        <div class="menu-card__title-row">
+          <span class="menu-card__diet-mark ${isNonVeg ? "is-nonveg" : "is-veg"}" title="${dietLabel}" aria-label="${dietLabel}">
+            <span class="menu-card__diet-dot ${dietDotClass}"></span>
+          </span>
+          <h2 class="menu-card__title">${escapeHtml(it.name)}</h2>
+        </div>
+        <span class="menu-card__price">${escapeHtml(priceLabel)}</span>
       </div>
-      ${portionSelectorHtml}
-      <p class="menu-card__desc${showMore ? " is-collapsed" : ""}">${effectiveDesc ? escapeHtml(effectiveDesc) : ""}</p>
-      ${
-        showMore
-          ? `<button type="button" class="menu-card__more" data-more="0" data-full="${escapeHtml(
-              effectiveDesc
-            )}">View more</button>`
-          : ""
-      }
+      ${!it.isAvailable ? `<p class="menu-card__status">Currently Unavailable</p>` : ""}
     `
     const decBtn = overlay.querySelector(".menu-card__qty-btn--dec")
     const incBtn = overlay.querySelector(".menu-card__qty-btn--inc")
-    const setQty = (next) => {
+    const addWithPortion = (portion) => {
+      const normalized = normalizeSelectedPortion(portion)
+      const unitPrice = getUnitPriceForMenuItem(it, normalized)
       const ctx = resolveTableContext()
       if (!menuData) return
       let c = loadCart()
@@ -664,107 +865,153 @@ function renderCategorySection(sectionRoot, cat, cart) {
         ctx.slug,
         ctx.tableNumber,
         menuData.restaurant.name,
-        ctx.serviceType || menuData?.serviceType || "DINE_IN"
+        ctx.serviceType || menuData?.serviceType || "DINE_IN",
+      )
+      const current = getQuantityForMenuItem(c, it.id, normalized)
+      setMenuItemLineQuantity(
+        c,
+        {
+          menuItemId: it.id,
+          name: it.name,
+          unitPrice,
+          photoUrl: it.photoUrl || null,
+          foodType: it.foodType,
+          selectedPortion: normalized,
+        },
+        current + 1,
+      )
+      refreshFromCart()
+    }
+    const setQtyForPortion = (portion, next) => {
+      const normalized = normalizeSelectedPortion(portion)
+      const unitPrice = getUnitPriceForMenuItem(it, normalized)
+      const ctx = resolveTableContext()
+      if (!menuData) return
+      let c = loadCart()
+      c = ensureCart(
+        ctx.slug,
+        ctx.tableNumber,
+        menuData.restaurant.name,
+        ctx.serviceType || menuData?.serviceType || "DINE_IN",
       )
       setMenuItemLineQuantity(
         c,
         {
           menuItemId: it.id,
           name: it.name,
-          unitPrice: displayPrice,
+          unitPrice,
           photoUrl: it.photoUrl || null,
           foodType: it.foodType,
-          selectedPortion,
+          selectedPortion: normalized,
         },
-        next
+        next,
       )
       refreshFromCart()
     }
     if (decBtn) {
       decBtn.disabled = !it.isAvailable || qty <= 0
-      decBtn.addEventListener("click", () => {
-        const current = getQuantityForMenuItem(loadCart(), it.id, selectedPortion)
+      decBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation()
+        if (!it.isAvailable || qty <= 0) return
+        if (hasPortions) {
+          openPortionPicker(
+            it,
+            (portion) => {
+              const c = loadCart()
+              const current = getQuantityForMenuItem(c, it.id, portion)
+              if (current <= 0) return
+              setQtyForPortion(portion, current - 1)
+            },
+            { mode: "remove" },
+          )
+          return
+        }
+        const c = loadCart()
+        const current = getQuantityForMenuItem(c, it.id, null)
         if (current <= 0) return
-        setQty(current - 1)
+        setQtyForPortion(null, current - 1)
       })
     }
     if (incBtn) {
       incBtn.disabled = !it.isAvailable
-      incBtn.addEventListener("click", () => {
-        const current = getQuantityForMenuItem(loadCart(), it.id, selectedPortion)
-        setQty(current + 1)
+      incBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation()
+        if (!it.isAvailable) return
+        if (hasPortions) {
+          openPortionPicker(it, (portion) => addWithPortion(portion), { mode: "add" })
+          return
+        }
+        addWithPortion(null)
       })
     }
     if (!it.isAvailable) body.classList.add("menu-card__body--unavailable")
-    body.querySelectorAll("[data-portion]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const nextPortion = btn.getAttribute("data-portion")
-        if (!nextPortion) return
-        setSelectedPortionForMenuItem(it.id, nextPortion)
-        refreshFromCart()
-      })
-    })
-    body.querySelectorAll(".menu-card__more").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const p = body.querySelector(".menu-card__desc")
-        if (!p) return
-        const expanded = btn.getAttribute("data-more") === "1"
-        if (expanded) {
-          p.classList.add("is-collapsed")
-          btn.setAttribute("data-more", "0")
-          btn.textContent = "View more"
-        } else {
-          p.classList.remove("is-collapsed")
-          btn.setAttribute("data-more", "1")
-          btn.textContent = "View less"
-        }
-      })
-    })
 
     card.appendChild(imgWrap)
     card.appendChild(body)
     list.appendChild(card)
   }
-  sectionRoot.appendChild(list)
+}
+
+function renderCategoryBlocks(sectionsRoot, filteredCategories, cart) {
+  filteredCategories.forEach((cat) => {
+    const section = document.createElement("section")
+    const catId = String(cat.id)
+    section.className = "menu-cat-block"
+    section.id = `menu-cat-${catId}`
+    if (collapsedCategoryIds.has(catId)) section.classList.add("is-collapsed")
+
+    const head = document.createElement("button")
+    head.type = "button"
+    head.className = "menu-cat-block__head"
+    head.setAttribute("aria-expanded", collapsedCategoryIds.has(catId) ? "false" : "true")
+    const count = (cat.items || []).length
+    head.innerHTML = `<span class="menu-cat-block__title">${escapeHtml(cat.name)} <span class="menu-cat-block__count">(${count})</span></span><span class="material-symbols-outlined menu-cat-block__chevron" aria-hidden="true">expand_less</span>`
+    head.addEventListener("click", () => {
+      if (collapsedCategoryIds.has(catId)) {
+        collapsedCategoryIds.delete(catId)
+        section.classList.remove("is-collapsed")
+        head.setAttribute("aria-expanded", "true")
+      } else {
+        collapsedCategoryIds.add(catId)
+        section.classList.add("is-collapsed")
+        head.setAttribute("aria-expanded", "false")
+      }
+    })
+
+    const body = document.createElement("div")
+    body.className = "menu-cat-block__body"
+    const list = document.createElement("div")
+    list.className = "menu-list menu-list--editorial"
+    appendCategoryItemsToList(list, cat, cart)
+    body.appendChild(list)
+    section.appendChild(head)
+    section.appendChild(body)
+    sectionsRoot.appendChild(section)
+  })
 }
 
 function renderMenu(data, cart) {
   if (menuVegOnlyLocked) menuVegOnly = true
   const { restaurant, tableNumber, categories } = data
-  syncMenuPromotionFromRestaurant(restaurant)
   const isDelivery = String(data?.serviceType || "").toUpperCase() === "DELIVERY"
   const nameEl = $(".restaurant-name")
   if (nameEl) nameEl.textContent = restaurant.name
   setOpeningSplashTitle(restaurant.name)
   waiterCallState = data?.tableService || null
-  const badge = $(".table-badge")
-  if (badge) badge.textContent = isDelivery ? "Delivery" : `Table ${tableNumber}`
+  updateTableBadge(tableNumber, isDelivery)
   setLogo(restaurant.logoUrl || null)
   applyMenuWaiterButtonState()
   wireMenuWaiterButton()
 
-  const tabs = $("#category-tabs")
   const sections = $("#menu-sections")
   const disclaimer = $("#menu-image-disclaimer")
-  if (!tabs || !sections) return
+  if (!sections) return
 
   sections.classList.remove("menu-feed--enter")
 
-  tabs.innerHTML = ""
   sections.innerHTML = ""
-  const q = menuSearchText.trim().toLowerCase()
-  const filteredCategories = categories
-    .map((cat) => {
-      const items = (cat.items || []).filter((it) => {
-        if (menuVegOnly && isNonVegFoodType(it.foodType)) return false
-        if (!q) return true
-        const hay = `${it.name || ""} ${it.description || ""}`.toLowerCase()
-        return hay.includes(q)
-      })
-      return { ...cat, items }
-    })
-    .filter((cat) => cat.items.length > 0)
-  tabs.hidden = filteredCategories.length === 0
+  const filteredCategories = filterMenuCategories(categories)
+  syncMenuCategoryFab(filteredCategories.length > 1)
   if (disclaimer) {
     disclaimer.hidden = !filteredCategories.some((cat) =>
       Array.isArray(cat.items) && cat.items.some((it) => String(it?.photoUrl || "").trim())
@@ -791,30 +1038,7 @@ function renderMenu(data, cart) {
     return
   }
 
-  if (!activeCategoryId || !filteredCategories.some((cat) => String(cat.id) === String(activeCategoryId))) {
-    activeCategoryId = String(filteredCategories[0].id)
-  }
-  const activeCategory =
-    filteredCategories.find((cat) => String(cat.id) === String(activeCategoryId)) || filteredCategories[0]
-
-  filteredCategories.forEach((cat) => {
-    const tab = document.createElement("button")
-    tab.type = "button"
-    tab.className = `category-tab category-rail__item${
-      String(activeCategory.id) === String(cat.id) ? " category-tab--active" : ""
-    }`
-    const thumb = categoryRailThumbUrl(cat)
-    tab.innerHTML = `<span class="category-rail__thumb">${
-      thumb ? `<img src="${escapeHtml(thumb)}" alt="" loading="lazy" />` : ""
-    }</span><span class="category-rail__name">${escapeHtml(cat.name)}</span>`
-    tab.addEventListener("click", () => {
-      activeCategoryId = String(cat.id)
-      renderMenu(data, cart)
-    })
-    tabs.appendChild(tab)
-  })
-
-  renderCategorySection(sections, activeCategory, cart)
+  renderCategoryBlocks(sections, filteredCategories, cart)
   requestAnimationFrame(() => {
     sections.classList.add("menu-feed--enter")
   })
@@ -832,10 +1056,17 @@ function escapeHtml(s) {
 
 async function main() {
   applyRememberedThemeColor()
+  unlockMenuPageScroll()
+  closeCategoryGallery()
+  closeImageLightbox()
+  closePortionPicker()
+  closeMenuPromotionPopup()
   rememberMenuPath()
   setupMenuHeaderHeightSync()
   bindImageLightbox()
   bindCategoryGallery()
+  bindPortionPicker()
+  bindMenuPromotionPopup()
 
   const loading = $("#orderkaro-loading")
   const loadingTabs = $("#orderkaro-loading-tabs")
@@ -887,6 +1118,7 @@ async function main() {
   cart.isRoundOffTotalEnabled = Boolean(data?.restaurant?.estimatedTimeSettings?.pricing?.roundOffTotalEnabled)
   renderMenu(data, cart)
   updateSticky(cart)
+  maybeShowMenuPromotionPopup(data.restaurant)
   waiterCallState = data?.tableService || null
   applyMenuWaiterButtonState()
   startMenuWaiterStatusPolling()
