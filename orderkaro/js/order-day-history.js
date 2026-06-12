@@ -5,6 +5,7 @@
  */
 
 const PREFIX = "orderkaro_day_orders_v1"
+const STAFF_PREFIX = "orderkaro_staff_day_orders_v1"
 
 function calendarDayKey() {
   const d = new Date()
@@ -95,5 +96,48 @@ export function appendDayOrderId(slug, tableNumber, orderId) {
     localStorage.setItem(key(slug, tableNumber), JSON.stringify({ day: today, orderIds: next }))
   } catch {
     /* quota / private mode */
+  }
+}
+
+function staffKey(userId) {
+  return `${STAFF_PREFIX}:${String(userId || "").trim()}`
+}
+
+/** Staff orderfood: today's orders for this staff user (all tables). */
+export function loadStaffDayOrders(userId) {
+  const today = calendarDayKey()
+  const uid = String(userId || "").trim()
+  if (!uid) return { day: today, orderIds: [] }
+  try {
+    const raw = localStorage.getItem(staffKey(uid))
+    if (!raw) return { day: today, orderIds: [] }
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed.day !== "string" || parsed.day !== today) {
+      try {
+        localStorage.removeItem(staffKey(uid))
+      } catch {
+        /* ignore */
+      }
+      return { day: today, orderIds: [] }
+    }
+    const orderIds = Array.isArray(parsed.orderIds)
+      ? parsed.orderIds.filter((id) => typeof id === "string" && id.length > 0)
+      : []
+    return { day: today, orderIds }
+  } catch {
+    return { day: today, orderIds: [] }
+  }
+}
+
+export function appendStaffDayOrderId(userId, orderId) {
+  const uid = String(userId || "").trim()
+  if (!uid || !orderId || typeof orderId !== "string") return
+  const today = calendarDayKey()
+  const { orderIds } = loadStaffDayOrders(uid)
+  const next = orderIds.includes(orderId) ? orderIds : [...orderIds, orderId]
+  try {
+    localStorage.setItem(staffKey(uid), JSON.stringify({ day: today, orderIds: next }))
+  } catch {
+    /* ignore */
   }
 }

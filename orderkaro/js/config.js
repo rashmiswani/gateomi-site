@@ -3,19 +3,35 @@
  *   <script>window.__ORDERKARO_API__ = "https://api.example.com";</script>
  * Or query: ?api=http://localhost:3000
  */
+export const API_BASE_KEY = "orderkaro_api_base_v1"
+
 export function getApiBase() {
   try {
     const u = new URL(window.location.href)
     const q = u.searchParams.get("api")
-    if (q) return q.replace(/\/$/, "")
+    if (q) {
+      const base = q.replace(/\/$/, "")
+      try {
+        sessionStorage.setItem(API_BASE_KEY, base)
+      } catch {
+        /* ignore */
+      }
+      return base
+    }
   } catch {
     /* ignore */
   }
   if (typeof window.__ORDERKARO_API__ === "string" && window.__ORDERKARO_API__.length > 0) {
     return window.__ORDERKARO_API__.replace(/\/$/, "")
   }
+  try {
+    const saved = sessionStorage.getItem(API_BASE_KEY)
+    if (saved) return saved.replace(/\/$/, "")
+  } catch {
+    /* ignore */
+  }
+  return "https://www.goqrave.com"
   // return "http://localhost:3000"
-  return "https://orderfood.gateomi.com"
 }
 
 export const DEFAULT_SLUG = "demo-bistro"
@@ -158,10 +174,87 @@ export function rememberSuccessPath() {
 
 export function rememberTrackPath() {
   try {
-    sessionStorage.setItem(TRACK_PATH_KEY, window.location.pathname)
+    sessionStorage.setItem(TRACK_PATH_KEY, window.location.pathname + window.location.search)
   } catch {
     /* ignore */
   }
+}
+
+export function getSlugFromUrl(fallback = DEFAULT_SLUG) {
+  try {
+    const u = new URL(window.location.href)
+    return u.searchParams.get("slug") || fallback
+  } catch {
+    return fallback
+  }
+}
+
+/** True when dine-in table was explicitly passed in the URL (customer table QR). */
+export function urlHasExplicitTable() {
+  try {
+    const u = new URL(window.location.href)
+    return u.searchParams.has("table") || u.searchParams.has("tableNumber")
+  } catch {
+    return false
+  }
+}
+
+export const STAFF_ORDER_KEY = "orderkaro_staff_order_v1"
+
+/**
+ * Staff ordering flow — only when opened via staff link/QR (`?staff=1`).
+ * Customer table QR links never include this param; ordering stays anonymous.
+ */
+export function isStaffOrderMode() {
+  try {
+    const u = new URL(window.location.href)
+    if (u.searchParams.get("staff") === "1") return true
+    return sessionStorage.getItem(STAFF_ORDER_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+
+/** Remember staff flow when opened via staff link/QR (`?staff=1`). */
+export function syncStaffOrderModeFromUrl() {
+  try {
+    const u = new URL(window.location.href)
+    if (u.searchParams.get("staff") === "1") {
+      sessionStorage.setItem(STAFF_ORDER_KEY, "1")
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Menu URL after picking a table (preserves staff mode + dev ?api=). */
+export function buildMenuUrlForTable(slug, tableNumber) {
+  const u = new URL("menu", window.location.href)
+  u.searchParams.set("slug", String(slug || DEFAULT_SLUG))
+  u.searchParams.set("table", String(tableNumber))
+  u.searchParams.set("service", "dine-in")
+  if (isStaffOrderMode()) u.searchParams.set("staff", "1")
+  try {
+    const api = new URL(window.location.href).searchParams.get("api")
+    if (api) u.searchParams.set("api", api)
+  } catch {
+    /* ignore */
+  }
+  return u.pathname + u.search
+}
+
+/** Staff / walk-up flow: pick a table before ordering (no login). */
+export function redirectToTableSelection(slug) {
+  const u = new URL("start", window.location.href)
+  u.searchParams.set("slug", String(slug || DEFAULT_SLUG))
+  if (isStaffOrderMode()) u.searchParams.set("staff", "1")
+  try {
+    const api = new URL(window.location.href).searchParams.get("api")
+    if (api) u.searchParams.set("api", api)
+  } catch {
+    /* ignore */
+  }
+  window.location.replace(u.pathname + u.search)
 }
 
 /** Read ?slug= & ?table= from URL with defaults. */

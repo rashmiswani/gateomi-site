@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#faf9f7" />
+  <title>Select table — Qrave</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Plus+Jakarta+Sans:wght@700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="start-page">
+  <main class="start-page__shell">
+    <header class="start-page__hero">
+      <div class="start-page__logo-slot" data-restaurant-logo-slot aria-hidden="true"></div>
+      <p class="start-page__eyebrow" id="start-eyebrow" hidden>Staff ordering</p>
+      <h1 class="start-page__title" id="start-restaurant-name">Loading…</h1>
+      <p class="start-page__lead" id="start-lead">Choose a table to start your order.</p>
+    </header>
+
+    <section id="start-login-section" class="start-login-card" hidden aria-hidden="true">
+      <h2 class="start-login-card__title">Staff sign in</h2>
+      <p class="start-login-card__copy muted">Use the same credentials as the staff dashboard.</p>
+      <p id="start-login-error" class="flash flash--error" hidden></p>
+      <form id="start-login-form" class="start-login-form">
+        <div>
+          <label for="start-login-identifier">Email or username</label>
+          <input id="start-login-identifier" name="login" type="text" autocomplete="username" required />
+        </div>
+        <div>
+          <label for="start-login-password">Password</label>
+          <input id="start-login-password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn btn--primary btn--block">Sign in</button>
+      </form>
+    </section>
+
+    <div id="start-signed-in-bar" class="start-signed-in" hidden>
+      <span>Signed in as <strong id="start-signed-in-name"></strong></span>
+      <button type="button" id="start-logout-btn" class="btn btn--ghost btn--small">Sign out</button>
+    </div>
+
+    <div id="start-table-picker" class="start-table-picker" hidden>
+    <div class="start-page__search-wrap">
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <label for="start-table-search" class="visually-hidden">Search table number</label>
+      <input id="start-table-search" type="search" inputmode="numeric" placeholder="Search table number…" autocomplete="off" />
+    </div>
+
+    <p id="start-error" class="flash flash--error" hidden></p>
+    <p id="start-loading" class="start-page__loading muted" hidden>Loading tables…</p>
+    <p id="start-empty" class="start-page__empty muted" hidden>No tables found for this restaurant.</p>
+    <p id="start-no-match" class="start-page__empty muted" hidden>No tables match your search.</p>
+
+    <div id="start-table-grid" class="start-table-grid" hidden></div>
+    </div>
+  </main>
+  <script type="module" src="js/start-page.js"></script>
+</body>
+</html>

@@ -1,6 +1,17 @@
-import { applyRememberedThemeColor, rememberMenuPath, rememberThemeColor } from "./config.js"
+import {
+  applyRememberedThemeColor,
+  rememberMenuPath,
+  rememberThemeColor,
+  getSlugFromUrl,
+  urlHasExplicitTable,
+  redirectToTableSelection,
+  isStaffOrderMode,
+  syncStaffOrderModeFromUrl,
+  buildMenuUrlForTable,
+} from "./config.js"
+import { requireStaffOrderAuth, redirectToStaffStart } from "./staff-auth.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
-import { fetchMenu, requestWaiterCall } from "./api.js"
+import { fetchMenu, fetchRestaurantTables, requestWaiterCall } from "./api.js"
 import {
   ensureCart,
   cartTotals,
@@ -33,6 +44,8 @@ const OPENING_SPLASH_FADE_MS = 420
 
 let menuPromotionSliderTimer = null
 let menuPromotionSliderIndex = 0
+let tablePickerTablesCache = null
+let tablePickerTablesSlug = ""
 
 function isRestaurantMenuOpen(restaurant) {
   return restaurant?.isOpenNow !== false
@@ -289,10 +302,127 @@ function startMenuWaiterStatusPolling() {
   }, 5000)
 }
 
+function closeTablePicker() {
+  const root = $("#menu-table-picker")
+  if (!root) return
+  root.hidden = true
+  root.setAttribute("aria-hidden", "true")
+  unlockMenuPageScroll()
+}
+
+function filterTablePickerGrid() {
+  const grid = $("#menu-table-picker-grid")
+  const search = $("#menu-table-picker-search")
+  const noMatch = $("#menu-table-picker-no-match")
+  if (!grid) return
+  const q = String(search?.value || "").trim()
+  let visible = 0
+  grid.querySelectorAll("[data-table-picker-num]").forEach((el) => {
+    const num = String(el.getAttribute("data-table-picker-search") || "")
+    const show = !q || num.includes(q)
+    el.classList.toggle("is-filter-hidden", !show)
+    if (show) visible += 1
+  })
+  if (noMatch) noMatch.hidden = visible > 0 || !q
+}
+
+function renderTablePickerGrid(slug, tables, currentTable) {
+  const grid = $("#menu-table-picker-grid")
+  const loading = $("#menu-table-picker-loading")
+  if (!grid) return
+  if (loading) loading.hidden = true
+  grid.innerHTML = tables
+    .map((t) => {
+      const num = t.tableNumber
+      const isCurrent = Number(num) === Number(currentTable)
+      return `<button type="button" class="start-table-card${isCurrent ? " start-table-card--current" : ""}" data-table-picker-num="${escapeHtml(String(num))}" data-table-picker-search="${escapeHtml(String(num))}">
+        <span class="start-table-card__num">${escapeHtml(String(num))}</span>
+        <span class="start-table-card__label">${isCurrent ? "Current" : "Table"}</span>
+      </button>`
+    })
+    .join("")
+  grid.querySelectorAll("[data-table-picker-num]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const num = btn.getAttribute("data-table-picker-num")
+      if (!num || Number(num) === Number(currentTable)) {
+        closeTablePicker()
+        return
+      }
+      window.location.href = buildMenuUrlForTable(slug, num)
+    })
+  })
+  filterTablePickerGrid()
+}
+
+async function openTablePicker() {
+  const root = $("#menu-table-picker")
+  const search = $("#menu-table-picker-search")
+  const loading = $("#menu-table-picker-loading")
+  const grid = $("#menu-table-picker-grid")
+  const noMatch = $("#menu-table-picker-no-match")
+  if (!root || !grid) return
+  const { slug, tableNumber } = resolveTableContext()
+  root.hidden = false
+  root.setAttribute("aria-hidden", "false")
+  lockMenuPageScroll()
+  if (search) search.value = ""
+  if (noMatch) noMatch.hidden = true
+  grid.innerHTML = ""
+  if (loading) loading.hidden = false
+
+  try {
+    let tables = tablePickerTablesCache
+    if (tablePickerTablesSlug !== slug || !tables) {
+      const data = await fetchRestaurantTables(slug)
+      tables = Array.isArray(data?.tables) ? data.tables : []
+      tablePickerTablesSlug = slug
+      tablePickerTablesCache = tables
+    }
+    renderTablePickerGrid(slug, tables, tableNumber)
+  } catch {
+    if (loading) loading.hidden = true
+    grid.innerHTML = `<p class="menu-table-picker__error">Could not load tables. Try again.</p>`
+  }
+}
+
+function bindTablePicker() {
+  const badge = $("#menu-table-badge")
+  const root = $("#menu-table-picker")
+  const search = $("#menu-table-picker-search")
+  if (!badge || !root) return
+  badge.addEventListener("click", () => {
+    if (!badge.classList.contains("table-badge--changeable")) return
+    void openTablePicker()
+  })
+  search?.addEventListener("input", filterTablePickerGrid)
+  root.querySelectorAll("[data-table-picker-close]").forEach((el) => {
+    el.addEventListener("click", closeTablePicker)
+  })
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && root && !root.hidden) closeTablePicker()
+  })
+}
+
 function updateTableBadge(tableNumber, isDelivery) {
-  const badge = document.querySelector(".menu-topbar__right .table-badge:not(.table-badge--action)")
+  const badge = $("#menu-table-badge")
+  const textEl = $("#menu-table-badge-text")
+  const chevron = $("#menu-table-badge-chevron")
   if (!badge) return
-  badge.textContent = isDelivery ? "Delivery" : `Table ${tableNumber}`
+  const label = isDelivery ? "Delivery" : `Table ${tableNumber}`
+  if (textEl) textEl.textContent = label
+  const canChange = isStaffOrderMode() && !isDelivery
+  badge.classList.toggle("table-badge--changeable", canChange)
+  badge.disabled = !canChange
+  if (chevron) chevron.hidden = !canChange
+  if (canChange) {
+    badge.setAttribute("aria-haspopup", "dialog")
+    badge.setAttribute("aria-controls", "menu-table-picker")
+    badge.setAttribute("aria-label", `Change table (currently ${tableNumber})`)
+  } else {
+    badge.removeAttribute("aria-haspopup")
+    badge.removeAttribute("aria-controls")
+    badge.setAttribute("aria-label", label)
+  }
 }
 
 function openImageLightbox(src, details = {}) {
@@ -631,6 +761,8 @@ function updateSticky(cart) {
   }
   if (topTrackLink) {
     topTrackLink.href = withTableQuery("track")
+    const trackLabel = topTrackLink.querySelector("span:last-child")
+    if (trackLabel) trackLabel.textContent = isStaffOrderMode() ? "My Orders" : "Track Orders"
   }
 }
 
@@ -1056,6 +1188,7 @@ function escapeHtml(s) {
 
 async function main() {
   applyRememberedThemeColor()
+  syncStaffOrderModeFromUrl()
   unlockMenuPageScroll()
   closeCategoryGallery()
   closeImageLightbox()
@@ -1065,6 +1198,7 @@ async function main() {
   setupMenuHeaderHeightSync()
   bindImageLightbox()
   bindCategoryGallery()
+  bindTablePicker()
   bindPortionPicker()
   bindMenuPromotionPopup()
 
@@ -1072,8 +1206,25 @@ async function main() {
   const loadingTabs = $("#orderkaro-loading-tabs")
   const shell = $(".app-shell")
   const { slug, tableNumber, serviceType } = resolveTableContext()
+
+  if (isStaffOrderMode()) {
+    try {
+      const session = await requireStaffOrderAuth(slug)
+      if (!session) {
+        redirectToStaffStart(slug)
+        return
+      }
+    } catch {
+      redirectToStaffStart(slug)
+      return
+    }
+  }
+
   if (String(serviceType || "").toUpperCase() === "DELIVERY") {
     forceHideMenuWaiterButton()
+  } else if (!urlHasExplicitTable()) {
+    redirectToTableSelection(getSlugFromUrl(slug))
+    return
   }
   setOpeningSplashTitle(restaurantNameFromSlug(slug))
   setOpeningSplashHours(null)

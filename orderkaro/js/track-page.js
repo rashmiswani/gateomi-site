@@ -3,10 +3,13 @@ import {
   LAST_ORDER_ID_KEY,
   rememberThemeColor,
   rememberTrackPath,
+  isStaffOrderMode,
+  syncStaffOrderModeFromUrl,
 } from "./config.js"
-import { appendDayOrderId, loadDayOrders } from "./order-day-history.js"
+import { appendDayOrderId, loadDayOrders, loadStaffDayOrders } from "./order-day-history.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
 import { fetchOrder, requestBill, requestOrderCancel, requestWaiterCall, submitOrderFeedback } from "./api.js"
+import { requireStaffOrderAuth, redirectToStaffStart, fetchStaffPlacedByMeOrders, getStaffSession, buildStaffStartUrl } from "./staff-auth.js"
 import { formatCustomerOrderRef, formatMoney, formatTrackDateTime } from "./format.js"
 import { itemDietPillHtml } from "./diet.js"
 
@@ -227,23 +230,76 @@ function statusUi(status, order = null) {
   }
 }
 
-function setHeaderContext() {
+function setHeaderContext(session) {
   const { slug, tableNumber, serviceType } = resolveTableContext()
-  const restaurantName = slug
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ")
+  const restaurantName =
+    session?.restaurant?.name ||
+    slug
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ")
   const nameEl = document.getElementById("track-restaurant-name")
   if (nameEl) nameEl.textContent = restaurantName
   const tableEl = document.getElementById("track-table-label")
-  if (tableEl) tableEl.textContent = serviceType === "DELIVERY" ? "Delivery" : `Table ${tableNumber}`
+  const headingEl = document.getElementById("track-editorial-heading")
   const descEl = document.getElementById("track-editorial-desc")
+  const staffMode = isStaffOrderMode()
+
+  if (staffMode) {
+    if (tableEl) tableEl.textContent = "All tables"
+    if (headingEl) headingEl.textContent = "My Orders"
+    if (descEl) {
+      descEl.textContent = `All orders you placed today at ${restaurantName}, across every table.`
+    }
+    return
+  }
+
+  if (tableEl) tableEl.textContent = serviceType === "DELIVERY" ? "Delivery" : `Table ${tableNumber}`
+  if (headingEl) headingEl.textContent = "Track Your Table"
   if (descEl) {
     descEl.textContent =
       serviceType === "DELIVERY"
         ? `Managing your culinary journey at ${restaurantName}. All active delivery orders are listed below.`
         : `Managing your culinary journey at ${restaurantName}. All active orders for Table ${tableNumber} are listed below.`
   }
+}
+
+function applyStaffTrackChrome() {
+  if (!isStaffOrderMode()) return
+  document.body.classList.add("track-page--staff")
+  const billWrap = document.querySelector(".track-bill-cta-wrap")
+  if (billWrap) billWrap.hidden = true
+}
+
+async function loadTrackOrderIds(slug, tableNumber) {
+  if (isStaffOrderMode()) {
+    const ids = new Set()
+    try {
+      const data = await fetchStaffPlacedByMeOrders()
+      for (const id of data?.orderIds || []) {
+        if (id) ids.add(id)
+      }
+    } catch {
+      /* API unavailable — fall back to browser cache below */
+    }
+    try {
+      const session = await getStaffSession()
+      const userId = session?.user?.id
+      if (userId) {
+        for (const id of loadStaffDayOrders(userId).orderIds) ids.add(id)
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      const last = sessionStorage.getItem(LAST_ORDER_ID_KEY)
+      if (last) ids.add(last)
+    } catch {
+      /* ignore */
+    }
+    return [...ids]
+  }
+  return [...loadDayOrders(slug, tableNumber).orderIds]
 }
 
 function trackHrefForOrder(orderId) {
@@ -333,6 +389,34 @@ function wireUpiCopyButtons() {
   })
 }
 
+function orderListHighlightMetaHtml(data) {
+  if (!isStaffOrderMode()) return ""
+  const tableNum = data?.tableNumber
+  const time = formatTrackDateTime(data?.createdAt || "")
+  const tablePart = tableNum
+    ? `<div class="track-card__highlight-bar-item track-card__highlight-bar-item--table">
+        <span class="track-card__highlight-icon material-symbols-outlined" aria-hidden="true">table_restaurant</span>
+        <div class="track-card__highlight-text">
+          <span class="track-card__highlight-label">Table</span>
+          <strong class="track-card__highlight-value">${escapeHtml(String(tableNum))}</strong>
+        </div>
+      </div>`
+    : ""
+  const timePart =
+    time !== "—"
+      ? `<div class="track-card__highlight-bar-item track-card__highlight-bar-item--time">
+        <span class="track-card__highlight-icon material-symbols-outlined" aria-hidden="true">schedule</span>
+        <div class="track-card__highlight-text">
+          <span class="track-card__highlight-label">Placed at</span>
+          <strong class="track-card__highlight-value">${escapeHtml(time)}</strong>
+        </div>
+      </div>`
+      : ""
+  if (!tablePart && !timePart) return ""
+  const divider = tablePart && timePart ? '<div class="track-card__highlight-bar-divider" aria-hidden="true"></div>' : ""
+  return `<div class="track-card__highlight-bar">${tablePart}${divider}${timePart}</div>`
+}
+
 function createOrderCardElement(orderId, data, currentOrderId) {
   const meta = statusUi(data.status, data)
   const total = orderTotal(data)
@@ -359,6 +443,7 @@ function createOrderCardElement(orderId, data, currentOrderId) {
   }
   card.innerHTML = `
     <div class="track-card__inner">
+      ${orderListHighlightMetaHtml(data)}
       <div class="track-card__head">
         <div>
           <p class="track-card__id-label">Order ID</p>
@@ -371,7 +456,11 @@ function createOrderCardElement(orderId, data, currentOrderId) {
         </div>
         <div class="track-card__status ${meta.pillClass}">${escapeHtml(meta.label)}</div>
       </div>
-      ${isCurrent ? `<div class="track-card__time-row"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span>${escapeHtml(formatTrackDateTime(data.createdAt || ""))}</span></div>` : ""}
+      ${
+        !isStaffOrderMode() && isCurrent
+          ? `<div class="track-card__time-row"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span>${escapeHtml(formatTrackDateTime(data.createdAt || ""))}</span></div>`
+          : ""
+      }
       ${countdownHtml}
       <div class="track-card__lines-list">${items.map((line) => lineItemTemplate(line)).join("")}</div>
       <div class="track-card__footer">
@@ -459,11 +548,17 @@ async function renderOrderCards(slug, tableNumber, currentOrderId) {
   const emptyEl = document.getElementById("track-orders-empty")
   if (!listEl || !emptyEl) return { valid: [] }
 
-  let ids = [...loadDayOrders(slug, tableNumber).orderIds]
+  let ids = await loadTrackOrderIds(slug, tableNumber)
   if (currentOrderId && !ids.includes(currentOrderId)) ids.push(currentOrderId)
 
   if (ids.length === 0) {
     emptyEl.hidden = false
+    const emptyText = emptyEl.querySelector(".track-empty__text")
+    if (emptyText) {
+      emptyText.textContent = isStaffOrderMode()
+        ? "No orders placed by you today yet."
+        : "No orders for this table yet."
+    }
     listEl.replaceChildren()
     return { valid: [] }
   }
@@ -865,16 +960,34 @@ function wireFeedbackSubmit() {
 
 async function main() {
   applyRememberedThemeColor()
+  syncStaffOrderModeFromUrl()
   rememberTrackPath()
-  setHeaderContext()
+
+  const ctx = resolveTableContext()
+  const { slug, tableNumber, serviceType } = ctx
+  let staffSession = null
+  if (isStaffOrderMode()) {
+    try {
+      staffSession = await requireStaffOrderAuth(slug)
+      if (!staffSession) {
+        redirectToStaffStart(slug)
+        return
+      }
+    } catch {
+      redirectToStaffStart(slug)
+      return
+    }
+  }
+
+  setHeaderContext(staffSession)
+  applyStaffTrackChrome()
   wireAskBill()
   wireCancelOrder()
   wireCallWaiter()
   wireFeedbackSubmit()
   wireCustomConfirm()
 
-  const { slug, tableNumber } = resolveTableContext()
-  if (String(resolveTableContext().serviceType || "").toUpperCase() === "DELIVERY") {
+  if (String(serviceType || "").toUpperCase() === "DELIVERY") {
     forceHideTrackWaiterButton()
   }
   const errBanner = document.querySelector("#orderkaro-error")
@@ -885,7 +998,15 @@ async function main() {
   const selfLink = document.getElementById("track-self-link")
   if (selfLink) selfLink.href = withTableQuery("track")
   const emptyMenu = document.getElementById("track-empty-menu-link")
-  if (emptyMenu) emptyMenu.href = withTableQuery("menu")
+  if (emptyMenu) {
+    if (isStaffOrderMode()) {
+      emptyMenu.href = buildStaffStartUrl(slug)
+      emptyMenu.textContent = "Pick a table"
+    } else {
+      emptyMenu.href = withTableQuery("menu")
+      emptyMenu.textContent = "Browse menu"
+    }
+  }
 
   const fromUrl = getOrderId()
   const hadUrl = !!fromUrl
@@ -898,7 +1019,9 @@ async function main() {
     }
   }
   if (!orderId) {
-    const { orderIds } = loadDayOrders(slug, tableNumber)
+    const { orderIds } = isStaffOrderMode()
+      ? { orderIds: await loadTrackOrderIds(slug, tableNumber) }
+      : loadDayOrders(slug, tableNumber)
     if (orderIds.length > 0) orderId = orderIds[orderIds.length - 1]
   }
   if (fromUrl) {
@@ -938,12 +1061,19 @@ async function main() {
     }
   }
 
+  if (!orderId && valid.length > 0) {
+    orderId = valid[0].id
+    currentOrderId = orderId
+  }
+
   if (!orderId) {
-    const err = document.querySelector("#orderkaro-error")
-    if (err) {
-      err.hidden = false
-      err.textContent =
-        "Missing order link. Open track from your order confirmation, or place an order first."
+    if (!isStaffOrderMode()) {
+      const err = document.querySelector("#orderkaro-error")
+      if (err) {
+        err.hidden = false
+        err.textContent =
+          "Missing order link. Open track from your order confirmation, or place an order first."
+      }
     }
     applyAskBillState(null)
     applyCancelOrderState(null)

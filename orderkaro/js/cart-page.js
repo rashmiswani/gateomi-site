@@ -3,10 +3,16 @@ import {
   LAST_ORDER_ID_KEY,
   rememberCartPath,
   rememberThemeColor,
+  getSlugFromUrl,
+  urlHasExplicitTable,
+  redirectToTableSelection,
+  isStaffOrderMode,
+  syncStaffOrderModeFromUrl,
 } from "./config.js"
-import { appendDayOrderId } from "./order-day-history.js"
+import { appendDayOrderId, appendStaffDayOrderId } from "./order-day-history.js"
 import { resolveTableContext, withTableQuery } from "./nav.js"
 import { createOrder, fetchMenu } from "./api.js"
+import { requireStaffOrderAuth, redirectToStaffStart, getStaffSession } from "./staff-auth.js"
 import {
   loadCart,
   ensureCart,
@@ -1102,6 +1108,14 @@ async function placeOrder(cart) {
       }
       const { slug, tableNumber } = resolveTableContext()
       appendDayOrderId(slug, tableNumber, id)
+      if (isStaffOrderMode()) {
+        try {
+          const session = await getStaffSession()
+          if (session?.user?.id) appendStaffDayOrderId(session.user.id, id)
+        } catch {
+          /* ignore */
+        }
+      }
     }
     const base = withTableQuery("success")
     const sep = base.includes("?") ? "&" : "?"
@@ -1134,8 +1148,27 @@ async function placeOrder(cart) {
 
 async function main() {
   applyRememberedThemeColor()
+  syncStaffOrderModeFromUrl()
   rememberCartPath()
   const { slug, tableNumber, serviceType } = resolveTableContext()
+
+  if (isStaffOrderMode()) {
+    try {
+      const session = await requireStaffOrderAuth(slug)
+      if (!session) {
+        redirectToStaffStart(slug)
+        return
+      }
+    } catch {
+      redirectToStaffStart(slug)
+      return
+    }
+  }
+
+  if (String(serviceType || "").toUpperCase() !== "DELIVERY" && !urlHasExplicitTable()) {
+    redirectToTableSelection(getSlugFromUrl(slug))
+    return
+  }
   let cart = loadCart()
   if (!cart) {
     cart = ensureCart(slug, tableNumber, "", serviceType)

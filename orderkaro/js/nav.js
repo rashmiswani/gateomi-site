@@ -4,6 +4,7 @@ import {
   CART_PATH_KEY,
   SUCCESS_PATH_KEY,
   TRACK_PATH_KEY,
+  isStaffOrderMode,
 } from "./config.js"
 import { loadCart } from "./cart-store.js"
 
@@ -86,5 +87,6 @@ export function withTableQuery(href) {
   }
   const api = new URL(window.location.href).searchParams.get("api")
   if (api) u.searchParams.set("api", api)
+  if (isStaffOrderMode()) u.searchParams.set("staff", "1")
   return u.pathname + u.search + u.hash
 }

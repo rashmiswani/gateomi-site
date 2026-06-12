@@ -1,3 +1,5 @@
+import { isStaffOrderMode } from "./config.js"
+
 const KEY = "orderkaro_cart_v1"
 
 function emptyCart(slug, tableNumber, restaurantName) {
@@ -83,22 +85,35 @@ export function clearCart() {
   sessionStorage.removeItem(KEY)
 }
 
-/** Ensure cart matches slug/table; reset if restaurant context changed. */
+/** Ensure cart matches slug/table; reset if restaurant or service changed. */
 export function ensureCart(slug, tableNumber, restaurantName, serviceType = "DINE_IN") {
   const slugNorm = String(slug || "").trim()
   const serviceNorm = String(serviceType || "").toUpperCase() === "DELIVERY" ? "DELIVERY" : "DINE_IN"
   const tableNorm = serviceNorm === "DELIVERY" ? null : Number(tableNumber)
   let c = loadCart()
-  if (
-    !c ||
-    String(c.restaurantSlug || "").trim() !== slugNorm ||
-    Number(c.tableNumber) !== Number(tableNorm) ||
-    String(c.serviceType || "DINE_IN").toUpperCase() !== serviceNorm
-  ) {
+  const slugMismatch = c && String(c.restaurantSlug || "").trim() !== slugNorm
+  const serviceMismatch =
+    c && String(c.serviceType || "DINE_IN").toUpperCase() !== serviceNorm
+  const tableMismatch = c && Number(c.tableNumber) !== Number(tableNorm)
+
+  if (!c || slugMismatch || serviceMismatch) {
     c = emptyCart(slugNorm, tableNorm, restaurantName)
     c.serviceType = serviceNorm
     saveCart(c)
     return c
+  }
+
+  if (tableMismatch) {
+    if (isStaffOrderMode()) {
+      c.tableNumber = tableNorm
+      if (restaurantName) c.restaurantName = restaurantName
+      saveCart(c)
+    } else {
+      c = emptyCart(slugNorm, tableNorm, restaurantName)
+      c.serviceType = serviceNorm
+      saveCart(c)
+      return c
+    }
   }
   if (restaurantName && c.restaurantName !== restaurantName) {
     c.restaurantName = restaurantName
@@ -275,5 +290,6 @@ export function toOrderPayload(cart) {
       cart.customerMobile && String(cart.customerMobile).trim()
         ? String(cart.customerMobile).trim().slice(0, 32)
         : null,
+    staffOrder: isStaffOrderMode() ? true : undefined,
   }
 }

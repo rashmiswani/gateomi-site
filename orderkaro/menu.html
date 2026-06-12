@@ -23,7 +23,10 @@
         </a>
       </div>
       <div class="menu-topbar__right">
-        <span class="table-badge">Table —</span>
+        <button type="button" id="menu-table-badge" class="table-badge" aria-label="Current table">
+          <span id="menu-table-badge-text">Table —</span>
+          <span id="menu-table-badge-chevron" class="material-symbols-outlined table-badge__chevron" hidden aria-hidden="true">expand_more</span>
+        </button>
         <a href="cart" id="top-cart-link" class="menu-topbar__icon-btn" aria-label="Open cart">
           <span class="material-symbols-outlined">shopping_bag</span>
         </a>
@@ -142,6 +145,23 @@
       <p id="menu-portion-picker-item" class="menu-portion-picker__item-name"></p>
       <div id="menu-portion-picker-options" class="menu-portion-picker__options"></div>
       <button type="button" class="menu-portion-picker__cancel" data-portion-picker-close>Cancel</button>
+    </div>
+  </div>
+
+  <div id="menu-table-picker" class="menu-table-picker" hidden aria-hidden="true">
+    <button type="button" class="menu-table-picker__backdrop" data-table-picker-close aria-label="Close table picker"></button>
+    <div class="menu-table-picker__panel" role="dialog" aria-modal="true" aria-labelledby="menu-table-picker-title">
+      <div class="menu-table-picker__head">
+        <h3 id="menu-table-picker-title">Change table</h3>
+        <button type="button" class="menu-table-picker__close" data-table-picker-close aria-label="Close table picker">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <label for="menu-table-picker-search" class="visually-hidden">Search tables</label>
+      <input id="menu-table-picker-search" class="menu-table-picker__search" type="search" placeholder="Search table number" autocomplete="off" />
+      <p id="menu-table-picker-no-match" class="menu-table-picker__no-match" hidden>No matching tables</p>
+      <div id="menu-table-picker-loading" class="menu-table-picker__loading" hidden>Loading tables…</div>
+      <div id="menu-table-picker-grid" class="start-table-grid"></div>
     </div>
   </div>
 

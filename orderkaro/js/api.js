@@ -11,6 +11,19 @@ async function parseJson(res) {
   return { body, ok: res.ok, status: res.status }
 }
 
+/** GET table numbers for staff / walk-up ordering (no auth). */
+export async function fetchRestaurantTables(slug) {
+  const base = getApiBase()
+  const url = `${base}/api/public/restaurants/${encodeURIComponent(slug)}/tables`
+  const res = await fetch(url, { headers: { Accept: "application/json" } })
+  const { body, ok } = await parseJson(res)
+  if (!ok) {
+    const msg = body && body.error ? body.error : `Request failed (${res.status})`
+    throw new Error(msg)
+  }
+  return body.data
+}
+
 /** GET /api/public/... — returns `data` or throws with message. */
 export async function fetchMenu(slug, tableNumber, serviceType = "DINE_IN") {
   const base = getApiBase()
@@ -32,6 +45,7 @@ export async function createOrder(payload) {
   const res = await fetch(`${base}/api/public/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
+    credentials: "include",
     body: JSON.stringify(payload),
   })
   const { body, ok } = await parseJson(res)
