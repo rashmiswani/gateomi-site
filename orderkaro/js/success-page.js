@@ -374,7 +374,11 @@ function bindCustomConfirmModal() {
   document.getElementById("track-confirm-yes")?.addEventListener("click", () => closeCustomConfirm(true))
 }
 
-function paymentInfoHtml(payment) {
+function paymentInfoHtml(payment, status) {
+  const normalizedStatus = String(status || "").toUpperCase()
+  if (normalizedStatus === "CANCELLED" || normalizedStatus === "PAID" || normalizedStatus === "COMPLETED") {
+    return ""
+  }
   const upiId = String(payment?.upiId || "").trim()
   if (!upiId) return ""
   const payeeName = String(payment?.payeeName || "Restaurant").trim() || "Restaurant"
@@ -403,7 +407,7 @@ function renderPaymentInfo(order) {
   document.querySelector('.success-payment-card')?.remove()
   const totalSection = document.querySelector('.success-status-total')
   if (!totalSection) return
-  const html = paymentInfoHtml(order?.payment)
+  const html = paymentInfoHtml(order?.payment, order?.status)
   if (!html) return
   totalSection.insertAdjacentHTML('afterend', html)
 }
@@ -439,14 +443,149 @@ function wireUpiCopyButtons() {
   })
 }
 
-function mountEstimateCountdown(container, estimatedReadyAt, status) {
-  if (!container || !estimatedReadyAt) return
-  const end = new Date(estimatedReadyAt).getTime()
-  if (!Number.isFinite(end)) return
+function isDeliveryOrder(order) {
+  const mode = String(order?.orderType || order?.serviceType || "").toUpperCase()
+  return mode === "DELIVERY"
+}
+
+function successStatusCopy(order) {
+  const st = String(order?.status || "").toUpperCase()
+  const comment = String(order?.cancellationComment || "").trim()
+  if (st === "CANCELLED") {
+    return {
+      heading: "Order cancelled",
+      sub: comment
+        ? "The restaurant cancelled this order. See their note below."
+        : "This order was cancelled by the restaurant.",
+      cancelled: true,
+    }
+  }
+  if (st === "READY") {
+    return {
+      heading: isDeliveryOrder(order) ? "On the way" : "Order ready",
+      sub: isDeliveryOrder(order)
+        ? "Your order is on its way to you."
+        : "Your order is ready to be served.",
+      cancelled: false,
+    }
+  }
+  if (st === "SERVED") {
+    return {
+      heading: isDeliveryOrder(order) ? "Delivered" : "Order served",
+      sub: isDeliveryOrder(order) ? "Your order has been delivered." : "Enjoy your meal.",
+      cancelled: false,
+    }
+  }
+  if (st === "PAID" || st === "COMPLETED") {
+    return {
+      heading: "Order complete",
+      sub: "Thank you for dining with us.",
+      cancelled: false,
+    }
+  }
+  if (st === "PREPARING") {
+    return {
+      heading: "Preparing your order",
+      sub: "The kitchen is working on your items.",
+      cancelled: false,
+    }
+  }
+  return {
+    heading: "Order received",
+    sub: "The kitchen is now preparing your meal. Relax and enjoy your experience.",
+    cancelled: false,
+  }
+}
+
+function applySuccessStatusCopy(order) {
+  const copy = successStatusCopy(order)
+  const headingEl = document.getElementById("success-status-heading")
+  const subEl = document.getElementById("success-status-subcopy")
+  const copySection = document.querySelector(".success-status-copy")
+  if (headingEl) headingEl.textContent = copy.heading
+  if (subEl) subEl.textContent = copy.sub
+  if (copySection) copySection.classList.toggle("success-status-copy--cancelled", copy.cancelled)
+}
+
+function applySuccessCancellationNote(order) {
+  const noteEl = document.getElementById("success-cancellation-note")
+  if (!noteEl) return
+  const comment = String(order?.cancellationComment || "").trim()
+  const isCancelled = String(order?.status || "").toUpperCase() === "CANCELLED"
+  if (!isCancelled || !comment) {
+    noteEl.hidden = true
+    noteEl.innerHTML = ""
+    return
+  }
+  noteEl.hidden = false
+  noteEl.innerHTML = `
+    <span class="success-cancel-note__icon material-symbols-outlined" aria-hidden="true">info</span>
+    <div class="success-cancel-note__body">
+      <strong>From the restaurant</strong>
+      <p>${escapeHtml(comment)}</p>
+    </div>`
+}
+
+let successEstimateState = { endMs: NaN, status: "", isDelivery: false }
+let successCountdownTimer = null
+let successPollTimer = null
+
+function clearSuccessCountdownTimer() {
+  if (successCountdownTimer) {
+    window.clearInterval(successCountdownTimer)
+    successCountdownTimer = null
+  }
+}
+
+function updateSuccessEstimateCountdown() {
+  const el = document.getElementById("success-estimate-countdown")
+  if (!el) return
+  const status = String(successEstimateState.status || "").toUpperCase()
+  const isDelivery = Boolean(successEstimateState.isDelivery)
+  if (status === "READY" && isDelivery) {
+    el.textContent = "On the way"
+    return
+  }
+  if (status === "SERVED") {
+    el.textContent = isDelivery ? "Delivered" : "Served"
+    return
+  }
+  if (status === "PAID" || status === "COMPLETED" || status === "CANCELLED") {
+    el.textContent = "Closed"
+    return
+  }
+  const end = successEstimateState.endMs
+  if (!Number.isFinite(end)) {
+    el.textContent = "—"
+    return
+  }
+  const leftMs = end - Date.now()
+  if (leftMs <= 0) {
+    el.textContent = "Any moment now"
+    return
+  }
+  const sec = Math.floor(leftMs / 1000)
+  const mm = Math.floor(sec / 60)
+  const ss = sec % 60
+  el.textContent = `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`
+}
+
+function syncSuccessEstimateHero(order) {
+  document.querySelector(".success-estimate-hero")?.remove()
+  clearSuccessCountdownTimer()
+  const anchor = document.querySelector(".success-status-ref")
+  if (!anchor || !order) return
+
+  const status = String(order?.status || "").toUpperCase()
+  const isDelivery = isDeliveryOrder(order)
+  const endMs = order?.estimatedReadyAt ? new Date(order.estimatedReadyAt).getTime() : NaN
+  if (!Number.isFinite(endMs) && status !== "CANCELLED" && status !== "PAID" && status !== "COMPLETED") {
+    successEstimateState = { endMs: NaN, status: "", isDelivery: false }
+    return
+  }
+
   const card = document.createElement("section")
   card.className = "success-estimate-hero"
-  const serviceType = String(latestOrder?.orderType || latestOrder?.serviceType || "").toUpperCase()
-  const isDelivery = serviceType === "DELIVERY"
   card.innerHTML = `
     <span class="success-estimate-hero__label">${isDelivery ? "Estimated Arrival In" : "Estimated Ready In"}</span>
     <div class="success-estimate-hero__row">
@@ -454,35 +593,62 @@ function mountEstimateCountdown(container, estimatedReadyAt, status) {
       <p id="success-estimate-countdown">—</p>
     </div>
   `
-  container.insertAdjacentElement("afterend", card)
-  const el = card.querySelector("#success-estimate-countdown")
-  const currentStatus = String(status || "").toUpperCase()
-  if (currentStatus === "READY" && isDelivery) {
-    el.textContent = "On the way"
-    return
+  anchor.insertAdjacentElement("afterend", card)
+  successEstimateState = { endMs, status, isDelivery }
+  updateSuccessEstimateCountdown()
+  successCountdownTimer = window.setInterval(updateSuccessEstimateCountdown, 1000)
+}
+
+function renderSuccessOrder(order) {
+  if (!order) return
+  latestOrder = order
+  const numEl = document.querySelector(".order-number")
+  if (numEl) numEl.textContent = formatCustomerOrderRef(order)
+  applySuccessStatusCopy(order)
+  applySuccessCancellationNote(order)
+  applySuccessBillState(order)
+  applySuccessCancelState(order)
+  applySuccessWaiterState(order)
+  rememberThemeColor(order?.restaurantThemeColor)
+  syncSuccessEstimateHero(order)
+
+  const totalEl = document.querySelector("#success-total")
+  const orderedAtEl = document.querySelector("#success-ordered-at")
+  const list = document.querySelector("#success-items-list")
+  const items = Array.isArray(order?.items) ? order.items : []
+  const subtotal = items.reduce((sum, line) => {
+    const qty = Number(line?.quantity || 0)
+    const unit = Number(line?.unitPrice || 0)
+    return sum + qty * unit
+  }, 0)
+  if (totalEl) totalEl.textContent = formatMoney(subtotal)
+  if (orderedAtEl) orderedAtEl.textContent = formatTrackDateTime(order?.createdAt || "")
+  renderPaymentInfo(order)
+  if (list) {
+    list.innerHTML = ""
+    items.forEach((line) => {
+      const li = document.createElement("li")
+      li.innerHTML = `
+        <div class="success-line__main">
+          <span class="success-line__qty">${Number(line?.quantity || 0)}×</span>
+          <div class="success-line__meta">${itemDietPillHtml(line?.foodType)}<strong class="success-line__title">${escapeHtml(String(line?.itemName || "Item"))}</strong></div>
+        </div>
+        <span>${formatMoney(Number(line?.unitPrice || 0) * Number(line?.quantity || 0))}</span>
+      `
+      list.appendChild(li)
+    })
   }
-  if (currentStatus === "SERVED") {
-    el.textContent = isDelivery ? "Delivered" : "Served"
-    return
+}
+
+async function pollSuccessOrder() {
+  if (!currentOrderId) return
+  try {
+    const order = await fetchOrder(currentOrderId)
+    renderSuccessOrder(order)
+    await maybeShowBreadReorderBrowserNotice(order)
+  } catch {
+    /* keep last rendered state */
   }
-  if (currentStatus === "PAID" || currentStatus === "COMPLETED" || currentStatus === "CANCELLED") {
-    el.textContent = "Closed"
-    return
-  }
-  const tick = () => {
-    const leftMs = end - Date.now()
-    if (leftMs <= 0) {
-      el.textContent = "Any moment now"
-      return
-    }
-    const sec = Math.floor(leftMs / 1000)
-    const mm = Math.floor(sec / 60)
-    const ss = sec % 60
-    el.textContent = `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`
-  }
-  tick()
-  const timer = window.setInterval(tick, 1000)
-  window.addEventListener("beforeunload", () => window.clearInterval(timer), { once: true })
 }
 
 let latestOrder = null
@@ -531,7 +697,9 @@ async function main() {
 
   const numEl = document.querySelector(".order-number")
   if (numEl) {
-    numEl.textContent = preOrderNo ? `#${preOrderNo}` : formatCustomerOrderRef({ shortId, id })
+    numEl.textContent = preOrderNo
+      ? `#${preOrderNo}`
+      : formatCustomerOrderRef({ shortId, id })
   }
 
   const track = document.querySelector("#success-track-link")
@@ -555,40 +723,23 @@ async function main() {
   if (!id || !list) return
   try {
     const order = await fetchOrder(id)
-    latestOrder = order
-    if (numEl) numEl.textContent = formatCustomerOrderRef(order)
-    applySuccessBillState(order)
-    applySuccessCancelState(order)
-    applySuccessWaiterState(order)
-    rememberThemeColor(order?.restaurantThemeColor)
+    renderSuccessOrder(order)
     await maybeShowBreadReorderBrowserNotice(order)
-    mountEstimateCountdown(document.querySelector(".success-status-ref"), order?.estimatedReadyAt, order?.status)
-    const items = Array.isArray(order?.items) ? order.items : []
-    const subtotal = items.reduce((sum, line) => {
-      const qty = Number(line?.quantity || 0)
-      const unit = Number(line?.unitPrice || 0)
-      return sum + qty * unit
-    }, 0)
-    if (totalEl) totalEl.textContent = formatMoney(subtotal)
-    if (orderedAtEl) orderedAtEl.textContent = formatTrackDateTime(order?.createdAt || "")
-    renderPaymentInfo(order)
-    list.innerHTML = ""
-    items.forEach((line) => {
-      const li = document.createElement("li")
-      li.innerHTML = `
-        <div class="success-line__main">
-          <span class="success-line__qty">${Number(line?.quantity || 0)}×</span>
-          <div class="success-line__meta">${itemDietPillHtml(line?.foodType)}<strong class="success-line__title">${escapeHtml(String(line?.itemName || "Item"))}</strong></div>
-        </div>
-        <span>${formatMoney(Number(line?.unitPrice || 0) * Number(line?.quantity || 0))}</span>
-      `
-      list.appendChild(li)
+    void pollSuccessOrder()
+    successPollTimer = window.setInterval(() => void pollSuccessOrder(), 5000)
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") void pollSuccessOrder()
     })
   } catch {
     if (totalEl) totalEl.textContent = "—"
     if (orderedAtEl) orderedAtEl.textContent = "—"
   }
 }
+
+window.addEventListener("beforeunload", () => {
+  if (successPollTimer) window.clearInterval(successPollTimer)
+  clearSuccessCountdownTimer()
+})
 
 function escapeHtml(s) {
   return String(s)

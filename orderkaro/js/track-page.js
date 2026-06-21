@@ -417,6 +417,18 @@ function orderListHighlightMetaHtml(data) {
   return `<div class="track-card__highlight-bar">${tablePart}${divider}${timePart}</div>`
 }
 
+function cancellationNoteHtml(data) {
+  const comment = String(data?.cancellationComment || "").trim()
+  if (String(data?.status || "").toUpperCase() !== "CANCELLED" || !comment) return ""
+  return `<div class="track-card__cancel-note">
+    <span class="track-card__cancel-note-icon material-symbols-outlined" aria-hidden="true">info</span>
+    <div class="track-card__cancel-note-body">
+      <strong>From the restaurant</strong>
+      <p>${escapeHtml(comment)}</p>
+    </div>
+  </div>`
+}
+
 function createOrderCardElement(orderId, data, currentOrderId) {
   const meta = statusUi(data.status, data)
   const total = orderTotal(data)
@@ -456,6 +468,7 @@ function createOrderCardElement(orderId, data, currentOrderId) {
         </div>
         <div class="track-card__status ${meta.pillClass}">${escapeHtml(meta.label)}</div>
       </div>
+      ${cancellationNoteHtml(data)}
       ${
         !isStaffOrderMode() && isCurrent
           ? `<div class="track-card__time-row"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span>${escapeHtml(formatTrackDateTime(data.createdAt || ""))}</span></div>`
@@ -539,17 +552,57 @@ function updateEstimateCountdowns() {
 function updateTrackCard(orderId, data) {
   const card = document.querySelector(`[data-track-order-id="${CSS.escape(orderId)}"]`)
   if (!card) return
-  const replacement = createOrderCardElement(orderId, data, orderId)
+  const replacement = createOrderCardElement(orderId, data, currentOrderId)
   card.replaceWith(replacement)
 }
 
-async function renderOrderCards(slug, tableNumber, currentOrderId) {
+function collectTrackOrderIds() {
+  const ids = new Set()
+  document.querySelectorAll("[data-track-order-id]").forEach((el) => {
+    const id = String(el.getAttribute("data-track-order-id") || "").trim()
+    if (id) ids.add(id)
+  })
+  if (currentOrderId) ids.add(currentOrderId)
+  return [...ids]
+}
+
+async function pollAllTrackOrders() {
+  const ids = collectTrackOrderIds()
+  if (!ids.length) return
+
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const data = await fetchOrder(id)
+        rememberThemeColor(data?.restaurantThemeColor)
+        if (id === currentOrderId) {
+          await maybeShowBreadReorderBrowserNotice(data)
+          latestOrder = data
+          applyAskBillState(data)
+          applyCancelOrderState(data)
+          applyCallWaiterState(data)
+        }
+        updateTrackCard(id, data)
+      } catch (e) {
+        if (id !== currentOrderId) return
+        const err = document.querySelector("#orderkaro-error")
+        if (err) {
+          err.hidden = false
+          err.textContent = e instanceof Error ? e.message : "Could not load order"
+        }
+      }
+    }),
+  )
+  updateEstimateCountdowns()
+}
+
+async function renderOrderCards(slug, tableNumber, focusOrderId) {
   const listEl = document.getElementById("track-orders-list")
   const emptyEl = document.getElementById("track-orders-empty")
   if (!listEl || !emptyEl) return { valid: [] }
 
   let ids = await loadTrackOrderIds(slug, tableNumber)
-  if (currentOrderId && !ids.includes(currentOrderId)) ids.push(currentOrderId)
+  if (focusOrderId && !ids.includes(focusOrderId)) ids.push(focusOrderId)
 
   if (ids.length === 0) {
     emptyEl.hidden = false
@@ -711,26 +764,6 @@ function setFeedbackHint(form, message, isError = false) {
   if (!(hint instanceof HTMLElement)) return
   hint.textContent = String(message || "")
   hint.classList.toggle("is-error", Boolean(isError))
-}
-
-async function poll(orderId) {
-  try {
-    const data = await fetchOrder(orderId)
-    rememberThemeColor(data?.restaurantThemeColor)
-    await maybeShowBreadReorderBrowserNotice(data)
-    latestOrder = data
-    applyAskBillState(data)
-    applyCancelOrderState(data)
-    applyCallWaiterState(data)
-    updateTrackCard(orderId, data)
-    updateEstimateCountdowns()
-  } catch (e) {
-    const err = document.querySelector("#orderkaro-error")
-    if (err) {
-      err.hidden = false
-      err.textContent = e instanceof Error ? e.message : "Could not load order"
-    }
-  }
 }
 
 function wireCancelOrder() {
@@ -1088,9 +1121,12 @@ async function main() {
     applyCallWaiterState(tracked.data)
   }
 
-  void poll(orderId)
-  timer = window.setInterval(() => void poll(orderId), 5000)
+  void pollAllTrackOrders()
+  timer = window.setInterval(() => void pollAllTrackOrders(), 5000)
   window.setInterval(updateEstimateCountdowns, 1000)
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void pollAllTrackOrders()
+  })
 }
 
 wireUpiCopyButtons()

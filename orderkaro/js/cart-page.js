@@ -96,6 +96,15 @@ function extractFivePercentGstFromInclusivePrice(price) {
   return roundMoney(gross / 1.05)
 }
 
+function readDeliveryMinimumAmount(restaurant) {
+  const n = Number(restaurant?.deliveryMinimumOrderAmount)
+  return Number.isFinite(n) && n > 0 ? roundMoney(n) : null
+}
+
+function deliveryMinimumBlockMessage(minAmount, itemsSubtotal) {
+  return `Minimum order for delivery is ${formatMoney(minAmount)}. Your cart subtotal is ${formatMoney(itemsSubtotal)}. Add more items to continue.`
+}
+
 function syncCartBottomOffset() {
   const bar = document.querySelector(".cart-bottom-bar")
   const shell = document.querySelector(".app-shell--cart")
@@ -866,7 +875,33 @@ function render(cart) {
   const cgstAmt = roundMoney(gst / 2)
   const sgstAmt = roundMoney(gst - cgstAmt)
   if (summary) summary.hidden = false
-  if (unavailableBanner) unavailableBanner.hidden = unavailableCount === 0
+  const deliveryMinimumAmount = isDelivery
+    ? readDeliveryMinimumAmount(lastMenuData?.restaurant)
+    : null
+  const { total: itemsSubtotal } = cartTotals(cart)
+  const belowDeliveryMinimum = Boolean(
+    deliveryMinimumAmount && itemsSubtotal < deliveryMinimumAmount,
+  )
+  if (unavailableBanner) {
+    const bannerText = unavailableBanner.querySelector("p")
+    if (unavailableCount > 0) {
+      unavailableBanner.hidden = false
+      if (bannerText) {
+        bannerText.textContent =
+          "Some items in your cart are unavailable. Please remove them to continue."
+      }
+    } else if (belowDeliveryMinimum) {
+      unavailableBanner.hidden = false
+      if (bannerText) {
+        bannerText.textContent = deliveryMinimumBlockMessage(
+          deliveryMinimumAmount,
+          itemsSubtotal,
+        )
+      }
+    } else {
+      unavailableBanner.hidden = true
+    }
+  }
   if (subtotalLabelEl) subtotalLabelEl.textContent = gstInclusive ? "Subtotal (excl. GST)" : "Subtotal"
   if (subtotalEl) subtotalEl.textContent = formatMoney(taxableSubtotal)
   if (gstActive) {
@@ -894,8 +929,8 @@ function render(cart) {
     }
   }
   if (totalEl) totalEl.textContent = formatMoney(grandTotal)
-  const canProceed = unavailableCount === 0 && cartOrderAllowed
-  const canPlaceOrder = unavailableCount === 0 && cartOrderAllowed
+  const canProceed = unavailableCount === 0 && cartOrderAllowed && !belowDeliveryMinimum
+  const canPlaceOrder = unavailableCount === 0 && cartOrderAllowed && !belowDeliveryMinimum
   if (cartActiveStep === 2 && !cart.lines.length) setCartStep(1)
   syncPrimaryActionButton({ canProceed, canPlaceOrder, payableAmount: grandTotal })
 
@@ -1078,6 +1113,18 @@ async function placeOrder(cart) {
       showFieldError(deliveryAddressInput, deliveryAddressError, "Delivery address is required.", false)
       firstInvalidField = firstInvalidField || deliveryAddressInput
       hasValidationErrors = true
+    }
+    const deliveryMinimumAmount = readDeliveryMinimumAmount(latestMenu?.restaurant)
+    const { total: itemsSubtotal } = cartTotals(cart)
+    if (
+      isDelivery &&
+      deliveryMinimumAmount &&
+      itemsSubtotal < deliveryMinimumAmount
+    ) {
+      alert(deliveryMinimumBlockMessage(deliveryMinimumAmount, itemsSubtotal))
+      btn.disabled = false
+      syncPrimaryActionButton({ canProceed: false, canPlaceOrder: false })
+      return
     }
     if (hasValidationErrors) {
       if (firstInvalidField instanceof HTMLElement) firstInvalidField.focus()

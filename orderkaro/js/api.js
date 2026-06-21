@@ -60,6 +60,7 @@ export async function fetchOrder(orderId) {
   const base = getApiBase()
   const res = await fetch(`${base}/api/public/orders/${encodeURIComponent(orderId)}`, {
     headers: { Accept: "application/json" },
+    cache: "no-store",
   })
   const { body, ok } = await parseJson(res)
   if (!ok) {
